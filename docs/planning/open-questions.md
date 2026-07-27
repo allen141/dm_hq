@@ -5,7 +5,6 @@ Resolve these through user research, prototypes, or architecture decisions. When
 ## Audience and scope
 
 - Is the primary user a solo DM, a co-DM team, or both?
-- Is the initial audience tied to a specific edition or ruleset?
 - Must the product be self-hostable in its first release?
 - What devices and screen sizes are used at the table?
 
@@ -33,5 +32,5 @@ Resolve these through user research, prototypes, or architecture decisions. When
 ## Product identity
 
 - Is “DM HQ” the intended public name or a working title?
-- Which trademarks, game rules, and licensed content may the project reference?
+- Which 2014 D&D 5e sources may be referenced, imported, stored, indexed, or redistributed?
 - What visual tone supports prolonged use without becoming distracting?

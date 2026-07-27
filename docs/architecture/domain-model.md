@@ -1,40 +1,52 @@
 # Domain model
 
-This is shared vocabulary for discovery, not a finalized database schema.
+This is shared vocabulary for discovery, not a finalized database schema. The Archive uses these concepts without prescribing an implementation technology.
 
 | Concept | Purpose |
 | --- | --- |
 | User | A person authenticated to DM HQ. |
 | Campaign | The top-level container for a group's world and play history. |
 | Membership | A user's role and access within a campaign. |
-| Entity | A durable subject such as an NPC, place, faction, or item. |
+| Entity | A durable subject such as a person, place, faction, thing, event, or piece of lore. |
 | Note | Primarily unstructured content linked to entities and sessions. |
-| Relationship | A meaningful connection between campaign subjects. |
-| Publication | A deliberate player-visible representation of content. |
+| Template | A reusable starting structure for an entity or planning record. |
+| Relationship | A meaningful connection between durable campaign subjects. |
+| Claim | An assertion with possible provenance, confidence, effective time, and knowledge scope. |
+| Revision | A recoverable change to Archive content. |
+| Publication | A deliberate, versioned player-safe representation of private source content. |
 | Session | A planned or completed period of play. |
 | Scene | A focused part of a session with a location, cast, and purpose. |
 | Thread | An unresolved goal, clue, conflict, or plot direction. |
 | Encounter | A prepared or completed conflict involving combatants. |
 | Combatant | An encounter participant with temporary runtime state. |
+| Ruleset extension | Templates, fields, terminology, validation, and references associated with a particular game system. |
 
 ## Important distinctions
 
 ### Source content and published content
 
-Player visibility should not be a side effect of viewing the same object. A publication may need its own safe title, summary, fields, and lifecycle so private edits are not accidentally exposed.
+Player visibility is not a side effect of viewing the same object. A publication has its own safe title, summary, selected content, revision, and lifecycle so private edits are not accidentally exposed. The first release uses publication snapshots; live derived publications may be evaluated later.
+
+### Relationship and claim
+
+A relationship connects subjects, such as a person belonging to a faction. A claim describes what is asserted and can later represent canon, rumors, secrets, assumptions, contradictions, or beliefs without forcing those semantics onto every relationship.
+
+### Revision and campaign history
+
+Revision history records what a user edited. Fictional chronology records when something was true in the campaign. Planning state separates expected and actual outcomes. Knowledge history records who knew or believed something and when. These histories may intersect, but they are not interchangeable.
 
 ### Entity and combatant
 
 An NPC is durable campaign knowledge. That NPC can appear as a combatant in multiple encounters, each with independent initiative, hit points, conditions, and outcomes.
 
-### Plan and history
+### Shared concepts and 2014 5e
 
-A session or encounter can begin as a plan and finish as historical fact. The model should preserve what was prepared, what happened, and what was carried forward without duplicate manual records.
+Campaigns, entities, notes, relationships, claims, revisions, sessions, and publications do not assume a ruleset. The first ruleset extension targets 2014 Dungeons & Dragons 5e and may add ruleset-specific templates and fields. See [ADR 0001](../decisions/0001-2014-5e-first.md).
 
 ## Modeling questions
 
-- Are NPC, place, faction, and item separate types or templates over one entity?
-- Are relationships typed, directional, and time-bound?
-- Is publication a filtered view, a snapshot, or separately edited content?
-- Which changes require history and which may be overwritten?
-- Can campaign-specific custom fields remain searchable and exportable?
+- How should templates evolve while preserving existing records and exports?
+- Which claims need fictional effective dates in addition to revision timestamps?
+- Which campaign-specific custom fields must remain searchable and filterable?
+- How are incomplete or contradictory claims reconciled without losing provenance?
+- Which publication information must remain after player access is revoked?

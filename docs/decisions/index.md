@@ -11,6 +11,6 @@ Architecture decision records (ADRs) capture choices that materially constrain t
 
 ## Records
 
-No decisions have been accepted yet.
+- [ADR 0001: Use 2014 D&D 5e as the first ruleset](0001-2014-5e-first.md) — Accepted.
 
-To propose one, copy [the ADR template](0000-template.md), assign the next four-digit number, use a short kebab-case filename, and add it to this list.
+To propose another decision, copy [the ADR template](0000-template.md), assign the next four-digit number, use a short kebab-case filename, and add it to this list.

@@ -13,6 +13,10 @@ DM HQ should let a DM prepare information once and encounter it again in the rig
 - encounter participants and references flow into The Battlefield; and
 - outcomes from play return to the campaign record.
 
+## Initial ruleset
+
+The Archive will use the 2014 edition of Dungeons & Dragons 5e for its first ruleset templates and workflows. Shared campaign concepts remain ruleset-neutral, and support for other rulesets is deferred until the product is mature. See [ADR 0001](../decisions/0001-2014-5e-first.md).
+
 ## Product principles
 
 ### Live-play attention is the scarce resource

@@ -15,9 +15,9 @@ The roadmap is outcome-based and intentionally avoids dates until capacity and d
 
 ## Phase 1 — Archive foundation
 
-Create campaigns; capture, link, tag, and search notes and entities; establish player visibility; and export campaign data.
+Create campaigns; capture, link, tag, and search notes and entities; establish player visibility; and export campaign data. The detailed [Archive roadmap](archive-roadmap.md) defines the immediate release and preserves later Archive capabilities.
 
-**Candidate outcome:** a DM can keep useful campaign knowledge in DM HQ and reliably find it again.
+**Candidate outcome:** a DM can capture, retrieve, use, revise, publish, and recover campaign knowledge through one connected workflow.
 
 ## Phase 2 — Session workspace
 
