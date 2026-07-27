@@ -1,0 +1,57 @@
+site_name: DM HQ
+site_description: A workspace for building worlds, preparing sessions, and running encounters.
+repo_name: dm_hq
+
+theme:
+  name: material
+  features:
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Use dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Use light mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Product:
+      - Vision: product/vision.md
+      - The Archive: product/archive.md
+      - The Dashboard: product/dashboard.md
+      - The Battlefield: product/battlefield.md
+  - Architecture:
+      - Overview: architecture/index.md
+      - Domain model: architecture/domain-model.md
+  - Planning:
+      - Roadmap: planning/roadmap.md
+      - Open questions: planning/open-questions.md
+  - Decisions:
+      - Decision log: decisions/index.md
+      - ADR template: decisions/0000-template.md
+  - Contributing: contributing.md
