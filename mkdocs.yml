@@ -50,8 +50,12 @@ nav:
       - Domain model: architecture/domain-model.md
   - Planning:
       - Roadmap: planning/roadmap.md
+      - Archive roadmap: planning/archive-roadmap.md
+      - Archive implementation: planning/archive-implementation-plan.md
       - Open questions: planning/open-questions.md
   - Decisions:
       - Decision log: decisions/index.md
+      - 2014 5e first: decisions/0001-2014-5e-first.md
+      - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md
   - Contributing: contributing.md

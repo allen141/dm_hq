@@ -5,7 +5,6 @@ Resolve these through user research, prototypes, or architecture decisions. When
 ## Audience and scope
 
 - Is the primary user a solo DM, a co-DM team, or both?
-- Is the initial audience tied to a specific edition or ruleset?
 - Must the product be self-hostable in its first release?
 - What devices and screen sizes are used at the table?
 
@@ -23,6 +22,8 @@ Resolve these through user research, prototypes, or architecture decisions. When
 - What preview flow gives DMs confidence against spoilers?
 - What recovery, audit, and ownership guarantees are expected?
 
+[ADR 0002](../decisions/0002-archive-application-architecture.md) proposes a single campaign owner and unlisted publication links for Release 1. These questions remain open until that ADR is accepted.
+
 ## Technology
 
 - Is reliable offline or local-network use a requirement?
@@ -30,8 +31,10 @@ Resolve these through user research, prototypes, or architecture decisions. When
 - Is built-in search sufficient initially, or is a dedicated index justified?
 - How should Markdown, attachments, structured fields, and links be exported?
 
+[ADR 0002](../decisions/0002-archive-application-architecture.md) proposes an online-first application using PostgreSQL search and Docker Compose initially. Representative campaign data and a deployment target are still needed to validate those choices.
+
 ## Product identity
 
 - Is “DM HQ” the intended public name or a working title?
-- Which trademarks, game rules, and licensed content may the project reference?
+- Which 2014 D&D 5e sources may be referenced, imported, stored, indexed, or redistributed?
 - What visual tone supports prolonged use without becoming distracting?

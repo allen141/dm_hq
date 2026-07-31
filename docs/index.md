@@ -31,4 +31,4 @@ See the [roadmap](planning/roadmap.md) and [open questions](planning/open-questi
 
 !!! note "Working vocabulary"
 
-    “DM” is the person preparing and running the game. “Player” is a participant who may see deliberately published campaign material. The initial direction is ruleset-neutral until a decision explicitly says otherwise.
+    “DM” is the person preparing and running the game. “Player” is a participant who may see deliberately published campaign material. Shared campaign vocabulary remains ruleset-neutral, while the first Archive ruleset experience targets 2014 D&D 5e under [ADR 0001](decisions/0001-2014-5e-first.md).

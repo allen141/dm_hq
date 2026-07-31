@@ -1,6 +1,6 @@
 # Architecture overview
 
-No implementation architecture has been selected. This page establishes boundaries and quality goals that should guide later decisions.
+No implementation architecture has been accepted. [ADR 0002](../decisions/0002-archive-application-architecture.md) proposes an Archive application architecture for review, and the [Archive implementation plan](../planning/archive-implementation-plan.md) applies it to Release 1.
 
 ## Conceptual shape
 
@@ -38,9 +38,9 @@ This diagram is conceptual and does not prescribe separate deployable services. 
 
 ## Decisions still required
 
-1. Deployment and application architecture.
-2. Primary language and web framework.
-3. Database and search strategy.
+1. Accept or revise the proposed Archive application architecture.
+2. Select the first production-hosting target.
+3. Validate the database and search strategy against representative campaign data.
 4. Authentication and campaign authorization.
 5. Content format and version history.
 6. Live updates and offline expectations.
