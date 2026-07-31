@@ -2,6 +2,8 @@
 
 This roadmap keeps the first Archive release narrow while preserving a path to the broader product vision. Release 1 is the current planning target, not authorization to begin implementation before Phase 0 exits. Later releases are directional and should be revisited using research and evidence from real campaigns.
 
+The [Archive implementation plan](archive-implementation-plan.md) translates Release 1 into technical increments. Its proposed architecture must be accepted before application scaffolding begins.
+
 ## Delivery rules
 
 - A later capability must not become an unstated Release 1 dependency.
