@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("an owner can create and reopen a campaign", async ({ page }) => {
+test("an owner can create a campaign and open its Archive workspace", async ({ page }) => {
   const campaignName = `Smoke Campaign ${Date.now()}`;
   await page.goto("/");
   await page.getByLabel("Username").fill("dm");
@@ -10,11 +10,13 @@ test("an owner can create and reopen a campaign", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await page.getByLabel("Campaign name").fill(campaignName);
   await page.getByRole("button", { name: "Create campaign" }).click();
-  await expect(page.getByRole("button", { name: `Open ${campaignName}` })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Open ${campaignName}` })).toBeVisible();
 
-  await page.reload();
-  await expect(page.getByRole("button", { name: `Open ${campaignName}` })).toBeVisible();
-  await page.getByRole("button", { name: `Open ${campaignName}` }).click();
-  await expect(page.getByRole("status")).toContainText("Campaign open");
-  await expect(page.getByRole("status")).toContainText(campaignName);
+  await page.getByRole("link", { name: `Open ${campaignName}` }).click();
+  await expect(page.getByRole("heading", { name: "Make it findable." })).toBeVisible();
+  await page.getByLabel("Title").fill("Mara Venn");
+  await page.getByLabel("Markdown note").fill("A ferrymaster with a secret.");
+  await page.getByRole("button", { name: "Capture item" }).click();
+  await expect(page.getByRole("heading", { name: "Mara Venn" })).toBeVisible();
+  await expect(page.getByText("Sanitized preview")).toBeVisible();
 });
