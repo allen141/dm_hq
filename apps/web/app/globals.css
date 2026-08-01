@@ -77,3 +77,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .public-entry h2 { margin-top: 0; }
 .public-field { color: var(--muted); font: 0.9rem system-ui, sans-serif; }
 @media (max-width: 760px) { .archive-workspace aside { position: static; } .search-form { display: grid; grid-template-columns: 1fr auto; } .search-form input { min-width: 0; } }
+
+.publication-options { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 16px; }
+.checkbox-label { display: flex; align-items: center; gap: 8px; color: var(--muted); font: 0.82rem system-ui, sans-serif; }
+.checkbox-label input { width: auto; }
