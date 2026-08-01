@@ -451,6 +451,8 @@ def item_archive(request: HttpRequest, item_id: UUID, payload: VersionPayload):
 @api.get("campaigns/{campaign_id}/templates", auth=django_auth)
 def template_list(request: HttpRequest, campaign_id: UUID):
     campaign = get_member_campaign(request, campaign_id)
+    if not campaign.templates.exists():
+        ensure_person_template(campaign)
     return {"templates": [{"id": template.id, "name": template.name, "applies_to": template.applies_to, "versions": list(template.versions.values("number", "fields"))} for template in campaign.templates.prefetch_related("versions")]}
 
 
@@ -480,6 +482,9 @@ def search(request: HttpRequest, campaign_id: UUID, q: str = "", kind: str | Non
         items = items.filter(item_tags__tag__name=tag)
     if alias:
         items = items.filter(aliases__value__icontains=alias)
+    if q:
+        from django.db.models import Case, IntegerField, Value, When
+        items = items.annotate(_title_match=Case(When(title__icontains=q, then=Value(0)), default=Value(1), output_field=IntegerField())).order_by("_title_match", "title", "id")
     return {"items": [summary_output(item) for item in items.distinct()], "next_cursor": None}
 
 
