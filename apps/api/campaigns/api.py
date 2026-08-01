@@ -855,6 +855,16 @@ def campaign_restore(request: HttpRequest):
     campaign = Campaign.objects.create(name=f"{data['campaign']['name']} (restored)", owner=request.auth)
     CampaignMembership.objects.create(campaign=campaign, user=request.auth, role=CampaignMembership.Role.OWNER)
     ensure_person_template(campaign)
+    template_version_mapping: dict[str, int] = {}
+    for raw_template in data.get("templates", []):
+        template = Template.objects.create(
+            campaign=campaign, name=raw_template["name"], applies_to=raw_template.get("applies_to", "entity")
+        )
+        for raw_version in raw_template.get("versions", []):
+            version = TemplateVersion.objects.create(
+                template=template, number=raw_version["number"], fields=raw_version.get("fields", [])
+            )
+            template_version_mapping[f"{raw_template['id']}:{raw_version['number']}"] = version.id
     mapping: dict[str, UUID] = {}
     for raw in data.get("items", []):
         item = ArchiveItem.objects.create(
@@ -870,6 +880,9 @@ def campaign_restore(request: HttpRequest):
             EntityDetail.objects.create(
                 item=item,
                 subject_type=raw["entity"].get("subject_type", "person"),
+                template_version_id=template_version_mapping.get(
+                    f"{raw['entity'].get('template_id')}:{raw['entity'].get('template_version')}"
+                ),
                 field_values=raw["entity"].get("fields", {}),
             )
         if item.kind == ArchiveItem.Kind.SESSION and raw.get("session"):
@@ -907,4 +920,26 @@ def campaign_restore(request: HttpRequest):
     for raw in data.get("sessions", []):
         if str(raw["session_id"]) in mapping and str(raw["item_id"]) in mapping:
             SessionLink.objects.create(session_id=mapping[str(raw["session_id"])], item_id=mapping[str(raw["item_id"])])
+    for raw_publication in data.get("publications", []):
+        _, token_hash = random_publication_token()
+        restored_publication = Publication.objects.create(
+            campaign=campaign,
+            token_hash=token_hash,
+            status="revoked",
+            current_version=raw_publication.get("version", 1),
+            revoked_at=timezone.now(),
+        )
+        restored_version = PublicationVersion.objects.create(
+            publication=restored_publication, number=raw_publication.get("version", 1), created_by=request.auth
+        )
+        for entry in raw_publication.get("entries", []):
+            item_id = mapping.get(str(entry["item_id"]))
+            if item_id:
+                PublicationEntry.objects.create(
+                    version=restored_version,
+                    item_id=item_id,
+                    safe_title=entry["safe_title"],
+                    safe_body=entry.get("safe_body", ""),
+                    safe_fields=entry.get("safe_fields", {}),
+                )
     return campaign_output(campaign)
