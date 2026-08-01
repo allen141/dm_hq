@@ -743,7 +743,7 @@ def publication_create(request: HttpRequest, campaign_id: UUID, payload: Publica
             version=version,
             item=item,
             safe_title=(selected.title or item.title).strip(),
-            safe_body=clean_markdown(selected.body if selected.body is not None else item.body),
+            safe_body=clean_markdown(selected.body or ""),
             safe_fields=selected.fields,
         )
     response = publication_output(publication, token)
@@ -797,7 +797,7 @@ def publication_version(request: HttpRequest, publication_id: UUID, payload: Pub
             version=version,
             item=item,
             safe_title=(selected.title or item.title).strip(),
-            safe_body=clean_markdown(selected.body if selected.body is not None else item.body),
+            safe_body=clean_markdown(selected.body or ""),
             safe_fields=selected.fields,
         )
     publication.current_version = version_number

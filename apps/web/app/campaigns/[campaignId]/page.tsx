@@ -50,7 +50,7 @@ export default function CampaignPage() {
 
   async function publishSelected() {
     if (!selectedIds.length) return; setBusy(true); setError(""); setMessage("");
-    try { const publication = await client.createPublication(campaignId, selectedIds.map((id) => ({ item_id: id, fields: {} }))); setMessage(`Player snapshot ready at ${publication.url ?? "the publication link"}.`); }
+    try { const publication = await client.createPublication(campaignId, selectedIds.map((id) => ({ item_id: id, title: items.find((item) => item.id === id)?.title ?? "", body: "", fields: {} }))); setMessage(`Player snapshot ready at ${publication.url ?? "the publication link"}.`); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Publication failed."); }
     finally { setBusy(false); }
   }
