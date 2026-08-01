@@ -20,6 +20,7 @@ from .models import (
     Campaign,
     CampaignMembership,
     EntityDetail,
+    ItemRevision,
     ItemTag,
     Publication,
     PublicationEntry,
@@ -322,6 +323,7 @@ def auth_login(request: HttpRequest, credentials: Credentials) -> UserOut:
 
 @api.post("auth/logout", auth=django_auth)
 def auth_logout(request: HttpRequest) -> dict[str, str]:
+    enforce_csrf(request)
     logout(request)
     return {"status": "ok"}
 
@@ -363,6 +365,23 @@ def item_list(request: HttpRequest, campaign_id: UUID, kind: str | None = None, 
     if status:
         items = items.filter(status=status)
     return {"items": [summary_output(item) for item in items], "next_cursor": None}
+
+
+@api.get("campaigns/{campaign_id}/sessions", auth=django_auth)
+def session_list(request: HttpRequest, campaign_id: UUID):
+    campaign = get_member_campaign(request, campaign_id)
+    return {
+        "sessions": [
+            summary_output(item)
+            for item in ArchiveItem.objects.filter(campaign=campaign, kind=ArchiveItem.Kind.SESSION)
+        ]
+    }
+
+
+@api.post("campaigns/{campaign_id}/sessions", auth=django_auth)
+@transaction.atomic
+def session_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
+    return item_create(request, campaign_id, payload.model_copy(update={"kind": ArchiveItem.Kind.SESSION}))
 
 
 @api.post("campaigns/{campaign_id}/items", auth=django_auth)
@@ -535,6 +554,19 @@ def template_create(request: HttpRequest, campaign_id: UUID, payload: dict[str, 
     }
 
 
+@api.post("templates/{template_id}/versions", auth=django_auth)
+@transaction.atomic
+def template_version_create(request: HttpRequest, template_id: UUID, payload: dict[str, Any]):
+    enforce_csrf(request)
+    try:
+        template = Template.objects.get(id=template_id, campaign__memberships__user=request.auth)
+    except Template.DoesNotExist as exc:
+        raise error(404, "not_found", "Template not found") from exc
+    number = template.versions.order_by("-number").values_list("number", flat=True).first() or 0
+    version = TemplateVersion.objects.create(template=template, number=number + 1, fields=payload.get("fields", []))
+    return {"number": version.number, "fields": version.fields}
+
+
 @api.get("campaigns/{campaign_id}/search", auth=django_auth)
 def search(
     request: HttpRequest,
@@ -553,12 +585,26 @@ def search(
     if q:
         from django.db.models import Q
 
-        items = items.filter(
-            Q(title__icontains=q)
-            | Q(body__icontains=q)
-            | Q(aliases__value__icontains=q)
-            | Q(item_tags__tag__name__icontains=q)
-        ).distinct()
+        if connection.vendor == "postgresql":
+            from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+
+            vector = (
+                SearchVector("title", weight="A")
+                + SearchVector("body", weight="B")
+                + SearchVector("aliases__value", weight="C")
+                + SearchVector("item_tags__tag__name", weight="C")
+            )
+            query = SearchQuery(q, search_type="websearch")
+            items = items.annotate(search_vector=vector, search_rank=SearchRank(vector, query)).filter(
+                search_vector=query
+            )
+        else:
+            items = items.filter(
+                Q(title__icontains=q)
+                | Q(body__icontains=q)
+                | Q(aliases__value__icontains=q)
+                | Q(item_tags__tag__name__icontains=q)
+            ).distinct()
     if tag:
         items = items.filter(item_tags__tag__name=tag)
     if alias:
@@ -568,7 +614,8 @@ def search(
 
         items = items.annotate(
             _title_match=Case(When(title__icontains=q, then=Value(0)), default=Value(1), output_field=IntegerField())
-        ).order_by("_title_match", "title", "id")
+        )
+        items = items.order_by("_title_match", "-search_rank" if connection.vendor == "postgresql" else "title", "id")
     return {"items": [summary_output(item) for item in items.distinct()], "next_cursor": None}
 
 
@@ -633,6 +680,25 @@ def revisions(request: HttpRequest, item_id: UUID):
             for revision in item.revisions.all()
         ]
     }
+
+
+@api.get("items/{item_id}/revisions/{revision_number}", auth=django_auth)
+def revision_compare(request: HttpRequest, item_id: UUID, revision_number: int, against: int | None = None):
+    item = get_member_item(request, item_id)
+    left = item.revisions.filter(number=revision_number).first()
+    right = item.revisions.filter(number=against).first() if against else None
+    if not left or (against and not right):
+        raise error(404, "not_found", "Revision not found")
+    if right:
+        keys = sorted(set(left.snapshot) | set(right.snapshot))
+        changes = {
+            key: {"from": right.snapshot.get(key), "to": left.snapshot.get(key)}
+            for key in keys
+            if right.snapshot.get(key) != left.snapshot.get(key)
+        }
+    else:
+        changes = left.snapshot
+    return {"revision": revision_number, "against": against, "changes": changes}
 
 
 @api.post("items/{item_id}/restore", auth=django_auth)
@@ -708,7 +774,9 @@ def publication_detail(request: HttpRequest, publication_id: UUID):
         publication = Publication.objects.get(id=publication_id, campaign__memberships__user=request.auth)
     except Publication.DoesNotExist as exc:
         raise error(404, "not_found", "Publication not found") from exc
-    return publication_output(publication)
+    response = JsonResponse(publication_output(publication))
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @api.post("publications/{publication_id}/versions", auth=django_auth)
@@ -755,7 +823,10 @@ def publication_revoke(request: HttpRequest, publication_id: UUID):
 def public_publication(request: HttpRequest, token: str):
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     publication = Publication.objects.filter(token_hash=token_hash, status="active").first()
-    response = JsonResponse({"status": "not_found"} if publication is None else publication_output(publication))
+    response = JsonResponse(
+        {"status": "not_found"} if publication is None else publication_output(publication),
+        status=404 if publication is None else 200,
+    )
     response["Cache-Control"] = "no-store"
     response["Referrer-Policy"] = "no-referrer"
     return response
@@ -809,6 +880,21 @@ def campaign_restore(request: HttpRequest):
                 scheduled_for=raw["session"].get("scheduled_for") or None,
             )
         set_aliases_tags(item, raw.get("aliases", []), raw.get("tags", []))
+    for raw in data.get("items", []):
+        source_id = mapping.get(raw["id"])
+        for reference in raw.get("references", []):
+            target_id = mapping.get(str(reference["target_id"]))
+            if source_id and target_id:
+                Reference.objects.create(source_id=source_id, target_id=target_id, label=reference.get("label", ""))
+    for raw in data.get("revisions", []):
+        if str(raw["item_id"]) in mapping:
+            ItemRevision.objects.create(
+                item_id=mapping[str(raw["item_id"])],
+                number=raw["number"],
+                snapshot=raw["snapshot"],
+                reason=raw.get("reason", ""),
+                created_by=request.auth,
+            )
     for raw in data.get("relationships", []):
         if str(raw["source_id"]) in mapping and str(raw["target_id"]) in mapping:
             Relationship.objects.create(
