@@ -2,7 +2,9 @@
 
 This plan translates the [Archive roadmap](archive-roadmap.md) into incremental engineering work. It covers Release 1 only and preserves explicit seams for later releases without implementing their infrastructure.
 
-**Status:** Active — Release 1, Increment 1. The architecture is recorded in [ADR 0002](../decisions/0002-archive-application-architecture.md).
+**Status:** Active — Release 1 core implementation in progress. The architecture is recorded in [ADR 0002](../decisions/0002-archive-application-architecture.md).
+
+The `tylera/archive-core` implementation now includes the persistence, API, workspace, publication, revision, session, and export/restore surfaces for Increments 2–6. Release 1 remains open until the complete browser workflow, leakage checks, production restore exercise, and CI review gates are demonstrated.
 
 ## Implementation outcome
 
