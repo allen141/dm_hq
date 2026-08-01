@@ -857,12 +857,14 @@ def campaign_restore(request: HttpRequest):
     ensure_person_template(campaign)
     template_version_mapping: dict[str, int] = {}
     for raw_template in data.get("templates", []):
-        template = Template.objects.create(
-            campaign=campaign, name=raw_template["name"], applies_to=raw_template.get("applies_to", "entity")
+        template, _ = Template.objects.get_or_create(
+            campaign=campaign,
+            name=raw_template["name"],
+            defaults={"applies_to": raw_template.get("applies_to", "entity")},
         )
         for raw_version in raw_template.get("versions", []):
-            version = TemplateVersion.objects.create(
-                template=template, number=raw_version["number"], fields=raw_version.get("fields", [])
+            version, _ = TemplateVersion.objects.get_or_create(
+                template=template, number=raw_version["number"], defaults={"fields": raw_version.get("fields", [])}
             )
             template_version_mapping[f"{raw_template['id']}:{raw_version['number']}"] = version.id
     mapping: dict[str, UUID] = {}
