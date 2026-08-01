@@ -1,0 +1,36 @@
+services:
+  preview:
+    image: dmhq-deployer:local
+    build:
+      context: ../..
+      dockerfile: infrastructure/deployer/Dockerfile
+    container_name: dmhq-deployer-preview
+    restart: unless-stopped
+    environment:
+      CHANNEL: preview
+      POLL_SECONDS: "60"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/user/appdata/dm-hq:/mnt/user/appdata/dm-hq
+      - /mnt/user/appdata/dm-hq/deployer/preview:/state
+      - /mnt/user/appdata/dm-hq/preview/environment.env:/config/environment.env:ro
+      - /mnt/user/appdata/dm-hq/preview/secrets.env:/config/secrets.env:ro
+      - /mnt/user/appdata/dm-hq/registry:/root/.docker:ro
+
+  production:
+    image: dmhq-deployer:local
+    build:
+      context: ../..
+      dockerfile: infrastructure/deployer/Dockerfile
+    container_name: dmhq-deployer-production
+    restart: unless-stopped
+    environment:
+      CHANNEL: production
+      POLL_SECONDS: "60"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/user/appdata/dm-hq:/mnt/user/appdata/dm-hq
+      - /mnt/user/appdata/dm-hq/deployer/production:/state
+      - /mnt/user/appdata/dm-hq/production/environment.env:/config/environment.env:ro
+      - /mnt/user/appdata/dm-hq/production/secrets.env:/config/secrets.env:ro
+      - /mnt/user/appdata/dm-hq/registry:/root/.docker:ro

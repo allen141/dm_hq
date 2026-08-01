@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+**/.venv
+node_modules
+**/node_modules
+.pnpm-store
+**/.next
+site
+**/__pycache__
+**/*.pyc
+apps/api/db.sqlite3
+apps/api/.env
+apps/web/.env.local
+docs
+infrastructure/runtime

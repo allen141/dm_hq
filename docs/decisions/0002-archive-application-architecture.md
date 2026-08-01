@@ -1,6 +1,6 @@
 # ADR 0002: Archive application architecture
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-31
 - **Owners:** Engineering
 
@@ -34,7 +34,7 @@ Use a TypeScript interface and a Python domain backend under one origin, connect
 
 Split Archive capabilities into separately deployed services and specialized stores. This increases operational and consistency costs before the product or scale requires them.
 
-## Proposed decision
+## Decision
 
 Use a modular monolith with separately built web and API processes:
 

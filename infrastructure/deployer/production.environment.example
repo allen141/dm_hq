@@ -1,0 +1,4 @@
+CONTAINER_PREFIX=dmhq-production
+ENV_ROOT=/mnt/user/appdata/dm-hq/production
+SECRETS_FILE=/config/secrets.env
+COMPOSE_PROJECT_NAME=dmhq-production

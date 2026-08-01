@@ -2,3 +2,16 @@
 __pycache__/
 .cache/
 site/
+node_modules/
+.pnpm-store/
+.next/
+apps/api/db.sqlite3
+packages/api-client/openapi.generated.json
+playwright-report/
+test-results/
+packages/api-client/src/generated/
+*.egg-info/
+*.tsbuildinfo
+infrastructure/runtime/
+apps/api/.env
+apps/web/.env.local

@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if test "${1:-}" = pull; then
+  exit 1
+fi
+
+echo "Unexpected docker invocation: $*" >&2
+exit 9

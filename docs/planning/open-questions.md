@@ -22,7 +22,7 @@ Resolve these through user research, prototypes, or architecture decisions. When
 - What preview flow gives DMs confidence against spoilers?
 - What recovery, audit, and ownership guarantees are expected?
 
-[ADR 0002](../decisions/0002-archive-application-architecture.md) proposes a single campaign owner and unlisted publication links for Release 1. These questions remain open until that ADR is accepted.
+[ADR 0002](../decisions/0002-archive-application-architecture.md) establishes a single campaign owner and unlisted publication links for Release 1. Player accounts, co-DM roles, and contribution workflows remain open for later releases.
 
 ## Technology
 
@@ -31,7 +31,7 @@ Resolve these through user research, prototypes, or architecture decisions. When
 - Is built-in search sufficient initially, or is a dedicated index justified?
 - How should Markdown, attachments, structured fields, and links be exported?
 
-[ADR 0002](../decisions/0002-archive-application-architecture.md) proposes an online-first application using PostgreSQL search and Docker Compose initially. Representative campaign data and a deployment target are still needed to validate those choices.
+[ADR 0002](../decisions/0002-archive-application-architecture.md) establishes an online-first application using PostgreSQL search and Docker Compose initially. [ADR 0003](../decisions/0003-single-node-container-delivery.md) selects the first deployment target. Representative campaign data is still needed to validate search and storage behavior.
 
 ## Product identity
 
