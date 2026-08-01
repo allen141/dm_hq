@@ -49,8 +49,6 @@ jobs:
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: "24"
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm api:generate
@@ -66,8 +64,6 @@ jobs:
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: "24"
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm --dir apps/web exec playwright install --with-deps chromium
