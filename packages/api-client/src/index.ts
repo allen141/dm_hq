@@ -3,12 +3,34 @@ import type { components, paths } from "./generated/schema";
 export type ApiSchema = paths;
 export type User = components["schemas"]["UserOut"];
 export type Campaign = components["schemas"]["CampaignOut"];
+export type ItemKind = "note" | "entity" | "session";
+export type ItemStatus = "draft" | "canon" | "archived";
+export type ArchiveItem = {
+  id: string;
+  campaign_id: string;
+  kind: ItemKind;
+  title: string;
+  body: string;
+  html: string;
+  status: ItemStatus;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  aliases: string[];
+  tags: string[];
+  entity?: { subject_type: string; template_id: string | null; template_version: number | null; fields: Record<string, unknown> };
+  session?: { scheduled_for: string | null; session_status: string; outcome_text: string; linked_item_ids: string[] };
+  references: Array<{ id: number; target_id: string; label: string }>;
+  backlinks: Array<{ id: number; source_id: string; label: string }>;
+  relationships: Array<{ id: number; target_id: string; kind: string; label: string; notes: string }>;
+  incoming_relationships: Array<{ id: number; source_id: string; kind: string; label: string; notes: string }>;
+};
+export type ItemSummary = Pick<ArchiveItem, "id" | "campaign_id" | "kind" | "title" | "status" | "version" | "created_at" | "updated_at">;
+export type Template = { id: string; name: string; applies_to: string; versions: Array<{ number: number; fields: Array<Record<string, unknown>> }> };
+export type Publication = { id: string; status: string; version: number; token?: string; url?: string; entries: Array<{ item_id: string; title: string; body: string; html: string; fields: Record<string, unknown> }> };
 
 export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
+  constructor(public readonly status: number, message: string) {
     super(message);
     this.name = "ApiError";
   }
@@ -16,12 +38,7 @@ export class ApiError extends Error {
 
 function cookie(name: string): string {
   if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((value) => value.startsWith(`${name}=`))
-      ?.slice(name.length + 1) ?? ""
-  );
+  return document.cookie.split("; ").find((value) => value.startsWith(`${name}=`))?.slice(name.length + 1) ?? "";
 }
 
 export function createApiClient(fetcher: typeof fetch = (...args) => fetch(...args)) {
@@ -29,45 +46,40 @@ export function createApiClient(fetcher: typeof fetch = (...args) => fetch(...ar
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const method = init.method?.toUpperCase() ?? "GET";
     const headers = new Headers(init.headers);
-    if (init.body) headers.set("Content-Type", "application/json");
-    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-      headers.set("X-CSRFToken", cookie("csrftoken") || csrfToken);
-    }
-
-    const response = await fetcher(path, {
-      ...init,
-      credentials: "include",
-      headers,
-    });
+    if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) headers.set("X-CSRFToken", cookie("csrftoken") || csrfToken);
+    const response = await fetcher(path, { ...init, credentials: "include", headers });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { detail?: string } | null;
       throw new ApiError(response.status, body?.detail ?? "The request could not be completed.");
     }
     return response.json() as Promise<T>;
   }
-
   return {
-    csrf: async () => {
-      const response = await request<{ csrfToken: string }>("/api/v1/auth/csrf");
-      csrfToken = response.csrfToken;
-      return response;
-    },
+    csrf: async () => { const response = await request<{ csrfToken: string }>("/api/v1/auth/csrf"); csrfToken = response.csrfToken; return response; },
     me: () => request<User>("/api/v1/auth/me"),
-    login: (username: string, password: string) =>
-      request<User>("/api/v1/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      }),
-    logout: () =>
-      request<{ status: string }>("/api/v1/auth/logout", {
-        method: "POST",
-      }),
+    login: (username: string, password: string) => request<User>("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+    logout: () => request<{ status: string }>("/api/v1/auth/logout", { method: "POST" }),
     campaigns: () => request<Campaign[]>("/api/v1/campaigns"),
     campaign: (campaignId: string) => request<Campaign>(`/api/v1/campaigns/${campaignId}`),
-    createCampaign: (name: string) =>
-      request<Campaign>("/api/v1/campaigns", {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      }),
+    createCampaign: (name: string) => request<Campaign>("/api/v1/campaigns", { method: "POST", body: JSON.stringify({ name }) }),
+    templates: (campaignId: string) => request<{ templates: Template[] }>(`/api/v1/campaigns/${campaignId}/templates`),
+    items: (campaignId: string, params = "") => request<{ items: ItemSummary[]; next_cursor: string | null }>(`/api/v1/campaigns/${campaignId}/items${params}`),
+    item: (itemId: string) => request<ArchiveItem>(`/api/v1/items/${itemId}`),
+    createItem: (campaignId: string, payload: Record<string, unknown>) => request<ArchiveItem>(`/api/v1/campaigns/${campaignId}/items`, { method: "POST", body: JSON.stringify(payload) }),
+    updateItem: (itemId: string, payload: Record<string, unknown>) => request<ArchiveItem>(`/api/v1/items/${itemId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    promote: (itemId: string, payload: Record<string, unknown>) => request<ArchiveItem>(`/api/v1/items/${itemId}/promote`, { method: "POST", body: JSON.stringify(payload) }),
+    search: (campaignId: string, query: string) => request<{ items: ItemSummary[]; next_cursor: string | null }>(`/api/v1/campaigns/${campaignId}/search?q=${encodeURIComponent(query)}`),
+    relationship: (itemId: string, payload: Record<string, unknown>) => request<Record<string, unknown>>(`/api/v1/items/${itemId}/relationships`, { method: "POST", body: JSON.stringify(payload) }),
+    sessionLink: (itemId: string, targetId: string) => request<Record<string, unknown>>(`/api/v1/items/${itemId}/session-links`, { method: "POST", body: JSON.stringify({ item_id: targetId }) }),
+    revisions: (itemId: string) => request<{ revisions: Array<{ number: number; reason: string; created_at: string; snapshot: Record<string, unknown> }> }>(`/api/v1/items/${itemId}/revisions`),
+    restore: (itemId: string, payload: Record<string, unknown>) => request<ArchiveItem>(`/api/v1/items/${itemId}/restore`, { method: "POST", body: JSON.stringify(payload) }),
+    createPublication: (campaignId: string, entries: unknown[]) => request<Publication>(`/api/v1/campaigns/${campaignId}/publications`, { method: "POST", body: JSON.stringify({ entries }) }),
+    publications: (campaignId: string) => request<{ publications: Array<{ id: string; status: string; version: number }> }>(`/api/v1/campaigns/${campaignId}/publications`),
+    publication: (publicationId: string) => request<Publication>(`/api/v1/publications/${publicationId}`),
+    revokePublication: (publicationId: string) => request<{ status: string }>(`/api/v1/publications/${publicationId}/revoke`, { method: "POST" }),
+    publicPublication: (token: string) => request<Publication | { status: string }>(`/api/v1/publications/public/${token}`),
+    exportCampaign: async (campaignId: string) => { const response = await fetcher(`/api/v1/campaigns/${campaignId}/exports`, { credentials: "include" }); if (!response.ok) throw new ApiError(response.status, "Export failed."); return response.blob(); },
+    restoreCampaign: (file: File) => { const form = new FormData(); form.append("archive", file); return request<Campaign>("/api/v1/exports/restore", { method: "POST", body: form }); },
   };
 }
