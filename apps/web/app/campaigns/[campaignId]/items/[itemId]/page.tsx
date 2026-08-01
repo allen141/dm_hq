@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { createApiClient, type ArchiveItem } from "@dm-hq/api-client";
 
@@ -9,7 +9,6 @@ const client = createApiClient();
 
 export default function ItemPage() {
   const params = useParams<{ campaignId: string; itemId: string }>();
-  const router = useRouter();
   const [item, setItem] = useState<ArchiveItem | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -23,6 +22,8 @@ export default function ItemPage() {
   const [busy, setBusy] = useState(false);
 
   async function load() { try { const current = await client.item(params.itemId); setItem(current); setTitle(current.title); setBody(current.body); setStatus(current.status); setFields(JSON.stringify(current.entity?.fields ?? {}, null, 2)); } catch (cause) { setError(cause instanceof Error ? cause.message : "Item could not be loaded."); } }
+  // Loading remote item state is intentionally isolated in an effect.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [params.itemId]);
 
   async function save(event: FormEvent) { event.preventDefault(); if (!item) return; setBusy(true); setError(""); setMessage(""); try { const parsed = item.kind === "entity" ? JSON.parse(fields) as Record<string, unknown> : undefined; const updated = await client.updateItem(item.id, { version: item.version, title, body, status, fields: parsed }); setItem(updated); setMessage("Saved as a new revision."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Save failed."); } finally { setBusy(false); } }

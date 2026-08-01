@@ -22,6 +22,8 @@ export default function CampaignPage() {
   const [busy, setBusy] = useState(false);
 
   async function load() { try { setItems((await client.items(campaignId)).items); setTemplates((await client.templates(campaignId)).templates); } catch (cause) { setError(cause instanceof Error ? cause.message : "Campaign could not be loaded."); } }
+  // Loading remote campaign state is intentionally isolated in an effect.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [campaignId]);
 
   async function create(event: FormEvent) {
