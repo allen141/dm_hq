@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
-from campaigns.models import ArchiveItem, Campaign, CampaignMembership, EntityDetail, ItemRevision
+from campaigns.models import ArchiveItem, Campaign, CampaignMembership, EntityDetail, ItemRevision, Publication
 
 
 class ArchiveApiTests(TestCase):
@@ -113,9 +113,18 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(self.client.get(f"/api/v1/publications/public/{token}").json()["status"], "not_found")
 
     def test_export_and_restore_create_new_campaign_without_tokens(self) -> None:
+        template = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"][0]
+        entity = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/items",
+            {"kind": "entity", "title": "Exported NPC", "template_id": template["id"], "fields": {"species": "Human"}},
+        ).json()
         self.post(
             f"/api/v1/campaigns/{self.campaign.id}/items",
             {"kind": "note", "title": "Exported note", "body": "Portable prose"},
+        )
+        self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/publications",
+            {"entries": [{"item_id": entity["id"], "title": "Safe NPC", "body": "Public prose"}]},
         )
         export = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/exports")
         self.assertEqual(export.status_code, 200)
@@ -127,4 +136,8 @@ class ArchiveApiTests(TestCase):
         restored = self.client.post("/api/v1/exports/restore", {"archive": upload}, HTTP_X_CSRFTOKEN=self.csrf_token)
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(Campaign.objects.filter(name="Glass Coast (restored)").exists())
-        self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Exported note").exists())
+        restored_campaign_id = restored.json()["id"]
+        self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored_campaign_id, title="Exported note").exists())
+        restored_entity = ArchiveItem.objects.get(campaign_id=restored_campaign_id, title="Exported NPC")
+        self.assertIsNotNone(restored_entity.entity_detail.template_version_id)
+        self.assertTrue(Publication.objects.filter(campaign_id=restored_campaign_id, status="revoked").exists())
