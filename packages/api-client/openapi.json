@@ -968,6 +968,70 @@
         "summary": "Search"
       }
     },
+    "/api/v1/campaigns/{campaign_id}/sessions": {
+      "get": {
+        "operationId": "campaigns_api_session_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Session List"
+      },
+      "post": {
+        "operationId": "campaigns_api_session_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Session Create"
+      }
+    },
     "/api/v1/campaigns/{campaign_id}/templates": {
       "get": {
         "operationId": "campaigns_api_template_list",
@@ -1367,6 +1431,59 @@
         "summary": "Revisions"
       }
     },
+    "/api/v1/items/{item_id}/revisions/{revision_number}": {
+      "get": {
+        "operationId": "campaigns_api_revision_compare",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_number",
+            "required": true,
+            "schema": {
+              "title": "Revision Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "against",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Against"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Revision Compare"
+      }
+    },
     "/api/v1/items/{item_id}/session-links": {
       "post": {
         "operationId": "campaigns_api_add_session_link",
@@ -1519,6 +1636,44 @@
           }
         ],
         "summary": "Publication Version"
+      }
+    },
+    "/api/v1/templates/{template_id}/versions": {
+      "post": {
+        "operationId": "campaigns_api_template_version_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "payload",
+            "required": true,
+            "schema": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Template Version Create"
       }
     }
   },
