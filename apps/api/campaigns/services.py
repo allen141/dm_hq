@@ -7,22 +7,13 @@ import secrets
 import zipfile
 from typing import Any
 
-from django.utils import timezone
-
 from .models import (
-    Alias,
     ArchiveItem,
-    EntityDetail,
     ItemRevision,
-    ItemTag,
     Publication,
     PublicationEntry,
-    PublicationVersion,
-    Reference,
     Relationship,
-    SessionDetail,
     SessionLink,
-    Tag,
     Template,
     TemplateVersion,
 )
@@ -40,7 +31,9 @@ PERSON_FIELDS = [
 
 
 def ensure_person_template(campaign):
-    template, _ = Template.objects.get_or_create(campaign=campaign, name="Person / NPC", defaults={"applies_to": "entity"})
+    template, _ = Template.objects.get_or_create(
+        campaign=campaign, name="Person / NPC", defaults={"applies_to": "entity"}
+    )
     TemplateVersion.objects.get_or_create(template=template, number=1, defaults={"fields": PERSON_FIELDS})
     return template
 
@@ -99,7 +92,9 @@ def item_snapshot(item: ArchiveItem) -> dict[str, Any]:
 
 
 def record_revision(item: ArchiveItem, user, reason: str = "") -> ItemRevision:
-    return ItemRevision.objects.create(item=item, number=item.version, snapshot=item_snapshot(item), created_by=user, reason=reason)
+    return ItemRevision.objects.create(
+        item=item, number=item.version, snapshot=item_snapshot(item), created_by=user, reason=reason
+    )
 
 
 def random_publication_token() -> tuple[str, str]:
@@ -138,15 +133,27 @@ def export_campaign(campaign) -> bytes:
         "campaign": {"id": str(campaign.id), "name": campaign.name},
         "items": [item_snapshot(item) for item in campaign.archive_items.all()],
         "templates": [
-            {"id": str(template.id), "name": template.name, "applies_to": template.applies_to, "versions": list(template.versions.values("number", "fields"))}
+            {
+                "id": str(template.id),
+                "name": template.name,
+                "applies_to": template.applies_to,
+                "versions": list(template.versions.values("number", "fields")),
+            }
             for template in campaign.templates.prefetch_related("versions")
         ],
         "relationships": list(
-            Relationship.objects.filter(source__campaign=campaign).values("source_id", "target_id", "kind", "reciprocal_label", "notes")
+            Relationship.objects.filter(source__campaign=campaign).values(
+                "source_id", "target_id", "kind", "reciprocal_label", "notes"
+            )
         ),
         "sessions": list(SessionLink.objects.filter(session__campaign=campaign).values("session_id", "item_id")),
         "revisions": [
-            {"item_id": str(revision.item_id), "number": revision.number, "snapshot": revision.snapshot, "reason": revision.reason}
+            {
+                "item_id": str(revision.item_id),
+                "number": revision.number,
+                "snapshot": revision.snapshot,
+                "reason": revision.reason,
+            }
             for revision in ItemRevision.objects.filter(item__campaign=campaign)
         ],
         "publications": [
@@ -155,9 +162,9 @@ def export_campaign(campaign) -> bytes:
                 "status": publication.status,
                 "version": publication.current_version,
                 "entries": list(
-                    PublicationEntry.objects.filter(version__publication=publication, version__number=publication.current_version).values(
-                        "item_id", "safe_title", "safe_body", "safe_fields"
-                    )
+                    PublicationEntry.objects.filter(
+                        version__publication=publication, version__number=publication.current_version
+                    ).values("item_id", "safe_title", "safe_body", "safe_fields")
                 ),
             }
             for publication in campaign.publications.all()

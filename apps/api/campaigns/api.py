@@ -20,7 +20,6 @@ from .models import (
     Campaign,
     CampaignMembership,
     EntityDetail,
-    ItemRevision,
     ItemTag,
     Publication,
     PublicationEntry,
@@ -37,7 +36,6 @@ from .services import (
     clean_markdown,
     ensure_person_template,
     export_campaign,
-    item_snapshot,
     markdown_html,
     publication_output,
     random_publication_token,
@@ -223,24 +221,42 @@ def item_output(item: ArchiveItem) -> dict[str, Any]:
             for reference in item.incoming_references.all()
         ],
         "relationships": [
-            {"id": relationship.id, "target_id": relationship.target_id, "kind": relationship.kind, "label": relationship.reciprocal_label, "notes": relationship.notes}
+            {
+                "id": relationship.id,
+                "target_id": relationship.target_id,
+                "kind": relationship.kind,
+                "label": relationship.reciprocal_label,
+                "notes": relationship.notes,
+            }
             for relationship in item.outgoing_relationships.all()
         ],
         "incoming_relationships": [
-            {"id": relationship.id, "source_id": relationship.source_id, "kind": relationship.kind, "label": relationship.reciprocal_label, "notes": relationship.notes}
+            {
+                "id": relationship.id,
+                "source_id": relationship.source_id,
+                "kind": relationship.kind,
+                "label": relationship.reciprocal_label,
+                "notes": relationship.notes,
+            }
             for relationship in item.incoming_relationships.all()
         ],
     }
     if item.kind == ArchiveItem.Kind.ENTITY and hasattr(item, "entity_detail"):
         data["entity"] = {
             "subject_type": item.entity_detail.subject_type,
-            "template_id": item.entity_detail.template_version.template_id if item.entity_detail.template_version else None,
-            "template_version": item.entity_detail.template_version.number if item.entity_detail.template_version else None,
+            "template_id": item.entity_detail.template_version.template_id
+            if item.entity_detail.template_version
+            else None,
+            "template_version": item.entity_detail.template_version.number
+            if item.entity_detail.template_version
+            else None,
             "fields": item.entity_detail.field_values,
         }
     if item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail"):
         data["session"] = {
-            "scheduled_for": item.session_detail.scheduled_for.isoformat() if item.session_detail.scheduled_for else None,
+            "scheduled_for": item.session_detail.scheduled_for.isoformat()
+            if item.session_detail.scheduled_for
+            else None,
             "session_status": item.session_detail.session_status,
             "outcome_text": item.session_detail.outcome_text,
             "linked_item_ids": list(item.session_links.values_list("item_id", flat=True)),
@@ -249,13 +265,18 @@ def item_output(item: ArchiveItem) -> dict[str, Any]:
 
 
 def summary_output(item: ArchiveItem) -> dict[str, Any]:
-    return {key: getattr(item, key) for key in ("id", "campaign_id", "kind", "title", "status", "version", "created_at", "updated_at")}
+    return {
+        key: getattr(item, key)
+        for key in ("id", "campaign_id", "kind", "title", "status", "version", "created_at", "updated_at")
+    }
 
 
 def set_aliases_tags(item: ArchiveItem, aliases: list[str] | None, tags: list[str] | None) -> None:
     if aliases is not None:
         item.aliases.all().delete()
-        Alias.objects.bulk_create([Alias(item=item, value=value.strip()) for value in dict.fromkeys(aliases) if value.strip()])
+        Alias.objects.bulk_create(
+            [Alias(item=item, value=value.strip()) for value in dict.fromkeys(aliases) if value.strip()]
+        )
     if tags is not None:
         item.item_tags.all().delete()
         for name in dict.fromkeys(tag.strip().lower() for tag in tags if tag.strip()):
@@ -353,17 +374,37 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
     validate_status(payload.status)
     if not payload.title.strip():
         raise error(422, "validation", "Item title cannot be empty")
-    item = ArchiveItem.objects.create(campaign=campaign, kind=payload.kind, title=payload.title.strip(), body=clean_markdown(payload.body), status=payload.status)
+    item = ArchiveItem.objects.create(
+        campaign=campaign,
+        kind=payload.kind,
+        title=payload.title.strip(),
+        body=clean_markdown(payload.body),
+        status=payload.status,
+    )
     if item.kind == ArchiveItem.Kind.ENTITY:
         template_version = None
         if payload.template_id:
-            template_version = TemplateVersion.objects.filter(template_id=payload.template_id, template__campaign=campaign).order_by("-number").first()
+            template_version = (
+                TemplateVersion.objects.filter(template_id=payload.template_id, template__campaign=campaign)
+                .order_by("-number")
+                .first()
+            )
             if not template_version:
                 raise error(422, "validation", "Template not found")
-        EntityDetail.objects.create(item=item, subject_type=payload.subject_type or "person", template_version=template_version, field_values=payload.fields)
+        EntityDetail.objects.create(
+            item=item,
+            subject_type=payload.subject_type or "person",
+            template_version=template_version,
+            field_values=payload.fields,
+        )
         validate_canon(item, payload.fields)
     elif item.kind == ArchiveItem.Kind.SESSION:
-        SessionDetail.objects.create(item=item, scheduled_for=payload.scheduled_for, session_status=payload.session_status, outcome_text=payload.outcome_text)
+        SessionDetail.objects.create(
+            item=item,
+            scheduled_for=payload.scheduled_for,
+            session_status=payload.session_status,
+            outcome_text=payload.outcome_text,
+        )
     set_aliases_tags(item, payload.aliases, payload.tags)
     record_revision(item, request.auth, "Created")
     return item_output(item)
@@ -381,7 +422,11 @@ def item_update(request: HttpRequest, item_id: UUID, payload: ItemUpdate):
     item = get_member_item(request, item_id)
     if payload.version != item.version:
         raise error(409, "stale_version", "The item changed since it was opened")
-    fields = payload.fields if payload.fields is not None else (item.entity_detail.field_values if hasattr(item, "entity_detail") else {})
+    fields = (
+        payload.fields
+        if payload.fields is not None
+        else (item.entity_detail.field_values if hasattr(item, "entity_detail") else {})
+    )
     if payload.title is not None:
         item.title = payload.title.strip()
     if payload.body is not None:
@@ -425,11 +470,17 @@ def item_promote(request: HttpRequest, item_id: UUID, payload: PromotePayload):
         raise error(409, "stale_version", "The item changed since it was opened")
     template_version = None
     if payload.template_id:
-        template_version = TemplateVersion.objects.filter(template_id=payload.template_id, template__campaign=item.campaign).order_by("-number").first()
+        template_version = (
+            TemplateVersion.objects.filter(template_id=payload.template_id, template__campaign=item.campaign)
+            .order_by("-number")
+            .first()
+        )
     item.kind = ArchiveItem.Kind.ENTITY
     item.version += 1
     item.save()
-    EntityDetail.objects.create(item=item, subject_type=payload.subject_type, template_version=template_version, field_values={})
+    EntityDetail.objects.create(
+        item=item, subject_type=payload.subject_type, template_version=template_version, field_values={}
+    )
     record_revision(item, request.auth, "Promoted note to entity")
     return item_output(item)
 
@@ -453,7 +504,17 @@ def template_list(request: HttpRequest, campaign_id: UUID):
     campaign = get_member_campaign(request, campaign_id)
     if not campaign.templates.exists():
         ensure_person_template(campaign)
-    return {"templates": [{"id": template.id, "name": template.name, "applies_to": template.applies_to, "versions": list(template.versions.values("number", "fields"))} for template in campaign.templates.prefetch_related("versions")]}
+    return {
+        "templates": [
+            {
+                "id": template.id,
+                "name": template.name,
+                "applies_to": template.applies_to,
+                "versions": list(template.versions.values("number", "fields")),
+            }
+            for template in campaign.templates.prefetch_related("versions")
+        ]
+    }
 
 
 @api.post("campaigns/{campaign_id}/templates", auth=django_auth)
@@ -466,25 +527,48 @@ def template_create(request: HttpRequest, campaign_id: UUID, payload: dict[str, 
         raise error(422, "validation", "Template name cannot be empty")
     template = Template.objects.create(campaign=campaign, name=name, applies_to=payload.get("applies_to", "entity"))
     TemplateVersion.objects.create(template=template, number=1, fields=payload.get("fields", []))
-    return {"id": template.id, "name": template.name, "applies_to": template.applies_to, "versions": list(template.versions.values("number", "fields"))}
+    return {
+        "id": template.id,
+        "name": template.name,
+        "applies_to": template.applies_to,
+        "versions": list(template.versions.values("number", "fields")),
+    }
 
 
 @api.get("campaigns/{campaign_id}/search", auth=django_auth)
-def search(request: HttpRequest, campaign_id: UUID, q: str = "", kind: str | None = None, tag: str | None = None, alias: str | None = None):
+def search(
+    request: HttpRequest,
+    campaign_id: UUID,
+    q: str = "",
+    kind: str | None = None,
+    tag: str | None = None,
+    alias: str | None = None,
+):
     campaign = get_member_campaign(request, campaign_id)
-    items = ArchiveItem.objects.filter(campaign=campaign, status__in=[ArchiveItem.Status.DRAFT, ArchiveItem.Status.CANON])
+    items = ArchiveItem.objects.filter(
+        campaign=campaign, status__in=[ArchiveItem.Status.DRAFT, ArchiveItem.Status.CANON]
+    )
     if kind:
         items = items.filter(kind=kind)
     if q:
         from django.db.models import Q
-        items = items.filter(Q(title__icontains=q) | Q(body__icontains=q) | Q(aliases__value__icontains=q) | Q(item_tags__tag__name__icontains=q)).distinct()
+
+        items = items.filter(
+            Q(title__icontains=q)
+            | Q(body__icontains=q)
+            | Q(aliases__value__icontains=q)
+            | Q(item_tags__tag__name__icontains=q)
+        ).distinct()
     if tag:
         items = items.filter(item_tags__tag__name=tag)
     if alias:
         items = items.filter(aliases__value__icontains=alias)
     if q:
         from django.db.models import Case, IntegerField, Value, When
-        items = items.annotate(_title_match=Case(When(title__icontains=q, then=Value(0)), default=Value(1), output_field=IntegerField())).order_by("_title_match", "title", "id")
+
+        items = items.annotate(
+            _title_match=Case(When(title__icontains=q, then=Value(0)), default=Value(1), output_field=IntegerField())
+        ).order_by("_title_match", "title", "id")
     return {"items": [summary_output(item) for item in items.distinct()], "next_cursor": None}
 
 
@@ -508,8 +592,19 @@ def add_relationship(request: HttpRequest, item_id: UUID, payload: RelationshipP
     target = get_member_item(request, payload.target_id)
     if source.campaign_id != target.campaign_id:
         raise error(404, "not_found", "Target item not found")
-    relationship, _ = Relationship.objects.get_or_create(source=source, target=target, kind=payload.kind, defaults={"reciprocal_label": payload.reciprocal_label, "notes": payload.notes})
-    return {"id": relationship.id, "target_id": target.id, "kind": relationship.kind, "label": relationship.reciprocal_label, "notes": relationship.notes}
+    relationship, _ = Relationship.objects.get_or_create(
+        source=source,
+        target=target,
+        kind=payload.kind,
+        defaults={"reciprocal_label": payload.reciprocal_label, "notes": payload.notes},
+    )
+    return {
+        "id": relationship.id,
+        "target_id": target.id,
+        "kind": relationship.kind,
+        "label": relationship.reciprocal_label,
+        "notes": relationship.notes,
+    }
 
 
 @api.post("items/{item_id}/session-links", auth=django_auth)
@@ -527,7 +622,17 @@ def add_session_link(request: HttpRequest, item_id: UUID, payload: SessionLinkPa
 @api.get("items/{item_id}/revisions", auth=django_auth)
 def revisions(request: HttpRequest, item_id: UUID):
     item = get_member_item(request, item_id)
-    return {"revisions": [{"number": revision.number, "reason": revision.reason, "created_at": revision.created_at.isoformat(), "snapshot": revision.snapshot} for revision in item.revisions.all()]}
+    return {
+        "revisions": [
+            {
+                "number": revision.number,
+                "reason": revision.reason,
+                "created_at": revision.created_at.isoformat(),
+                "snapshot": revision.snapshot,
+            }
+            for revision in item.revisions.all()
+        ]
+    }
 
 
 @api.post("items/{item_id}/restore", auth=django_auth)
@@ -568,7 +673,13 @@ def publication_create(request: HttpRequest, campaign_id: UUID, payload: Publica
         item = get_member_item(request, selected.item_id)
         if item.campaign_id != campaign.id:
             raise error(404, "not_found", "Publication item not found")
-        PublicationEntry.objects.create(version=version, item=item, safe_title=(selected.title or item.title).strip(), safe_body=clean_markdown(selected.body if selected.body is not None else item.body), safe_fields=selected.fields)
+        PublicationEntry.objects.create(
+            version=version,
+            item=item,
+            safe_title=(selected.title or item.title).strip(),
+            safe_body=clean_markdown(selected.body if selected.body is not None else item.body),
+            safe_fields=selected.fields,
+        )
     response = publication_output(publication, token)
     response["url"] = f"/p/{token}"
     return response
@@ -577,7 +688,18 @@ def publication_create(request: HttpRequest, campaign_id: UUID, payload: Publica
 @api.get("campaigns/{campaign_id}/publications", auth=django_auth)
 def publication_list(request: HttpRequest, campaign_id: UUID):
     campaign = get_member_campaign(request, campaign_id)
-    return {"publications": [{"id": publication.id, "status": publication.status, "version": publication.current_version, "created_at": publication.created_at.isoformat(), "updated_at": publication.updated_at.isoformat()} for publication in campaign.publications.all()]}
+    return {
+        "publications": [
+            {
+                "id": publication.id,
+                "status": publication.status,
+                "version": publication.current_version,
+                "created_at": publication.created_at.isoformat(),
+                "updated_at": publication.updated_at.isoformat(),
+            }
+            for publication in campaign.publications.all()
+        ]
+    }
 
 
 @api.get("publications/{publication_id}", auth=django_auth)
@@ -603,7 +725,13 @@ def publication_version(request: HttpRequest, publication_id: UUID, payload: Pub
         item = get_member_item(request, selected.item_id)
         if item.campaign_id != publication.campaign_id:
             raise error(404, "not_found", "Publication item not found")
-        PublicationEntry.objects.create(version=version, item=item, safe_title=(selected.title or item.title).strip(), safe_body=clean_markdown(selected.body if selected.body is not None else item.body), safe_fields=selected.fields)
+        PublicationEntry.objects.create(
+            version=version,
+            item=item,
+            safe_title=(selected.title or item.title).strip(),
+            safe_body=clean_markdown(selected.body if selected.body is not None else item.body),
+            safe_fields=selected.fields,
+        )
     publication.current_version = version_number
     publication.save(update_fields=["current_version", "updated_at"])
     return publication_output(publication)
@@ -658,16 +786,38 @@ def campaign_restore(request: HttpRequest):
     ensure_person_template(campaign)
     mapping: dict[str, UUID] = {}
     for raw in data.get("items", []):
-        item = ArchiveItem.objects.create(campaign=campaign, kind=raw["kind"], title=raw["title"], body=raw.get("body", ""), status=raw.get("status", "draft"), version=raw.get("version", 1))
+        item = ArchiveItem.objects.create(
+            campaign=campaign,
+            kind=raw["kind"],
+            title=raw["title"],
+            body=raw.get("body", ""),
+            status=raw.get("status", "draft"),
+            version=raw.get("version", 1),
+        )
         mapping[raw["id"]] = item.id
         if item.kind == ArchiveItem.Kind.ENTITY and raw.get("entity"):
-            EntityDetail.objects.create(item=item, subject_type=raw["entity"].get("subject_type", "person"), field_values=raw["entity"].get("fields", {}))
+            EntityDetail.objects.create(
+                item=item,
+                subject_type=raw["entity"].get("subject_type", "person"),
+                field_values=raw["entity"].get("fields", {}),
+            )
         if item.kind == ArchiveItem.Kind.SESSION and raw.get("session"):
-            SessionDetail.objects.create(item=item, session_status=raw["session"].get("session_status", "planned"), outcome_text=raw["session"].get("outcome_text", ""), scheduled_for=raw["session"].get("scheduled_for") or None)
+            SessionDetail.objects.create(
+                item=item,
+                session_status=raw["session"].get("session_status", "planned"),
+                outcome_text=raw["session"].get("outcome_text", ""),
+                scheduled_for=raw["session"].get("scheduled_for") or None,
+            )
         set_aliases_tags(item, raw.get("aliases", []), raw.get("tags", []))
     for raw in data.get("relationships", []):
         if str(raw["source_id"]) in mapping and str(raw["target_id"]) in mapping:
-            Relationship.objects.create(source_id=mapping[str(raw["source_id"])], target_id=mapping[str(raw["target_id"])], kind=raw["kind"], reciprocal_label=raw.get("reciprocal_label", ""), notes=raw.get("notes", ""))
+            Relationship.objects.create(
+                source_id=mapping[str(raw["source_id"])],
+                target_id=mapping[str(raw["target_id"])],
+                kind=raw["kind"],
+                reciprocal_label=raw.get("reciprocal_label", ""),
+                notes=raw.get("notes", ""),
+            )
     for raw in data.get("sessions", []):
         if str(raw["session_id"]) in mapping and str(raw["item_id"]) in mapping:
             SessionLink.objects.create(session_id=mapping[str(raw["session_id"])], item_id=mapping[str(raw["item_id"])])
