@@ -77,7 +77,8 @@ def item_snapshot(item: ArchiveItem) -> dict[str, Any]:
         detail = item.entity_detail
         data["entity"] = {
             "subject_type": detail.subject_type,
-            "template_version": detail.template_version_id,
+            "template_id": str(detail.template_version.template_id) if detail.template_version else None,
+            "template_version": detail.template_version.number if detail.template_version else None,
             "fields": detail.field_values,
         }
     if item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail"):
