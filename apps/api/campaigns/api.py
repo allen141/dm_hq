@@ -144,7 +144,7 @@ class RestorePayload(Schema):
 
 
 def error(status: int, code: str, message: str) -> HttpError:
-    return HttpError(status, {"code": code, "message": message})
+    return HttpError(status, f"{code}: {message}")
 
 
 def campaign_output(campaign: Campaign) -> dict[str, object]:
@@ -177,7 +177,7 @@ def enforce_csrf(request: HttpRequest) -> None:
     middleware = CsrfViewMiddleware(lambda current_request: None)
     rejection = middleware.process_view(request, None, (), {})
     if rejection is not None:
-        raise HttpError(403, {"code": "csrf_failed", "message": "CSRF verification failed"})
+        raise HttpError(403, "csrf_failed: CSRF verification failed")
 
 
 def validate_status(status: str) -> None:
