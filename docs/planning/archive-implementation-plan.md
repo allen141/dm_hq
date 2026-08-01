@@ -2,7 +2,7 @@
 
 This plan translates the [Archive roadmap](archive-roadmap.md) into incremental engineering work. It covers Release 1 only and preserves explicit seams for later releases without implementing their infrastructure.
 
-**Status:** Proposed. Application scaffolding begins only after [ADR 0002](../decisions/0002-archive-application-architecture.md) is accepted.
+**Status:** Active — Release 1, Increment 1. The architecture is recorded in [ADR 0002](../decisions/0002-archive-application-architecture.md).
 
 ## Implementation outcome
 
@@ -188,7 +188,7 @@ API rules:
 - Confirm the initial single-DM ownership assumption.
 - Confirm online-first Release 1 behavior.
 - Confirm unlisted publication links as the initial player-delivery mechanism.
-- Select the first production-hosting target separately; it does not block local development.
+- Record the first production-hosting and delivery target in [ADR 0003](../decisions/0003-single-node-container-delivery.md).
 
 **Exit:** the application stack and unresolved product assumptions are recorded as accepted decisions.
 
@@ -202,8 +202,13 @@ API rules:
 - Use uv, Ruff, pytest, and pytest-django for Python dependency management, formatting, linting, and tests.
 - Use pnpm, ESLint, TypeScript checks, Vitest, React Testing Library, and Playwright for the web workspace.
 - Establish backend tests, frontend tests, API-schema drift checks, and a browser smoke test in CI.
+- Build immutable production containers for the web and API processes.
+- Publish signed, matched image releases from GitHub Actions after all checks pass.
+- Run persistent pull-based preview and production deployment controllers on the selected node.
+- Keep preview and production data, secrets, networks, cookies, and hostnames isolated.
+- Provide health-gated deployment, application rollback, preview reset, and production backups.
 
-**Exit:** an authenticated DM can create and reopen an empty campaign through the browser, and cross-campaign access is rejected by automated tests.
+**Exit:** an authenticated DM can create and reopen an empty campaign through the browser, cross-campaign access is rejected by automated tests, a successful pull request is reviewable in the shared preview, and a tested `main` commit deploys to production.
 
 ### Increment 2 — Capture and structure
 

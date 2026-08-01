@@ -40,6 +40,8 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Operations:
+      - Deployment: operations/deployment.md
   - Product:
       - Vision: product/vision.md
       - The Archive: product/archive.md
@@ -55,6 +57,7 @@ nav:
       - Open questions: planning/open-questions.md
   - Decisions:
       - Decision log: decisions/index.md
+      - Container delivery: decisions/0003-single-node-container-delivery.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md

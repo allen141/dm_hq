@@ -1,0 +1,15 @@
+{
+  "name": "@dm-hq/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "openapi-typescript openapi.json -o src/generated/schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.10.1"
+  }
+}

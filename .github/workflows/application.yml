@@ -1,0 +1,177 @@
+name: Application
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: application-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          version: "0.8.22"
+      - working-directory: apps/api
+        run: uv sync --frozen --extra dev
+      - working-directory: apps/api
+        run: uv run ruff format --check .
+      - working-directory: apps/api
+        run: uv run ruff check .
+      - working-directory: apps/api
+        run: uv run python manage.py check
+      - working-directory: apps/api
+        run: uv run python manage.py makemigrations --check --dry-run
+      - working-directory: apps/api
+        run: uv run pytest
+      - working-directory: apps/api
+        run: uv run python manage.py export_openapi --output ../../packages/api-client/openapi.generated.json
+      - run: diff -u packages/api-client/openapi.json packages/api-client/openapi.generated.json
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm api:generate
+      - run: pnpm --dir apps/web lint
+      - run: pnpm --dir apps/web exec tsc --noEmit
+      - run: pnpm --dir apps/web test
+      - run: pnpm --dir apps/web build
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/web exec playwright install --with-deps chromium
+      - run: docker compose -f infrastructure/compose.yaml up --build --detach
+      - run: pnpm --dir apps/web exec playwright test
+      - if: always()
+        run: docker compose -f infrastructure/compose.yaml logs --no-color
+      - if: always()
+        run: docker compose -f infrastructure/compose.yaml down --volumes
+
+  deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: docker build -f infrastructure/deployer/Dockerfile -t dmhq-deployer:test .
+      - run: infrastructure/deployer/tests/controller-test.sh dmhq-deployer:test
+
+  publish:
+    needs:
+      - api
+      - web
+      - browser
+      - deployment
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      API_REPOSITORY: ghcr.io/allen141/dm-hq-api
+      WEB_REPOSITORY: ghcr.io/allen141/dm-hq-web
+      RELEASE_REPOSITORY: ghcr.io/allen141/dm-hq-release
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: docker/setup-buildx-action@v4.2.0
+      - uses: sigstore/cosign-installer@v4.1.2
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: channel
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "name=preview" >> "$GITHUB_OUTPUT"
+            echo "pr=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=production" >> "$GITHUB_OUTPUT"
+            echo "pr=" >> "$GITHUB_OUTPUT"
+          fi
+      - id: api-image
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: apps/api
+          file: apps/api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.API_REPOSITORY }}:sha-${{ github.sha }}
+          build-args: BUILD_VERSION=${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+      - id: web-image
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.WEB_REPOSITORY }}:sha-${{ github.sha }}
+          build-args: BUILD_VERSION=${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - id: release-image
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: .
+          file: infrastructure/release/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.RELEASE_REPOSITORY }}:sha-${{ github.sha }}
+            ${{ env.RELEASE_REPOSITORY }}:${{ steps.channel.outputs.name }}
+          build-args: |
+            CHANNEL=${{ steps.channel.outputs.name }}
+            API_IMAGE=${{ env.API_REPOSITORY }}@${{ steps.api-image.outputs.digest }}
+            WEB_IMAGE=${{ env.WEB_REPOSITORY }}@${{ steps.web-image.outputs.digest }}
+            BUILD_VERSION=${{ github.sha }}
+            BUILD_PR_NUMBER=${{ steps.channel.outputs.pr }}
+      - env:
+          API_DIGEST: ${{ steps.api-image.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web-image.outputs.digest }}
+          RELEASE_DIGEST: ${{ steps.release-image.outputs.digest }}
+        run: |
+          cosign sign --yes "$API_REPOSITORY@$API_DIGEST"
+          cosign sign --yes "$WEB_REPOSITORY@$WEB_DIGEST"
+          cosign sign --yes "$RELEASE_REPOSITORY@$RELEASE_DIGEST"
+      - name: Publish deployment summary
+        run: |
+          {
+            echo "### ${{ steps.channel.outputs.name }} release"
+            echo
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- API: \`${{ steps.api-image.outputs.digest }}\`"
+            echo "- Web: \`${{ steps.web-image.outputs.digest }}\`"
+            echo "- Release: \`${{ steps.release-image.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

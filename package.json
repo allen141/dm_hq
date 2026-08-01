@@ -1,0 +1,20 @@
+{
+  "name": "dm-hq",
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "scripts": {
+    "api:generate": "pnpm --filter @dm-hq/api-client generate",
+    "web:dev": "pnpm --dir apps/web dev",
+    "web:build": "pnpm api:generate && pnpm --dir apps/web build",
+    "web:test": "pnpm api:generate && pnpm --dir apps/web test",
+    "api:test": "python apps/api/manage.py test",
+    "docs:build": "mkdocs build --strict"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

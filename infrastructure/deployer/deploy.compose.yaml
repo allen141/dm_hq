@@ -1,0 +1,87 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: ${CONTAINER_PREFIX}-db
+    restart: unless-stopped
+    env_file: ${SECRETS_FILE}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ${ENV_ROOT}/postgres:/var/lib/postgresql
+    networks:
+      - internal
+
+  api:
+    image: ${API_IMAGE}
+    container_name: ${CONTAINER_PREFIX}-api
+    restart: unless-stopped
+    env_file: ${SECRETS_FILE}
+    environment:
+      DB_HOST: db
+      BUILD_VERSION: ${BUILD_VERSION}
+      BUILD_PR_NUMBER: ${BUILD_PR_NUMBER:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      internal:
+        aliases:
+          - api
+
+  web:
+    image: ${WEB_IMAGE}
+    container_name: ${CONTAINER_PREFIX}-web
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - internal
+      - ingress
+
+  backup:
+    image: postgres:18-alpine
+    container_name: ${CONTAINER_PREFIX}-backup
+    restart: unless-stopped
+    profiles: ["backup"]
+    env_file: ${SECRETS_FILE}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        while true; do
+          stamp=$$(date -u +%Y%m%dT%H%M%SZ)
+          temporary="/backups/dm-hq-$${stamp}.sql.tmp"
+          final="/backups/dm-hq-$${stamp}.sql"
+          PGPASSWORD="$${POSTGRES_PASSWORD}" pg_dump --host=db --username="$${POSTGRES_USER}" --dbname="$${POSTGRES_DB}" --no-owner --clean --if-exists > "$${temporary}"
+          mv "$${temporary}" "$${final}"
+          find /backups -type f -name 'dm-hq-*.sql' -mtime +13 -delete
+          sleep 86400
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ${ENV_ROOT}/backups:/backups
+    networks:
+      - internal
+
+networks:
+  internal:
+    name: ${CONTAINER_PREFIX}-internal
+  ingress:
+    external: true
+    name: proxynet
