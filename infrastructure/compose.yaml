@@ -42,7 +42,8 @@ services:
     environment:
       API_INTERNAL_URL: http://api:8000
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "${WEB_PORT:-3000}:3000"
 
