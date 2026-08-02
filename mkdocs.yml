@@ -55,6 +55,7 @@ nav:
       - Roadmap: planning/roadmap.md
       - Archive roadmap: planning/archive-roadmap.md
       - Archive implementation: planning/archive-implementation-plan.md
+      - AI agent integration: planning/ai-agent-integration-plan.md
       - Open questions: planning/open-questions.md
   - Decisions:
       - Decision log: decisions/index.md
