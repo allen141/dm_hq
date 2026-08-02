@@ -11,7 +11,9 @@ const client = createApiClient();
 const id = () => globalThis.crypto?.randomUUID?.() ?? `local-${Date.now()}`;
 function documentText(campaignId: string, kind: ItemKind, title: string, subjectType: string, body: string, template: Template | undefined, fields: Record<string, unknown>) {
   const version = template?.versions.at(-1)?.number ?? 1;
-  return `---\n${JSON.stringify({ document_type: "archive_item", id: id(), campaign_id: campaignId, kind, title, status: "draft", ...(kind === "entity" ? { subject_type: subjectType } : {}), ...(template ? { template: { id: template.id, version }, fields } : {}), aliases: [], tags: [], references: [], relationships: [], ...(kind === "session" ? { session_links: [] } : {}) }, null, 2)}\n---\n\n${body.trim()}\n`;
+  const allowedKeys = new Set((template?.versions.at(-1)?.fields ?? []).map((field) => field.key));
+  const templateFields = Object.fromEntries(Object.entries(fields).filter(([key]) => allowedKeys.has(key)));
+  return `---\n${JSON.stringify({ document_type: "archive_item", id: id(), campaign_id: campaignId, kind, title, status: "draft", ...(kind === "entity" ? { subject_type: subjectType } : {}), ...(template ? { template: { id: template.id, version }, fields: templateFields } : {}), aliases: [], tags: [], references: [], relationships: [], ...(kind === "session" ? { session_links: [] } : {}) }, null, 2)}\n---\n\n${body.trim()}\n`;
 }
 
 export default function CampaignPage() {
