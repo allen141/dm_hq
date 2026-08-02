@@ -173,6 +173,8 @@ class Publication(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="publications")
     token_hash = models.CharField(max_length=64, unique=True)
+    # Retained only for authenticated owner link recovery; never exported or logged.
+    token_value = models.CharField(max_length=64, blank=True, default="")
     status = models.CharField(max_length=20, default="active")
     current_version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)

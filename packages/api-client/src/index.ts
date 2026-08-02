@@ -27,6 +27,7 @@ export type ArchiveItem = {
 };
 export type ItemSummary = Pick<ArchiveItem, "id" | "campaign_id" | "kind" | "title" | "status" | "version" | "created_at" | "updated_at">;
 export type Template = { id: string; name: string; applies_to: string; versions: Array<{ number: number; fields: Array<Record<string, unknown>> }> };
+export type PublicationSummary = { id: string; status: string; version: number; created_at: string; updated_at: string; url?: string | null; item_ids: string[] };
 export type Publication = { id: string; status: string; version: number; token?: string; url?: string; entries: Array<{ item_id: string; title: string; body: string; html: string; fields: Record<string, unknown> }> };
 
 export class ApiError extends Error {
@@ -75,7 +76,7 @@ export function createApiClient(fetcher: typeof fetch = (...args) => fetch(...ar
     revisions: (itemId: string) => request<{ revisions: Array<{ number: number; reason: string; created_at: string; snapshot: Record<string, unknown> }> }>(`/api/v1/items/${itemId}/revisions`),
     restore: (itemId: string, payload: Record<string, unknown>) => request<ArchiveItem>(`/api/v1/items/${itemId}/restore`, { method: "POST", body: JSON.stringify(payload) }),
     createPublication: (campaignId: string, entries: unknown[]) => request<Publication>(`/api/v1/campaigns/${campaignId}/publications`, { method: "POST", body: JSON.stringify({ entries }) }),
-    publications: (campaignId: string) => request<{ publications: Array<{ id: string; status: string; version: number }> }>(`/api/v1/campaigns/${campaignId}/publications`),
+    publications: (campaignId: string) => request<{ publications: PublicationSummary[] }>(`/api/v1/campaigns/${campaignId}/publications`),
     publication: (publicationId: string) => request<Publication>(`/api/v1/publications/${publicationId}`),
     revokePublication: (publicationId: string) => request<{ status: string }>(`/api/v1/publications/${publicationId}/revoke`, { method: "POST" }),
     publicPublication: (token: string) => request<Publication | { status: string }>(`/api/v1/publications/public/${token}`),

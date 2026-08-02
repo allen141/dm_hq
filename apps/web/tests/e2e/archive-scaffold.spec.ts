@@ -19,4 +19,7 @@ test("an owner can create a campaign and open its Archive workspace", async ({ p
   await page.getByRole("button", { name: "Capture item" }).click();
   await expect(page.getByRole("heading", { name: "Mara Venn" })).toBeVisible();
   await expect(page.getByText("Sanitized preview")).toBeVisible();
+  await page.getByRole("button", { name: "Publish player snapshot" }).click();
+  await expect(page.getByText("Handouts for this item")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open player handout" }).first()).toBeVisible();
 });

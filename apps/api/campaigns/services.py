@@ -103,6 +103,12 @@ def random_publication_token() -> tuple[str, str]:
     return token, hashlib.sha256(token.encode()).hexdigest()
 
 
+def publication_url(publication: Publication) -> str | None:
+    if not publication.token_value:
+        return None
+    return f"/p/{publication.token_value}"
+
+
 def publication_output(publication: Publication, include_token: str | None = None) -> dict[str, Any]:
     version = publication.versions.get(number=publication.current_version)
     result: dict[str, Any] = {

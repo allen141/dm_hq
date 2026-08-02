@@ -102,6 +102,11 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(publication.status_code, 200)
         token = publication.json()["token"]
+        self.assertEqual(publication.json()["url"], f"/p/{token}")
+        handouts = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/publications")
+        self.assertEqual(handouts.status_code, 200)
+        self.assertEqual(handouts.json()["publications"][0]["url"], f"/p/{token}")
+        self.assertIn(private["id"], handouts.json()["publications"][0]["item_ids"])
         public = self.client.get(f"/api/v1/publications/public/{token}")
         self.assertEqual(public.status_code, 200)
         self.assertEqual(public.json()["entries"][0]["title"], "The Stranger")

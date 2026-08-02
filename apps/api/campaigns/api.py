@@ -39,6 +39,7 @@ from .services import (
     export_campaign,
     markdown_html,
     publication_output,
+    publication_url,
     random_publication_token,
     read_export,
     record_revision,
@@ -733,7 +734,7 @@ def publication_create(request: HttpRequest, campaign_id: UUID, payload: Publica
     if not payload.entries:
         raise error(422, "validation", "A publication needs at least one item")
     token, token_hash = random_publication_token()
-    publication = Publication.objects.create(campaign=campaign, token_hash=token_hash)
+    publication = Publication.objects.create(campaign=campaign, token_hash=token_hash, token_value=token)
     version = PublicationVersion.objects.create(publication=publication, number=1, created_by=request.auth)
     for selected in payload.entries:
         item = get_member_item(request, selected.item_id)
@@ -762,6 +763,11 @@ def publication_list(request: HttpRequest, campaign_id: UUID):
                 "version": publication.current_version,
                 "created_at": publication.created_at.isoformat(),
                 "updated_at": publication.updated_at.isoformat(),
+                "url": publication_url(publication),
+                "item_ids": [
+                    str(entry.item_id)
+                    for entry in publication.versions.get(number=publication.current_version).entries.all()
+                ],
             }
             for publication in campaign.publications.all()
         ]
@@ -923,10 +929,11 @@ def campaign_restore(request: HttpRequest):
         if str(raw["session_id"]) in mapping and str(raw["item_id"]) in mapping:
             SessionLink.objects.create(session_id=mapping[str(raw["session_id"])], item_id=mapping[str(raw["item_id"])])
     for raw_publication in data.get("publications", []):
-        _, token_hash = random_publication_token()
+        token, token_hash = random_publication_token()
         restored_publication = Publication.objects.create(
             campaign=campaign,
             token_hash=token_hash,
+            token_value=token,
             status="revoked",
             current_version=raw_publication.get("version", 1),
             revoked_at=timezone.now(),
