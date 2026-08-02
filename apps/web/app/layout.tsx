@@ -6,10 +6,16 @@ export const metadata: Metadata = {
   description: "A focused campaign knowledge workspace for Dungeon Masters.",
 };
 
+function BuildMarker() {
+  const version = process.env.BUILD_VERSION ?? "dev";
+  const shortVersion = version === "dev" ? version : version.slice(0, 12);
+  return <footer className="build-marker" aria-label="Build version" title={`Full build hash: ${version}`}>build {shortVersion}</footer>;
+}
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>{children}<BuildMarker /></body>
     </html>
   );
 }

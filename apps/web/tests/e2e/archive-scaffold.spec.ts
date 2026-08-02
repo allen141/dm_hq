@@ -8,6 +8,7 @@ test("an owner can create a campaign and open its Archive workspace", async ({ p
   await page.getByRole("button", { name: "Open workspace" }).click();
 
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByLabel("Build version")).toContainText("build dev");
   await page.getByLabel("Campaign name").fill(campaignName);
   await page.getByRole("button", { name: "Create campaign" }).click();
   await expect(page.getByRole("link", { name: `Open ${campaignName}` })).toBeVisible();
