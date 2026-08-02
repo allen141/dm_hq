@@ -37,6 +37,15 @@ test("an owner can create a campaign and open its Archive workspace", async ({ p
   await expect(page.getByRole("heading", { name: "Mara Venn" })).toBeVisible();
 
   await page.goto(campaignUrl);
+  await expect(page.locator(".handout-label strong", { hasText: "Mara Venn" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open handout" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Revoke" }).first().click();
+  await expect(page.getByText("Revoked handouts (1)")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open handout" })).toHaveCount(0);
+  await page.getByText("Revoked handouts (1)").click();
+  await expect(page.getByText("Unavailable")).toBeVisible();
+  await expect(page.locator(".handout-history .handout-label strong")).toHaveText("Mara Venn");
+
   await page.getByLabel("Title").fill("Session One");
   await page.getByLabel("Kind").selectOption("session");
   await expect(page.getByLabel("Scheduled date")).toBeVisible();

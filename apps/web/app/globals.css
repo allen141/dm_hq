@@ -91,5 +91,9 @@ textarea { resize: vertical; line-height: 1.5; }
 .revision-list { display: grid; gap: 8px; border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
 .revision-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .revision-row button { padding: 6px 9px; font-size: 0.7rem; }
+.handout-label { display: grid; gap: 2px; }
+.handout-history summary { cursor: pointer; list-style: none; }
+.handout-history summary::-webkit-details-marker { display: none; }
+.handout-history-list { display: grid; gap: 8px; margin-top: 8px; padding-left: 12px; border-left: 2px solid var(--line); }
 
 .build-marker { position: fixed; right: 12px; bottom: 10px; z-index: 10; color: var(--muted); background: #fffdf8e6; border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; font: 0.68rem/1 system-ui, sans-serif; letter-spacing: 0.04em; box-shadow: 0 4px 14px #4a433310; }
