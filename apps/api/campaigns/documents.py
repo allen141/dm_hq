@@ -13,7 +13,16 @@ from django.conf import settings
 from django.db import transaction
 
 from .models import (
-    Alias, ArchiveItem, CampaignDocument, CampaignDocumentVersion, ItemTag, Reference, Relationship, SessionLink, Tag, TemplateVersion,
+    Alias,
+    ArchiveItem,
+    CampaignDocument,
+    CampaignDocumentVersion,
+    ItemTag,
+    Reference,
+    Relationship,
+    SessionLink,
+    Tag,
+    TemplateVersion,
 )
 
 
@@ -33,55 +42,82 @@ def content_hash(markdown: str) -> str:
 
 def _scalar(value: str) -> Any:
     value = value.strip()
-    if value in {"", "null", "~"}: return None
-    if value.lower() in {"true", "false"}: return value.lower() == "true"
-    if (value.startswith("\"") and value.endswith("\"")) or (value.startswith("'") and value.endswith("'")):
+    if value in {"", "null", "~"}:
+        return None
+    if value.lower() in {"true", "false"}:
+        return value.lower() == "true"
+    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
         return value[1:-1]
     try:
         return int(value)
     except ValueError:
-        try: return float(value)
-        except ValueError: return value
+        try:
+            return float(value)
+        except ValueError:
+            return value
 
 
 def _fallback_frontmatter(raw: str) -> dict[str, Any]:
-    lines = [(len(line) - len(line.lstrip(" ")), line.strip()) for line in raw.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    lines = [
+        (len(line) - len(line.lstrip(" ")), line.strip())
+        for line in raw.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
 
     def parse_value(value: str) -> Any:
         value = value.strip()
-        if value in {"", "null", "~"}: return None
+        if value in {"", "null", "~"}:
+            return None
         if value.startswith("[") or value.startswith("{"):
-            try: return json.loads(value.replace("'", '"'))
-            except json.JSONDecodeError: pass
+            try:
+                return json.loads(value.replace("'", '"'))
+            except json.JSONDecodeError:
+                pass
         return _scalar(value)
 
     def block(index: int, indent: int):
-        if index >= len(lines): return {}, index
+        if index >= len(lines):
+            return {}, index
         is_list = lines[index][0] == indent and lines[index][1].startswith("-")
         result: Any = [] if is_list else {}
         while index < len(lines):
             level, text = lines[index]
-            if level < indent: break
-            if level > indent: break
+            if level < indent:
+                break
+            if level > indent:
+                break
             if is_list:
-                if not text.startswith("-"): break
-                item = text[1:].strip(); index += 1
+                if not text.startswith("-"):
+                    break
+                item = text[1:].strip()
+                index += 1
                 if not item:
-                    if index < len(lines) and lines[index][0] > indent: value, index = block(index, lines[index][0])
-                    else: value = None
+                    if index < len(lines) and lines[index][0] > indent:
+                        value, index = block(index, lines[index][0])
+                    else:
+                        value = None
                 elif ":" in item:
-                    key, value_text = item.split(":", 1); value = {key.strip(): parse_value(value_text)}
+                    key, value_text = item.split(":", 1)
+                    value = {key.strip(): parse_value(value_text)}
                     if index < len(lines) and lines[index][0] > indent:
                         nested, index = block(index, lines[index][0])
-                        if isinstance(nested, dict): value.update(nested)
-                else: value = parse_value(item)
+                        if isinstance(nested, dict):
+                            value.update(nested)
+                else:
+                    value = parse_value(item)
                 result.append(value)
             else:
-                if ":" not in text: index += 1; continue
-                key, value_text = text.split(":", 1); index += 1
-                if value_text.strip(): value = parse_value(value_text)
-                elif index < len(lines) and lines[index][0] > indent: value, index = block(index, lines[index][0])
-                else: value = None
+                if ":" not in text:
+                    index += 1
+                    continue
+                key, value_text = text.split(":", 1)
+                index += 1
+                if value_text.strip():
+                    value = parse_value(value_text)
+                elif index < len(lines) and lines[index][0] > indent:
+                    value, index = block(index, lines[index][0])
+                else:
+                    value = None
                 result[key.strip()] = value
         return result, index
 
@@ -99,10 +135,11 @@ def parse_document(markdown: str) -> tuple[dict[str, Any], str]:
     raw = text[4:end]
     try:
         metadata = json.loads(raw)
-        if not isinstance(metadata, dict): raise ValueError
+        if not isinstance(metadata, dict):
+            raise ValueError
     except (json.JSONDecodeError, ValueError):
         metadata = _fallback_frontmatter(raw)
-    body = text[end + 6:].strip()
+    body = text[end + 6 :].strip()
     return metadata, body
 
 
@@ -129,7 +166,8 @@ def write_current(doc: CampaignDocument, markdown: str) -> None:
             os.fsync(handle.fileno())
         os.replace(temp_name, path)
     finally:
-        if os.path.exists(temp_name): os.unlink(temp_name)
+        if os.path.exists(temp_name):
+            os.unlink(temp_name)
 
 
 def read_current(doc: CampaignDocument) -> str:
@@ -143,21 +181,39 @@ def read_current(doc: CampaignDocument) -> str:
 
 
 def metadata_for_item(item: ArchiveItem) -> dict[str, Any]:
-    metadata: dict[str, Any] = {"document_type": "archive_item", "id": str(item.id), "campaign_id": str(item.campaign_id), "kind": item.kind, "title": item.title, "status": item.status, "aliases": list(item.aliases.values_list("value", flat=True)), "tags": list(item.item_tags.select_related("tag").values_list("tag__name", flat=True))}
+    metadata: dict[str, Any] = {
+        "document_type": "archive_item",
+        "id": str(item.id),
+        "campaign_id": str(item.campaign_id),
+        "kind": item.kind,
+        "title": item.title,
+        "status": item.status,
+        "aliases": list(item.aliases.values_list("value", flat=True)),
+        "tags": list(item.item_tags.select_related("tag").values_list("tag__name", flat=True)),
+    }
     if hasattr(item, "entity_detail"):
         detail = item.entity_detail
         metadata["subject_type"] = detail.subject_type
         if detail.template_version:
-            metadata["template"] = {"id": str(detail.template_version.template_id), "version": detail.template_version.number}
+            metadata["template"] = {
+                "id": str(detail.template_version.template_id),
+                "version": detail.template_version.number,
+            }
         metadata["fields"] = {}
     if hasattr(item, "session_detail"):
         detail = item.session_detail
         if detail.template_version:
-            metadata["template"] = {"id": str(detail.template_version.template_id), "version": detail.template_version.number}
+            metadata["template"] = {
+                "id": str(detail.template_version.template_id),
+                "version": detail.template_version.number,
+            }
         metadata["fields"] = {}
     refs = list(item.outgoing_references.values("target_id", "label"))
     metadata["references"] = [{"target_id": str(row["target_id"]), "label": row["label"]} for row in refs]
-    metadata["relationships"] = [{"target_id": str(r.target_id), "kind": r.kind, "reciprocal_label": r.reciprocal_label, "notes": r.notes} for r in item.outgoing_relationships.all()]
+    metadata["relationships"] = [
+        {"target_id": str(r.target_id), "kind": r.kind, "reciprocal_label": r.reciprocal_label, "notes": r.notes}
+        for r in item.outgoing_relationships.all()
+    ]
     if item.kind == ArchiveItem.Kind.SESSION:
         metadata["session_links"] = [str(value) for value in item.session_links.values_list("item_id", flat=True)]
     return metadata
@@ -172,16 +228,22 @@ def project_item(item: ArchiveItem, metadata: dict[str, Any]) -> None:
         detail.subject_type = str(metadata.get("subject_type") or "person")
         template = metadata.get("template") or {}
         if template.get("id"):
-            detail.template_version = TemplateVersion.objects.filter(id=template["id"], template__campaign=item.campaign).first()
+            detail.template_version = TemplateVersion.objects.filter(
+                id=template["id"], template__campaign=item.campaign
+            ).first()
         detail.save()
     if hasattr(item, "session_detail"):
         detail = item.session_detail
         template = metadata.get("template") or {}
         if template.get("id"):
-            detail.template_version = TemplateVersion.objects.filter(id=template["id"], template__campaign=item.campaign).first()
+            detail.template_version = TemplateVersion.objects.filter(
+                id=template["id"], template__campaign=item.campaign
+            ).first()
         detail.save()
     item.aliases.all().delete()
-    Alias.objects.bulk_create([Alias(item=item, value=str(value).strip()) for value in metadata.get("aliases", []) if str(value).strip()])
+    Alias.objects.bulk_create(
+        [Alias(item=item, value=str(value).strip()) for value in metadata.get("aliases", []) if str(value).strip()]
+    )
     item.item_tags.all().delete()
     for name in dict.fromkeys(str(value).strip().lower() for value in metadata.get("tags", []) if str(value).strip()):
         tag, _ = Tag.objects.get_or_create(campaign=item.campaign, name=name)
@@ -189,45 +251,75 @@ def project_item(item: ArchiveItem, metadata: dict[str, Any]) -> None:
     item.outgoing_references.all().delete()
     for ref in metadata.get("references", []):
         target = ArchiveItem.objects.filter(id=ref.get("target_id"), campaign=item.campaign).first()
-        if target: Reference.objects.get_or_create(source=item, target=target, label=str(ref.get("label") or ""))
+        if target:
+            Reference.objects.get_or_create(source=item, target=target, label=str(ref.get("label") or ""))
     item.outgoing_relationships.all().delete()
     for rel in metadata.get("relationships", []):
         target = ArchiveItem.objects.filter(id=rel.get("target_id"), campaign=item.campaign).first()
-        if target: Relationship.objects.create(source=item, target=target, kind=str(rel.get("kind") or "related_to"), reciprocal_label=str(rel.get("reciprocal_label") or ""), notes=str(rel.get("notes") or ""))
+        if target:
+            Relationship.objects.create(
+                source=item,
+                target=target,
+                kind=str(rel.get("kind") or "related_to"),
+                reciprocal_label=str(rel.get("reciprocal_label") or ""),
+                notes=str(rel.get("notes") or ""),
+            )
     if item.kind == ArchiveItem.Kind.SESSION:
         item.session_links.all().delete()
         for target_id in metadata.get("session_links", []):
             target = ArchiveItem.objects.filter(id=target_id, campaign=item.campaign).first()
-            if target: SessionLink.objects.get_or_create(session=item, item=target)
+            if target:
+                SessionLink.objects.get_or_create(session=item, item=target)
 
 
 @transaction.atomic
 def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id: Any) -> None:
     required = {"document_type", "id", "campaign_id"}
     missing = sorted(required - metadata.keys())
-    if missing: raise DocumentError("Missing frontmatter keys: " + ", ".join(missing))
-    if metadata.get("document_type") != document_type: raise DocumentError("Document type does not match endpoint")
-    if str(metadata.get("campaign_id")) != str(campaign_id): raise DocumentError("Document belongs to another campaign")
-    try: uuid.UUID(str(metadata["id"]))
-    except (ValueError, TypeError, AttributeError) as exc: raise DocumentError("Frontmatter id must be a UUID") from exc
+    if missing:
+        raise DocumentError("Missing frontmatter keys: " + ", ".join(missing))
+    if metadata.get("document_type") != document_type:
+        raise DocumentError("Document type does not match endpoint")
+    if str(metadata.get("campaign_id")) != str(campaign_id):
+        raise DocumentError("Document belongs to another campaign")
+    try:
+        uuid.UUID(str(metadata["id"]))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise DocumentError("Frontmatter id must be a UUID") from exc
     if document_type == "archive_item":
-        if metadata.get("kind") not in {choice.value for choice in ArchiveItem.Kind}: raise DocumentError("Archive item kind is invalid")
-        if not str(metadata.get("title") or "").strip(): raise DocumentError("Archive item title is required")
+        if metadata.get("kind") not in {choice.value for choice in ArchiveItem.Kind}:
+            raise DocumentError("Archive item kind is invalid")
+        if not str(metadata.get("title") or "").strip():
+            raise DocumentError("Archive item title is required")
         for key in ("aliases", "tags", "references", "relationships"):
-            if key in metadata and not isinstance(metadata[key], list): raise DocumentError(f"{key} must be a list")
+            if key in metadata and not isinstance(metadata[key], list):
+                raise DocumentError(f"{key} must be a list")
         for key in ("references", "relationships"):
             for value in metadata.get(key, []):
                 if not isinstance(value, dict) or not value.get("target_id"):
                     raise DocumentError(f"{key} entries require target_id")
-                try: uuid.UUID(str(value["target_id"]))
-                except (ValueError, TypeError, AttributeError) as exc: raise DocumentError(f"{key} target_id must be a UUID") from exc
+                try:
+                    uuid.UUID(str(value["target_id"]))
+                except (ValueError, TypeError, AttributeError) as exc:
+                    raise DocumentError(f"{key} target_id must be a UUID") from exc
 
 
-def save_document(campaign, document_type: str, storage_key: str, markdown: str, user, reason: str = "", expected_version: int | None = None, document: CampaignDocument | None = None) -> CampaignDocument:
+def save_document(
+    campaign,
+    document_type: str,
+    storage_key: str,
+    markdown: str,
+    user,
+    reason: str = "",
+    expected_version: int | None = None,
+    document: CampaignDocument | None = None,
+) -> CampaignDocument:
     metadata, body = parse_document(markdown)
     validate_metadata(metadata, document_type, campaign.id)
     if document is None:
-        document = CampaignDocument.objects.create(campaign=campaign, document_type=document_type, storage_key=storage_key, current_version=0)
+        document = CampaignDocument.objects.create(
+            campaign=campaign, document_type=document_type, storage_key=storage_key, current_version=0
+        )
     else:
         document = CampaignDocument.objects.select_for_update().get(id=document.id)
     if expected_version is not None and document.current_version != expected_version:
@@ -235,8 +327,13 @@ def save_document(campaign, document_type: str, storage_key: str, markdown: str,
     number = document.current_version + 1
     normalized = serialize_document(metadata, clean_body(body))
     digest = content_hash(normalized)
-    CampaignDocumentVersion.objects.create(document=document, number=number, markdown=normalized, content_hash=digest, created_by=user, reason=reason)
-    document.current_version = number; document.content_hash = digest; document.search_text = normalized; document.save(update_fields=["current_version", "content_hash", "search_text", "updated_at"])
+    CampaignDocumentVersion.objects.create(
+        document=document, number=number, markdown=normalized, content_hash=digest, created_by=user, reason=reason
+    )
+    document.current_version = number
+    document.content_hash = digest
+    document.search_text = normalized
+    document.save(update_fields=["current_version", "content_hash", "search_text", "updated_at"])
     write_current(document, normalized)
     return document
 
@@ -248,26 +345,58 @@ def current_markdown_for_item(item: ArchiveItem) -> str:
 
 
 def ensure_item_document(item: ArchiveItem, user, reason: str = "Created") -> CampaignDocument:
-    if item.document_id: return item.document
+    if item.document_id:
+        return item.document
     metadata = metadata_for_item(item)
     markdown = serialize_document(metadata, getattr(item, "body", ""))
-    doc = save_document(item.campaign, "archive_item", f"campaigns/{item.campaign_id}/items/{item.id}.md", markdown, user, reason)
-    item.document = doc; item.save(update_fields=["document"])
+    doc = save_document(
+        item.campaign, "archive_item", f"campaigns/{item.campaign_id}/items/{item.id}.md", markdown, user, reason
+    )
+    item.document = doc
+    item.save(update_fields=["document"])
     return doc
 
 
 def item_document_output(item: ArchiveItem) -> dict[str, Any]:
     markdown = current_markdown_for_item(item)
     metadata, body = parse_document(markdown)
-    return {"id": item.id, "campaign_id": item.campaign_id, "kind": item.kind, "markdown": markdown, "html": markdown_html(body), "metadata": metadata, "title": metadata.get("title", item.title), "status": metadata.get("status", item.status), "version": item.document.current_version if item.document_id else item.version, "created_at": item.created_at.isoformat(), "updated_at": item.updated_at.isoformat(), "aliases": metadata.get("aliases", []), "tags": metadata.get("tags", []), "references": [{"id": r.id, "target_id": r.target_id, "label": r.label} for r in item.outgoing_references.all()], "backlinks": [{"id": r.id, "source_id": r.source_id, "label": r.label} for r in item.incoming_references.all()], "relationships": [{"id": r.id, "target_id": r.target_id, "kind": r.kind, "label": r.reciprocal_label, "notes": r.notes} for r in item.outgoing_relationships.all()], "incoming_relationships": [{"id": r.id, "source_id": r.source_id, "kind": r.kind, "label": r.reciprocal_label, "notes": r.notes} for r in item.incoming_relationships.all()]}
+    return {
+        "id": item.id,
+        "campaign_id": item.campaign_id,
+        "kind": item.kind,
+        "markdown": markdown,
+        "html": markdown_html(body),
+        "metadata": metadata,
+        "title": metadata.get("title", item.title),
+        "status": metadata.get("status", item.status),
+        "version": item.document.current_version if item.document_id else item.version,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+        "aliases": metadata.get("aliases", []),
+        "tags": metadata.get("tags", []),
+        "references": [
+            {"id": r.id, "target_id": r.target_id, "label": r.label} for r in item.outgoing_references.all()
+        ],
+        "backlinks": [{"id": r.id, "source_id": r.source_id, "label": r.label} for r in item.incoming_references.all()],
+        "relationships": [
+            {"id": r.id, "target_id": r.target_id, "kind": r.kind, "label": r.reciprocal_label, "notes": r.notes}
+            for r in item.outgoing_relationships.all()
+        ],
+        "incoming_relationships": [
+            {"id": r.id, "source_id": r.source_id, "kind": r.kind, "label": r.reciprocal_label, "notes": r.notes}
+            for r in item.incoming_relationships.all()
+        ],
+    }
 
 
 def markdown_html(value: str) -> str:
     import html
+
     blocks = []
     for block in clean_body(value).split("\n\n"):
         lines = block.strip().splitlines()
-        if not lines: continue
+        if not lines:
+            continue
         if all(line.lstrip().startswith("- ") for line in lines):
             blocks.append("<ul>" + "".join(f"<li>{html.escape(line.lstrip()[2:])}</li>" for line in lines) + "</ul>")
             continue

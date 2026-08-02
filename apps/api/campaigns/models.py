@@ -11,7 +11,9 @@ class Campaign(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="owned_campaigns")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    document = models.OneToOneField("CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="campaign_owner")
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="campaign_owner"
+    )
 
     class Meta:
         ordering = ["-updated_at", "id"]
@@ -52,7 +54,9 @@ class ArchiveItem(models.Model):
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="archive_items")
     kind = models.CharField(max_length=20, choices=Kind.choices)
     title = models.CharField(max_length=240)
-    document = models.OneToOneField("CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="archive_item")
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="archive_item"
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -82,7 +86,9 @@ class Template(models.Model):
 class TemplateVersion(models.Model):
     template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name="versions")
     number = models.PositiveIntegerField()
-    document = models.OneToOneField("CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="template_version_owner")
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="template_version_owner"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -194,7 +200,9 @@ class PublicationVersion(models.Model):
 class PublicationEntry(models.Model):
     version = models.ForeignKey(PublicationVersion, on_delete=models.CASCADE, related_name="entries")
     item = models.ForeignKey(ArchiveItem, on_delete=models.PROTECT)
-    document = models.OneToOneField("CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="publication_entry")
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="publication_entry"
+    )
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["version", "item"], name="unique_publication_entry")]

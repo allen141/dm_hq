@@ -22,7 +22,10 @@ class Command(BaseCommand):
                     repaired += 1
             except Exception as exc:  # report every document so deployment can fail loudly
                 failures.append(f"{document.id}: {exc}")
-        self.stdout.write(self.style.SUCCESS(f"Verified {CampaignDocument.objects.count()} documents; repaired {repaired}."))
+        self.stdout.write(
+            self.style.SUCCESS(f"Verified {CampaignDocument.objects.count()} documents; repaired {repaired}.")
+        )
         if failures:
-            for failure in failures: self.stderr.write(failure)
+            for failure in failures:
+                self.stderr.write(failure)
             raise SystemExit(1)

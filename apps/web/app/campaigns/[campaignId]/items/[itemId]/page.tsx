@@ -8,12 +8,14 @@ import HandoutList from "@/components/handout-list";
 
 const client = createApiClient();
 type Revision = { number: number; reason: string; created_at: string; markdown: string; content_hash: string };
-function frontmatter(markdown: string): Record<string, any> { const match = markdown.match(/^---\n([\s\S]*?)\n---(?:\n\n)?/); if (!match) return {}; try { return JSON.parse(match[1]); } catch { return {}; } }
-function withFrontmatter(markdown: string, metadata: Record<string, any>): string { const match = markdown.match(/^---\n([\s\S]*?)\n---(?:\n\n)?([\s\S]*)$/); return `---\n${JSON.stringify(metadata, null, 2)}\n---\n\n${match?.[2] ?? markdown}`; }
+type Frontmatter = Record<string, unknown>;
+function frontmatter(markdown: string): Frontmatter { const match = markdown.match(/^---\n([\s\S]*?)\n---(?:\n\n)?/); if (!match) return {}; try { return JSON.parse(match[1]) as Frontmatter; } catch { return {}; } }
+function withFrontmatter(markdown: string, metadata: Frontmatter): string { const match = markdown.match(/^---\n([\s\S]*?)\n---(?:\n\n)?([\s\S]*)$/); return `---\n${JSON.stringify(metadata, null, 2)}\n---\n\n${match?.[2] ?? markdown}`; }
 
 export default function ItemPage() {
   const params = useParams<{ campaignId: string; itemId: string }>(); const [item, setItem] = useState<ArchiveItem | null>(null); const [markdown, setMarkdown] = useState(""); const [mode, setMode] = useState<"form" | "source">("form"); const [revisions, setRevisions] = useState<Revision[]>([]); const [handouts, setHandouts] = useState<PublicationSummary[]>([]); const [targetId, setTargetId] = useState(""); const [relationshipKind, setRelationshipKind] = useState("connected_to"); const [shareUrl, setShareUrl] = useState(""); const [restoreFile, setRestoreFile] = useState<File | null>(null); const [error, setError] = useState(""); const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
   async function load() { try { const [current, history, publicationResult] = await Promise.all([client.item(params.itemId), client.revisions(params.itemId), client.publications(params.campaignId)]); setItem(current); setMarkdown(current.markdown); setRevisions(history.revisions); setHandouts(publicationResult.publications.filter((publication) => publication.item_ids.includes(params.itemId))); } catch (cause) { setError(cause instanceof Error ? cause.message : "Item could not be loaded."); } }
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [params.itemId]);
   const metadata = frontmatter(markdown); const updateMetadata = (key: string, value: unknown) => setMarkdown((current) => withFrontmatter(current, { ...frontmatter(current), [key]: value }));
   async function save(event: FormEvent) { event.preventDefault(); if (!item) return; setBusy(true); setError(""); try { const updated = await client.updateItem(item.id, { version: item.version, markdown }); setItem(updated); setMarkdown(updated.markdown); setMessage("Saved as a new Markdown revision."); setRevisions((await client.revisions(item.id)).revisions); } catch (cause) { setError(cause instanceof Error ? cause.message : "Save failed."); } finally { setBusy(false); } }
