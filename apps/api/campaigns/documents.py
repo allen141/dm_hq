@@ -458,7 +458,8 @@ def prepare_archive_item_markdown(item: ArchiveItem, markdown: str) -> str:
         raise DocumentError("Frontmatter id does not match archive item")
     if item.kind == "entity":
         metadata.setdefault(
-            "subject_type", getattr(getattr(item, "entity_detail", None), "subject_type", "person")
+            "subject_type",
+            getattr(getattr(item, "entity_detail", None), "subject_type", "person"),
         )
     validate_metadata(metadata, "archive_item", item.campaign_id)
     if metadata.get("kind") != item.kind:
