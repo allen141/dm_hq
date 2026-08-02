@@ -19,7 +19,7 @@ Resolve these through user research, prototypes, or architecture decisions. When
 
 - Do players need accounts?
 - Can players contribute notes, or only read published material?
-- What preview flow gives DMs confidence against spoilers?
+- What richer preview flow (field selection, redaction, and player feedback) should follow the Release 1 title/body-only safe preview?
 - What recovery, audit, and ownership guarantees are expected?
 
 [ADR 0002](../decisions/0002-archive-application-architecture.md) establishes a single campaign owner and unlisted publication links for Release 1. Player accounts, co-DM roles, and contribution workflows remain open for later releases.
@@ -29,7 +29,7 @@ Resolve these through user research, prototypes, or architecture decisions. When
 - Is reliable offline or local-network use a requirement?
 - What scale of content and concurrent users should shape design?
 - Is built-in search sufficient initially, or is a dedicated index justified?
-- How should Markdown, attachments, structured fields, and links be exported?
+- Which attachments and richer publication field allowlists should be added after the Markdown-only Release 1 archive format?
 
 [ADR 0002](../decisions/0002-archive-application-architecture.md) establishes an online-first application using PostgreSQL search and Docker Compose initially. [ADR 0003](../decisions/0003-single-node-container-delivery.md) selects the first deployment target. Representative campaign data is still needed to validate search and storage behavior.
 

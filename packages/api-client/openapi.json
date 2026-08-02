@@ -68,218 +68,32 @@
       },
       "ItemCreate": {
         "properties": {
-          "aliases": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Aliases",
-            "type": "array"
-          },
-          "body": {
-            "default": "",
-            "title": "Body",
-            "type": "string"
-          },
-          "fields": {
-            "additionalProperties": true,
-            "default": {},
-            "title": "Fields",
-            "type": "object"
-          },
           "kind": {
             "title": "Kind",
             "type": "string"
           },
-          "outcome_text": {
-            "default": "",
-            "title": "Outcome Text",
-            "type": "string"
-          },
-          "scheduled_for": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Scheduled For"
-          },
-          "session_status": {
-            "default": "planned",
-            "title": "Session Status",
-            "type": "string"
-          },
-          "status": {
-            "default": "draft",
-            "title": "Status",
-            "type": "string"
-          },
-          "subject_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Type"
-          },
-          "tags": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Tags",
-            "type": "array"
-          },
-          "template_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Template Id"
-          },
-          "title": {
-            "title": "Title",
+          "markdown": {
+            "title": "Markdown",
             "type": "string"
           }
         },
         "required": [
           "kind",
-          "title"
+          "markdown"
         ],
         "title": "ItemCreate",
         "type": "object"
       },
       "ItemUpdate": {
         "properties": {
-          "aliases": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Aliases"
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
           },
-          "body": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Body"
-          },
-          "fields": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fields"
-          },
-          "outcome_text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Outcome Text"
-          },
-          "scheduled_for": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Scheduled For"
-          },
-          "session_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Session Status"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "subject_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Type"
-          },
-          "tags": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tags"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
+          "reason": {
+            "default": "Updated",
+            "title": "Reason",
+            "type": "string"
           },
           "version": {
             "title": "Version",
@@ -287,7 +101,8 @@
           }
         },
         "required": [
-          "version"
+          "version",
+          "markdown"
         ],
         "title": "ItemUpdate",
         "type": "object"
@@ -324,42 +139,19 @@
       },
       "PublicationEntryPayload": {
         "properties": {
-          "body": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Body"
-          },
-          "fields": {
-            "additionalProperties": true,
-            "default": {},
-            "title": "Fields",
-            "type": "object"
-          },
           "item_id": {
             "format": "uuid",
             "title": "Item Id",
             "type": "string"
           },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
           }
         },
         "required": [
-          "item_id"
+          "item_id",
+          "markdown"
         ],
         "title": "PublicationEntryPayload",
         "type": "object"
@@ -486,7 +278,7 @@
       "VersionPayload": {
         "properties": {
           "reason": {
-            "default": "",
+            "default": "Archived",
             "title": "Reason",
             "type": "string"
           },
@@ -499,6 +291,35 @@
           "version"
         ],
         "title": "VersionPayload",
+        "type": "object"
+      },
+      "WorkspaceApplyPayload": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "reason": {
+            "default": "Workspace update",
+            "title": "Reason",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "version",
+          "markdown"
+        ],
+        "title": "WorkspaceApplyPayload",
         "type": "object"
       }
     },
@@ -513,7 +334,7 @@
   "info": {
     "description": "",
     "title": "DM HQ API",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -767,6 +588,32 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -953,6 +800,32 @@
               ],
               "title": "Alias"
             }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -1094,6 +967,110 @@
           }
         ],
         "summary": "Template Create"
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/workspace/apply": {
+      "post": {
+        "operationId": "campaigns_api_workspace_apply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceApplyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Workspace Apply"
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/workspace/changes": {
+      "get": {
+        "operationId": "campaigns_api_workspace_changes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Workspace Changes"
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/workspace/snapshot": {
+      "get": {
+        "operationId": "campaigns_api_workspace_snapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Workspace Snapshot"
       }
     },
     "/api/v1/exports/restore": {
@@ -1598,44 +1575,6 @@
           }
         ],
         "summary": "Publication Revoke"
-      }
-    },
-    "/api/v1/publications/{publication_id}/versions": {
-      "post": {
-        "operationId": "campaigns_api_publication_version",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "publication_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Publication Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PublicationPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "SessionAuth": []
-          }
-        ],
-        "summary": "Publication Version"
       }
     },
     "/api/v1/templates/{template_id}/versions": {

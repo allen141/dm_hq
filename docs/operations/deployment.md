@@ -154,3 +154,8 @@ The production backup container creates a plain SQL dump every 24 hours and reta
 To validate a backup, restore it into a temporary database or a stopped, empty recovery environment. Never test a restore over the live production database. Record the selected backup, validation result, and application version.
 
 The first Phase 1 operational review must include one successful restore exercise before production contains valuable campaign data.
+
+
+## Campaign-document volume and reconciliation
+
+The API mounts `dm_hq_documents` at `/var/lib/dm-hq/documents` (`DM_HQ_DOCUMENT_ROOT`). Back up this volume with PostgreSQL backups. After deployment or restore, run `python manage.py reconcile_documents`; it verifies current-file hashes against SQL Markdown versions and atomically repairs missing or stale files.

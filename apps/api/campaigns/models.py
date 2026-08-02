@@ -11,6 +11,9 @@ class Campaign(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="owned_campaigns")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="campaign_owner"
+    )
 
     class Meta:
         ordering = ["-updated_at", "id"]
@@ -51,7 +54,9 @@ class ArchiveItem(models.Model):
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="archive_items")
     kind = models.CharField(max_length=20, choices=Kind.choices)
     title = models.CharField(max_length=240)
-    body = models.TextField(blank=True)
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="archive_item"
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -81,7 +86,9 @@ class Template(models.Model):
 class TemplateVersion(models.Model):
     template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name="versions")
     number = models.PositiveIntegerField()
-    fields = models.JSONField(default=list)
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="template_version_owner"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -93,17 +100,11 @@ class EntityDetail(models.Model):
     item = models.OneToOneField(ArchiveItem, on_delete=models.CASCADE, related_name="entity_detail")
     subject_type = models.CharField(max_length=20, default="person")
     template_version = models.ForeignKey(TemplateVersion, null=True, blank=True, on_delete=models.PROTECT)
-    field_values = models.JSONField(default=dict)
 
 
 class SessionDetail(models.Model):
     item = models.OneToOneField(ArchiveItem, on_delete=models.CASCADE, related_name="session_detail")
     template_version = models.ForeignKey(TemplateVersion, null=True, blank=True, on_delete=models.PROTECT)
-    field_values = models.JSONField(default=dict)
-    # These columns remain as compatibility projections for the initial API/export shape.
-    scheduled_for = models.DateField(null=True, blank=True)
-    session_status = models.CharField(max_length=20, default="planned")
-    outcome_text = models.TextField(blank=True)
 
 
 class Alias(models.Model):
@@ -159,19 +160,6 @@ class SessionLink(models.Model):
         constraints = [models.UniqueConstraint(fields=["session", "item"], name="unique_session_item_link")]
 
 
-class ItemRevision(models.Model):
-    item = models.ForeignKey(ArchiveItem, on_delete=models.CASCADE, related_name="revisions")
-    number = models.PositiveIntegerField()
-    snapshot = models.JSONField()
-    reason = models.CharField(max_length=240, blank=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=["item", "number"], name="unique_item_revision")]
-        ordering = ["-number"]
-
-
 class Publication(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="publications")
@@ -198,9 +186,44 @@ class PublicationVersion(models.Model):
 class PublicationEntry(models.Model):
     version = models.ForeignKey(PublicationVersion, on_delete=models.CASCADE, related_name="entries")
     item = models.ForeignKey(ArchiveItem, on_delete=models.PROTECT)
-    safe_title = models.CharField(max_length=240)
-    safe_body = models.TextField(blank=True)
-    safe_fields = models.JSONField(default=dict)
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="publication_entry"
+    )
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["version", "item"], name="unique_publication_entry")]
+
+
+class CampaignDocument(models.Model):
+    class DocumentType(models.TextChoices):
+        CAMPAIGN = "campaign", "Campaign"
+        ARCHIVE_ITEM = "archive_item", "Archive item"
+        TEMPLATE = "template", "Template"
+        PUBLICATION_ENTRY = "publication_entry", "Publication entry"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="documents")
+    document_type = models.CharField(max_length=32, choices=DocumentType.choices)
+    storage_key = models.CharField(max_length=512, unique=True)
+    current_version = models.PositiveIntegerField(default=1)
+    content_hash = models.CharField(max_length=64, default="")
+    search_text = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["campaign", "document_type"])]
+
+
+class CampaignDocumentVersion(models.Model):
+    document = models.ForeignKey(CampaignDocument, on_delete=models.CASCADE, related_name="versions")
+    number = models.PositiveIntegerField()
+    markdown = models.TextField()
+    content_hash = models.CharField(max_length=64)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    reason = models.CharField(max_length=240, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["document", "number"], name="unique_document_version")]
+        ordering = ["-number"]

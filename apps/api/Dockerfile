@@ -22,7 +22,8 @@ COPY manage.py ./
 RUN uv sync --frozen --no-dev --no-editable \
     && addgroup --system app \
     && adduser --system --ingroup app app \
-    && chown -R app:app /app
+    && mkdir -p /var/lib/dm-hq/documents \
+    && chown -R app:app /app /var/lib/dm-hq
 
 USER app
 EXPOSE 8000

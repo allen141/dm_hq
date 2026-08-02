@@ -3,119 +3,33 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { createApiClient, type ArchiveItem, type PublicationSummary } from "@dm-hq/api-client";
-import TemplateFields from "@/components/template-fields";
+import { createApiClient, type ArchiveItem, type PublicationSummary, type Template } from "@dm-hq/api-client";
 import HandoutList from "@/components/handout-list";
+import TemplateFields from "@/components/template-fields";
 
 const client = createApiClient();
-type Revision = { number: number; reason: string; created_at: string; snapshot: Record<string, unknown> };
-const SUBJECT_TYPES = ["person", "place", "faction", "thing", "event", "lore"] as const;
-
-function displaySubjectType(subjectType: string): string {
-  return subjectType === "person" ? "Person / NPC" : subjectType.charAt(0).toUpperCase() + subjectType.slice(1);
-}
+type Revision = { number: number; reason: string; created_at: string; markdown: string; content_hash: string };
+type Frontmatter = Record<string, unknown>;
+type RevisionComparison = { revision: number; against: number | null; markdown: string; previous_markdown: string | null };
+function frontmatter(markdown: string): Frontmatter { const match = markdown.match(/^---\n([\s\S]*?)\n---(?:\n\n)?/); if (!match) return {}; try { return JSON.parse(match[1]) as Frontmatter; } catch { return {}; } }
+function withFrontmatter(markdown: string, metadata: Frontmatter): string { const match = markdown.match(/^---\n([\s\S]*?)\n---(?:\n\n)?([\s\S]*)$/); return `---\n${JSON.stringify(metadata, null, 2)}\n---\n\n${match?.[2] ?? markdown}`; }
+function bodyFromMarkdown(markdown: string): string { return markdown.match(/^---\n[\s\S]*?\n---(?:\n\n)?([\s\S]*)$/)?.[1]?.trim() ?? ""; }
+function safePublicationMarkdown(metadata: Frontmatter, body: string): string { return `---\n${JSON.stringify({ document_type: "publication_entry", title: String(metadata.title ?? "Untitled") }, null, 2)}\n---\n\n${body.trim()}\n`; }
 
 export default function ItemPage() {
-  const params = useParams<{ campaignId: string; itemId: string }>();
-  const [item, setItem] = useState<ArchiveItem | null>(null);
-  const [revisions, setRevisions] = useState<Revision[]>([]);
-  const [handouts, setHandouts] = useState<PublicationSummary[]>([]);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [status, setStatus] = useState("draft");
-  const [subjectType, setSubjectType] = useState("person");
-  const [fields, setFields] = useState<Record<string, unknown>>({});
-  const [aliases, setAliases] = useState("");
-  const [tags, setTags] = useState("");
-  const [targetId, setTargetId] = useState("");
-  const [relationshipKind, setRelationshipKind] = useState("connected_to");
-  const [shareUrl, setShareUrl] = useState("");
-  const [includeBody, setIncludeBody] = useState(true);
-  const [includeFields, setIncludeFields] = useState(false);
-  const [restoreFile, setRestoreFile] = useState<File | null>(null);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function load() {
-    try {
-      const [current, history, publicationResult] = await Promise.all([
-        client.item(params.itemId),
-        client.revisions(params.itemId),
-        client.publications(params.campaignId),
-      ]);
-      setItem(current);
-      setRevisions(history.revisions);
-      setHandouts(publicationResult.publications.filter((publication) => publication.item_ids.includes(params.itemId)));
-      setTitle(current.title);
-      setBody(current.body);
-      setStatus(current.status);
-      setSubjectType(current.entity?.subject_type ?? "person");
-      setFields(current.entity?.fields ?? current.session?.fields ?? {});
-      setAliases(current.aliases.join(", "));
-      setTags(current.tags.join(", "));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Item could not be loaded.");
-    }
-  }
-
-  // Loading remote item state is intentionally isolated in an effect.
+  const params = useParams<{ campaignId: string; itemId: string }>(); const [item, setItem] = useState<ArchiveItem | null>(null); const [templates, setTemplates] = useState<Template[]>([]); const [markdown, setMarkdown] = useState(""); const [mode, setMode] = useState<"form" | "source">("form"); const [revisions, setRevisions] = useState<Revision[]>([]); const [handouts, setHandouts] = useState<PublicationSummary[]>([]); const [targetId, setTargetId] = useState(""); const [relationshipKind, setRelationshipKind] = useState("connected_to"); const [shareUrl, setShareUrl] = useState(""); const [comparison, setComparison] = useState<RevisionComparison | null>(null); const [restoreFile, setRestoreFile] = useState<File | null>(null); const [error, setError] = useState(""); const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
+  async function load() { try { const [current, history, publicationResult, templateResult] = await Promise.all([client.item(params.itemId), client.revisions(params.itemId), client.publications(params.campaignId), client.templates(params.campaignId)]); setItem(current); setMarkdown(current.markdown); setRevisions(history.revisions); setHandouts(publicationResult.publications.filter((publication) => publication.item_ids.includes(params.itemId))); setTemplates(templateResult.templates); } catch (cause) { setError(cause instanceof Error ? cause.message : "Item could not be loaded."); } }
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [params.itemId]);
-
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (!item) return;
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      const updated = await client.updateItem(item.id, {
-        version: item.version,
-        title,
-        body,
-        status,
-        subject_type: item.kind === "entity" ? subjectType : undefined,
-        fields: item.kind === "entity" || item.kind === "session" ? fields : undefined,
-        aliases: aliases.split(","),
-        tags: tags.split(","),
-      });
-      setItem(updated);
-      setMessage("Saved as a new revision.");
-      await load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Save failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function updateField(key: string, value: unknown) {
-    setFields((current) => ({ ...current, [key]: value }));
-  }
-
-
-  async function promote() { if (!item) return; try { const updated = await client.promote(item.id, { version: item.version, subject_type: "person" }); setItem(updated); setMessage("Promoted to a Person / NPC."); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Promotion failed."); } }
-  async function connect(event: FormEvent) { event.preventDefault(); if (!item || !targetId) return; try { await client.relationship(item.id, { target_id: targetId, kind: relationshipKind }); setMessage("Relationship added."); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Relationship failed."); } }
-  async function linkSession() { if (!item || !targetId) return; try { await client.sessionLink(item.id, targetId); setMessage("Item linked to session."); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Session link failed."); } }
-  async function publish() { if (!item) return; try { const publication = await client.createPublication(params.campaignId, [{ item_id: item.id, title: item.title, body: includeBody ? item.body : "", fields: includeFields ? item.entity?.fields ?? item.session?.fields ?? {} : {} }]); setShareUrl(`${window.location.origin}${publication.url ?? `/p/${publication.token ?? ""}`}`); setHandouts((current) => [{ id: publication.id, status: publication.status, version: publication.version, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), url: publication.url, item_ids: [item.id] }, ...current]); setMessage("Player handout published."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Publication failed."); } }
-  async function restoreRevision(number: number) { if (!item) return; try { const restored = await client.restore(item.id, { version: item.version, revision: number }); setItem(restored); setMessage(`Revision ${number} restored as a new revision.`); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Restore failed."); } }
-  async function exportCampaign() { try { const blob = await client.exportCampaign(params.campaignId); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "campaign-archive.zip"; link.click(); URL.revokeObjectURL(url); setMessage("Campaign export downloaded."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Export failed."); } }
+  const metadata = frontmatter(markdown); const templateRef = typeof metadata.template === "object" && metadata.template !== null ? metadata.template as { id?: string; version?: number } : {}; const selectedTemplate = templates.find((template) => template.id === templateRef.id); const selectedVersion = selectedTemplate?.versions.find((version) => version.number === templateRef.version) ?? selectedTemplate?.versions.at(-1); const fieldValues = typeof metadata.fields === "object" && metadata.fields !== null && !Array.isArray(metadata.fields) ? metadata.fields as Record<string, unknown> : {}; const updateMetadata = (key: string, value: unknown) => setMarkdown((current) => withFrontmatter(current, { ...frontmatter(current), [key]: value })); const updateField = (key: string, value: unknown) => setMarkdown((current) => withFrontmatter(current, { ...frontmatter(current), fields: { ...fieldValues, [key]: value } }));
+  async function save(event: FormEvent) { event.preventDefault(); if (!item) return; setBusy(true); setError(""); try { const updated = await client.updateItem(item.id, { version: item.version, markdown }); setItem(updated); setMarkdown(updated.markdown); setMessage("Saved as a new revision."); setRevisions((await client.revisions(item.id)).revisions); } catch (cause) { setError(cause instanceof Error ? cause.message : "Save failed."); } finally { setBusy(false); } }
+  async function promote() { if (!item) return; try { const updated = await client.promote(item.id, { version: item.version, subject_type: "person" }); setItem(updated); setMarkdown(updated.markdown); setMessage("Promoted to a Person / NPC."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Promotion failed."); } }
+  async function connect(event: FormEvent) { event.preventDefault(); if (!item || !targetId) return; try { await client.relationship(item.id, { target_id: targetId, kind: relationshipKind }); setMessage("Relationship added to Markdown."); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Relationship failed."); } }
+  async function publish() { if (!item) return; try { const publication = await client.createPublication(params.campaignId, [{ item_id: item.id, markdown: safePublicationMarkdown(metadata, bodyFromMarkdown(markdown)) }]); setShareUrl(`${window.location.origin}${publication.url ?? `/p/${publication.token ?? ""}`}`); setHandouts((current) => [{ id: publication.id, status: publication.status, version: publication.version, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), url: publication.url, item_ids: [item.id] }, ...current]); setMessage("Player Markdown snapshot published."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Publication failed."); } }
+  async function compareRevision(number: number) { if (!item) return; try { setComparison(await client.revisionCompare(item.id, number, item.version)); } catch (cause) { setError(cause instanceof Error ? cause.message : "Comparison failed."); } }
+  async function restoreRevision(number: number) { if (!item) return; try { const restored = await client.restore(item.id, { version: item.version, revision: number }); setItem(restored); setMarkdown(restored.markdown); setMessage(`Revision ${number} restored as a new revision.`); setRevisions((await client.revisions(item.id)).revisions); } catch (cause) { setError(cause instanceof Error ? cause.message : "Restore failed."); } }
+  async function exportCampaign() { try { const blob = await client.exportCampaign(params.campaignId); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "campaign-archive.zip"; link.click(); URL.revokeObjectURL(url); } catch (cause) { setError(cause instanceof Error ? cause.message : "Export failed."); } }
   async function restoreCampaign() { if (!restoreFile) return; try { const campaign = await client.restoreCampaign(restoreFile); setMessage(`Restored campaign: ${campaign.name}`); } catch (cause) { setError(cause instanceof Error ? cause.message : "Campaign restore failed."); } }
-
   if (!item) return <main className="shell"><p className="empty">Loading Archive item…</p>{error && <p className="error">{error}</p>}</main>;
-  const templateFields = item.entity?.template_fields ?? item.session?.template_fields ?? [];
-  return <main className="shell">
-    <header className="masthead"><div><Link className="back-link" href={`/campaigns/${params.campaignId}`}>← Campaign</Link><div className="eyebrow">{item.kind} · {item.status}{item.kind === "entity" ? ` · ${displaySubjectType(subjectType)}` : ""}</div><h1>{item.title}</h1></div><p className="lede">{item.kind === "session" ? "Capture what happened and connect the session to the campaign records it changed." : item.kind === "entity" ? "Give this campaign record the structure it needs, while keeping private source content separate from anything you publish." : "This is a durable campaign record. Private source content stays separate from anything you publish."}</p></header>
-    <div className="workspace archive-workspace"><section className="panel"><form onSubmit={save}>
-      <label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-      <label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="draft">Draft</option><option value="canon">Canon</option><option value="archived">Archived</option></select></label>
-      {item.kind === "entity" && <label>Subject type<select value={subjectType} onChange={(event) => setSubjectType(event.target.value)}>{SUBJECT_TYPES.map((type) => <option key={type} value={type}>{displaySubjectType(type)}</option>)}</select></label>}
-      <label>Aliases<input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="Mara, The Ferrymaster" /></label>
-      <label>Tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="harbor, faction" /></label>
-      {(item.kind === "entity" || item.kind === "session") && <fieldset className="template-fields"><legend>{item.kind === "session" ? "Session details" : `${displaySubjectType(subjectType)} details`}</legend><p className="meta">Structured template fields are the primary entry surface. Additional Markdown below is optional extension prose.</p>{templateFields.length > 0 ? <TemplateFields fields={templateFields} values={fields} onChange={updateField} /> : <p className="empty">No template fields are assigned to this record.</p>}</fieldset>}
-      <label>{item.kind === "note" ? "Markdown note" : "Additional Markdown (optional)"}<textarea value={body} onChange={(event) => setBody(event.target.value)} rows={12} /></label>
-            <button disabled={busy}>{busy ? "Saving…" : "Save revision"}</button>
-    </form><div className="preview"><div className="eyebrow">Sanitized preview</div><div dangerouslySetInnerHTML={{ __html: item.html }} /></div></section>
-    <aside className="panel"><div className="eyebrow">Next actions</div>{(item.kind === "entity" || item.kind === "session") && <div className="publication-options"><div className="eyebrow">Player-safe selection</div><label className="checkbox-label"><input type="checkbox" checked={includeBody} onChange={(event) => setIncludeBody(event.target.checked)} /> Include prose</label><label className="checkbox-label"><input type="checkbox" checked={includeFields} onChange={(event) => setIncludeFields(event.target.checked)} /> Include template fields</label></div>}<div className="action-stack">{item.kind === "note" && <button className="secondary" onClick={promote}>Promote to Person / NPC</button>}<button className="secondary" onClick={publish}>Publish player snapshot</button><button className="secondary" onClick={exportCampaign}>Export campaign</button></div>{shareUrl && <p className="success">Player link: <a href={shareUrl}>Open player handout</a></p>}{handouts.length > 0 && <HandoutList publications={handouts} title="Handouts for this item" getTitle={() => item.title} />}<form onSubmit={connect} className="connect-form"><div className="eyebrow">Connect records</div><label>Target item UUID<input value={targetId} onChange={(event) => setTargetId(event.target.value)} placeholder="Paste another item ID" /></label><label>Relationship kind<input value={relationshipKind} onChange={(event) => setRelationshipKind(event.target.value)} /></label><button className="secondary">Add relationship</button>{item.kind === "session" && <button type="button" className="secondary" onClick={() => void linkSession()}>Link target to session</button>}</form>{revisions.length > 1 && <div className="revision-list"><div className="eyebrow">Revision history</div>{revisions.map((revision) => <div className="revision-row" key={revision.number}><span className="meta">v{revision.number} · {revision.reason || "Saved"}</span>{revision.number !== item.version && <button type="button" className="secondary" onClick={() => void restoreRevision(revision.number)}>Restore</button>}</div>)}</div>}<div className="connect-form"><div className="eyebrow">Restore campaign export</div><input type="file" accept=".zip,application/zip" onChange={(event) => setRestoreFile(event.target.files?.[0] ?? null)} /><button type="button" className="secondary" disabled={!restoreFile} onClick={() => void restoreCampaign()}>Restore as new campaign</button></div>{item.relationships.length > 0 && <div><div className="eyebrow">Relationships</div>{item.relationships.map((relationship) => <p className="meta" key={relationship.id}>{relationship.kind} → {relationship.target_id}</p>)}</div>}{message && <p className="success" role="status">{message}</p>}{error && <p className="error" role="alert">{error}</p>}</aside></div></main>;
+  return <main className="shell"><header className="masthead"><div><Link className="back-link" href={`/campaigns/${params.campaignId}`}>← Campaign</Link><div className="eyebrow">{item.kind} · {String(metadata.status ?? item.status)}</div><h1>{String(metadata.title ?? item.title)}</h1></div><p className="lede">One document, two views: typed frontmatter controls for quick edits and the complete source Markdown.</p></header><div className="workspace archive-workspace"><section className="panel"><div className="selection-bar"><button className={mode === "form" ? "" : "secondary"} type="button" onClick={() => setMode("form")}>Form view</button><button className={mode === "source" ? "" : "secondary"} type="button" onClick={() => setMode("source")}>Source Markdown</button></div><form onSubmit={save}>{mode === "form" ? <><label>Title<input value={String(metadata.title ?? "")} onChange={(event) => updateMetadata("title", event.target.value)} /></label><label>Status<select value={String(metadata.status ?? "draft")} onChange={(event) => updateMetadata("status", event.target.value)}><option value="draft">Draft</option><option value="canon">Canon</option><option value="archived">Archived</option></select></label><label>Aliases<input value={Array.isArray(metadata.aliases) ? metadata.aliases.join(", ") : ""} onChange={(event) => updateMetadata("aliases", event.target.value.split(",").map((value) => value.trim()).filter(Boolean))} /></label>{selectedVersion && <TemplateFields fields={selectedVersion.fields} values={fieldValues} onChange={updateField} />}<label>Tags<input value={Array.isArray(metadata.tags) ? metadata.tags.join(", ") : ""} onChange={(event) => updateMetadata("tags", event.target.value.split(",").map((value) => value.trim()).filter(Boolean))} /></label><label>Markdown body<textarea value={markdown.replace(/^---[\s\S]*?---\n\n?/, "")} onChange={(event) => setMarkdown(withFrontmatter(markdown, metadata) .replace(/([\s\S]*?---\n\n?)[\s\S]*$/, `$1${event.target.value}`))} rows={14} /></label></> : <label>Complete canonical Markdown<textarea value={markdown} onChange={(event) => setMarkdown(event.target.value)} rows={28} /></label>}<button disabled={busy}>{busy ? "Saving…" : "Save Markdown revision"}</button></form><div className="preview"><div className="eyebrow">Sanitized preview</div><div dangerouslySetInnerHTML={{ __html: item.html }} /></div></section><aside className="panel"><div className="eyebrow">Next actions</div><div className="action-stack">{item.kind === "note" && <button className="secondary" onClick={promote}>Promote to Person / NPC</button>}<button className="secondary" onClick={publish}>Publish Markdown snapshot</button><button className="secondary" onClick={exportCampaign}>Export campaign</button><div className="preview"><div className="eyebrow">Player-safe preview</div><strong>{String(metadata.title ?? item.title)}</strong><p>{bodyFromMarkdown(markdown) || "No public prose yet."}</p><span className="meta">Only the title and Markdown body are published.</span></div></div>{shareUrl && <p className="success">Player link: <a href={shareUrl}>Open player handout</a></p>}{handouts.length > 0 && <HandoutList publications={handouts} title="Handouts for this item" getTitle={() => item.title} />}{(item.backlinks.length > 0 || item.incoming_relationships.length > 0) && <div className="revision-list"><div className="eyebrow">Backlinks and relationships</div>{item.backlinks.map((link) => <Link className="meta" key={`backlink-${link.id}`} href={`/campaigns/${params.campaignId}/items/${link.source_id}`}>Referenced by {link.source_id}</Link>)}{item.incoming_relationships.map((link) => <Link className="meta" key={`incoming-${link.id}`} href={`/campaigns/${params.campaignId}/items/${link.source_id}`}>Related from {link.source_id}</Link>)}</div>}<form onSubmit={connect} className="connect-form"><div className="eyebrow">Connect records</div><label>Target item UUID<input value={targetId} onChange={(event) => setTargetId(event.target.value)} /></label><label>Relationship kind<input value={relationshipKind} onChange={(event) => setRelationshipKind(event.target.value)} /></label><button className="secondary">Add relationship</button></form>{item.kind === "session" && <form onSubmit={(event) => { event.preventDefault(); if (!targetId) return; void client.sessionLink(item.id, targetId).then(() => { setMessage("Session link added to Markdown."); void load(); }).catch((cause) => setError(cause instanceof Error ? cause.message : "Session link failed.")); }} className="connect-form"><div className="eyebrow">Link session item</div><label>Archive item UUID<input value={targetId} onChange={(event) => setTargetId(event.target.value)} /></label><button className="secondary">Add session link</button></form>}{revisions.length > 1 && <div className="revision-list"><div className="eyebrow">Markdown revision history</div>{revisions.map((revision) => <div className="revision-row" key={revision.number}><span className="meta">v{revision.number} · {revision.reason || "Saved"}</span><span>{revision.number !== item.version && <><button type="button" className="secondary" onClick={() => void compareRevision(revision.number)}>Compare</button><button type="button" className="secondary" onClick={() => void restoreRevision(revision.number)}>Restore</button></>}</span></div>)}</div>}{comparison && <div className="preview"><div className="eyebrow">Revision comparison · v{comparison.revision} vs v{comparison.against}</div><pre>{comparison.markdown}</pre><div className="eyebrow">Current version</div><pre>{comparison.previous_markdown}</pre></div>}<div className="connect-form"><div className="eyebrow">Restore campaign export</div><input type="file" accept=".zip,application/zip" onChange={(event) => setRestoreFile(event.target.files?.[0] ?? null)} /><button type="button" className="secondary" disabled={!restoreFile} onClick={() => void restoreCampaign()}>Restore as new campaign</button></div>{message && <p className="success" role="status">{message}</p>}{error && <p className="error" role="alert">{error}</p>}</aside></div></main>;
 }

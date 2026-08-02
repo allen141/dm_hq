@@ -12,7 +12,7 @@ The [Archive implementation plan](archive-implementation-plan.md) translates Rel
 - Player publications remain separate from DM-private source content.
 - Visualizations derive from canonical Archive data rather than creating parallel records.
 - Revision history, fictional chronology, planning state, and knowledge state remain distinct.
-- Export must evolve with templates and structured fields.
+- Export must preserve canonical Markdown documents and their derived indexes.
 
 ## Release 1 — Archive foundation
 
@@ -34,7 +34,7 @@ Release 1 proves that a DM can capture, retrieve, use, revise, share, and recove
 
 - Campaign-local templates.
 - Flat custom fields.
-- Template fields are the primary DM entry interface for structured records; optional Markdown extends a specific instantiation without duplicating fields.
+- Template fields are typed editing controls over each record's Markdown frontmatter; the complete Markdown document remains canonical.
 - Required and optional fields, default values, and basic validation.
 - Starter templates for common campaign subjects.
 - A Person/NPC template with optional core 2014 5e reference fields, without implementing a character builder or rules compendium.
@@ -52,7 +52,7 @@ Release 1 proves that a DM can capture, retrieve, use, revise, share, and recove
 
 - Session records that link relevant Archive entities and notes.
 - A Session template for structured planning, status, and outcome data.
-- Optional Markdown extension prose for details that do not fit the Session template.
+- Markdown body prose for details that do not fit the Session template; it is part of the same canonical document.
 - Promotion of an improvised detail or outcome into durable campaign knowledge.
 
 **Safety and recovery**
@@ -200,3 +200,8 @@ Additional rulesets must not be scheduled merely because the data model can repr
 - Which 2014 5e sources may be imported, stored, indexed, or redistributed?
 - What campaign size and usage patterns justify advanced indexing or visualization?
 - Which character providers are stable, permitted, and valuable enough to support?
+
+
+## Markdown-canonical replacement
+
+The Archive implementation uses ADR 0005: one frontmatter-plus-body Markdown document per DM-authored record, durable current files, complete SQL Markdown versions, rebuildable projections, atomic writes, reconciliation, Markdown export/restore, and authenticated local-agent workspace snapshot/changes/apply endpoints. The replacement migration converts existing authored data and removes legacy JSON content fields and API shapes.
