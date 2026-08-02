@@ -41,9 +41,13 @@ campaigns/{campaign_id}/templates/{template_id}/v{version}.md
 campaigns/{campaign_id}/publications/{publication_id}/v{version}/{item_id}.md
 ```
 
-`CampaignDocument` stores the owner, type, storage key, current version, hash, and derived search text. `CampaignDocumentVersion` stores complete immutable Markdown snapshots. Campaign, archive-item, template-version, and publication-entry rows point to their documents. Alias, tag, reference, relationship, session-link, title, status, and template projections are rebuilt from frontmatter; they are never independent sources of truth.
+`CampaignDocument` stores the owner, type, storage key, current version, hash, and derived search text containing body prose plus deliberately searchable metadata (title, aliases, tags, subject type, and field values), never raw frontmatter syntax. `CampaignDocumentVersion` stores complete immutable Markdown snapshots. Campaign, archive-item, template-version, and publication-entry rows point to their documents. Alias, tag, reference, relationship, session-link, title, status, and template projections are rebuilt from frontmatter; they are never independent sources of truth.
 
-Writes validate the document type, UUIDs, campaign ownership, required values, template references, typed fields, and link shapes. They normalize frontmatter, sanitize only the body for HTML rendering, create a version, update projections, fsync a temporary file, and atomically rename it. `reconcile_documents` compares the current file and SQL hash and repairs missing or stale files from SQL.
+Writes validate the document type, UUIDs, campaign ownership, required values, template references, typed fields, canon requirements, and link shapes. Archive item writes also bind frontmatter identity to the server record: on first save the service rewrites `id` and `campaign_id` to match the created item, and on later saves it rejects markdown whose frontmatter `id` does not match the bound archive item. They normalize frontmatter, sanitize only the body for HTML rendering, create a version, update projections, fsync a temporary file, and atomically rename it. `reconcile_documents` compares the current file and SQL hash and repairs missing or stale files from SQL.
+
+## Frontmatter identity
+
+Every archive item document uses one stable UUID in three places: the `ArchiveItem` row, the `id` key in YAML frontmatter, and the `{item_id}` segment of the storage path (`campaigns/{campaign_id}/items/{item_id}.md`). Clients may omit `id` on create or supply a provisional value (for example from quick-capture UI code that drafts markdown before the server assigns an id); the API always rewrites frontmatter to the server-assigned item id before the first version is stored. Updates and workspace apply reject documents whose frontmatter `id` differs from the bound item. API responses always return matching values in the top-level `id` field and `metadata.id`.
 
 ## Export and restore
 
@@ -58,3 +62,7 @@ An authenticated DM agent can request:
 - `POST /campaigns/{id}/workspace/apply` — a complete Markdown document, document ID, and base version.
 
 Apply uses the same parser, validation, projection, version, and atomic-file service as the UI. A stale base version returns a conflict and never overwrites newer server content. A local agent can therefore maintain a fast file cache, edit locally, and reconcile safely without gaining access to another campaign.
+
+## Publication safety
+
+Publication creation treats submitted Markdown as a source for a separate safe document. Only the selected title and Markdown body are retained in the publication entry; private status, aliases, tags, template values, relationships, references, and session links are not player-visible. The player route renders the safe title and body only.

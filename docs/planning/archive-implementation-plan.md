@@ -4,7 +4,7 @@ This plan translates the [Archive roadmap](archive-roadmap.md) into incremental 
 
 **Status:** Active — Release 1 core implementation in progress. The architecture is recorded in [ADR 0002](../decisions/0002-archive-application-architecture.md).
 
-The `tylera/archive-core` implementation now includes the persistence, API, workspace, publication, revision, session, and export/restore surfaces for Increments 2–6. Release 1 remains open until the complete browser workflow, leakage checks, production restore exercise, and CI review gates are demonstrated.
+The current `dm_hq` implementation now includes the persistence, API, workspace, publication, revision, session, and export/restore surfaces for Increments 2–6. Release 1 remains open until the complete browser workflow, leakage checks, production restore exercise, and CI review gates are demonstrated.
 
 ## Implementation outcome
 
@@ -56,14 +56,7 @@ infrastructure/
 docs/
 ```
 
-The Django application begins with a small number of domain modules:
-
-- `accounts`: users, sessions, and authentication integration.
-- `campaigns`: campaigns, membership, and campaign access policies.
-- `archive`: items, templates, aliases, tags, references, relationships, and search.
-- `revisions`: immutable Archive item snapshots and restore operations.
-- `publishing`: player-safe snapshots and revocation.
-- `exports`: export generation, validation, and restore.
+The Release 1 implementation intentionally keeps these domains in one `campaigns` Django app while behavior is still being proven. The API, document service, migrations, and tests are separated by responsibility without prematurely creating deployable or Django app boundaries.
 
 Do not create one deployable service or Django app per future feature. Split a module only when its behavior and ownership are proven to be independent.
 
@@ -77,13 +70,13 @@ The first schema should use a common Archive identity so notes, entities, and se
 | Campaign | Top-level ownership and authorization boundary. |
 | Campaign membership | Owner membership now; future roles without granting them yet. |
 | Archive item | Stable ID, campaign, kind, title, status, timestamps, and common Markdown body. |
-| Entity detail | Built-in subject type, template version, and flat custom values. |
-| Session detail | Template version, structured planning/status/outcome values, and compatibility projections for the initial session API. |
-| Template and version | Immutable field definitions, defaults, and validation rules for the primary DM entry interface. |
+| Entity detail | Built-in subject type and template-version projection; typed values are canonical Markdown frontmatter. |
+| Session detail | Template-version projection; planning, status, outcome, and links are canonical Markdown frontmatter. |
+| Template and version | Immutable Markdown field definitions, defaults, and validation rules for the primary DM entry interface. |
 | Alias and tag | Searchable labels attached to an Archive item. |
 | Reference | Stable link between Archive items that produces a backlink. |
 | Relationship | Typed, directional connection between entity items with reciprocal wording and notes. |
-| Item revision | Immutable snapshot used for history and restore. |
+| Document version | Complete immutable Markdown snapshot used for history, workspace sync, and restore. |
 | Publication | Revocable snapshot containing only deliberately selected player-safe data. |
 
 Use UUIDs for externally visible identifiers. Every campaign-owned row must carry or derive a campaign ID, and every domain query must apply a campaign-access policy before returning data.
@@ -179,7 +172,7 @@ API rules:
 - Use explicit request and response schemas; never serialize ORM models directly.
 - Require the current item version on mutations and return a conflict for stale writes.
 - Render Markdown through an allowlist sanitizer; do not execute embedded HTML or script.
-- Use cursor pagination with a stable ID tie-breaker for item lists and search results.
+- Use cursor pagination with a stable updated-at/UUID tie-breaker for item lists and search results.
 - Keep generator configuration in source control. Generate OpenAPI and the TypeScript client during development and CI; do not commit generated output in Release 1.
 - Treat API version changes as additive during Release 1. Breaking changes require an explicit migration plan once external consumers exist.
 - Return stable error codes for validation, authorization, conflict, and not-found behavior.
@@ -218,7 +211,7 @@ API rules:
 
 - Add Archive items for notes and entities.
 - Add Markdown authoring, draft/canon state, built-in entity subject types, aliases, and tags.
-- Add campaign-local templates, immutable template versions, flat custom values, and canon validation.
+- Add campaign-local template Markdown, immutable template versions, typed frontmatter values, and canon validation.
 - Seed the initial Person template and optional user-entered 2014 5e NPC reference fields.
 - Add quick capture and promotion from note to entity while preserving the stable Archive item ID.
 
@@ -227,7 +220,7 @@ API rules:
 ### Increment 3 — Connect and find
 
 - Add stable references, backlinks, and simple typed relationships.
-- Add PostgreSQL full-text indexing for title and Markdown prose.
+- Add PostgreSQL full-text search over derived title, aliases, tags, template values, and Markdown prose.
 - Include aliases and tags in search and filter by subject type.
 - Add keyboard-accessible quick-open and relationship navigation.
 - Measure search behavior with a representative campaign fixture before adding another search service.
@@ -238,7 +231,7 @@ API rules:
 
 - Add session items and links to relevant Archive items.
 - Add the Session template and render its structured planning/status/outcome fields.
-- Retain optional Markdown extension prose for details outside the template.
+- Keep Markdown body prose in the same canonical document; typed controls edit its frontmatter.
 - Promote an improvised outcome into the durable item.
 - Create immutable item revisions transactionally.
 - Add revision comparison sufficient to understand a restore and implement restore-as-new-revision.
@@ -247,7 +240,7 @@ API rules:
 
 ### Increment 5 — Publish safely
 
-- Add publication creation, preview, versioning, correction, and revocation.
+- Add publication creation, a title/body-only player-safe preview, versioning, correction, and revocation.
 - Serve publication snapshots only through the isolated player route.
 - Add negative authorization and data-leakage tests covering search, exports, caches, logs, error responses, links, and source-record changes.
 - Perform a manual threat-model review before enabling the public route outside development.
@@ -257,8 +250,8 @@ API rules:
 ### Increment 6 — Export and restore
 
 - Define a versioned export manifest.
-- Export supported campaign data as UTF-8 Markdown and structured JSON in a portable archive.
-- Include templates, items, custom values, aliases, tags, references, relationships, revisions, and publications.
+- Export supported campaign data as UTF-8 Markdown plus a technical JSON manifest in a portable archive.
+- Include template documents, item documents, typed frontmatter values, aliases, tags, references, relationships, revisions, and publications.
 - Include publication snapshots and status, but never bearer tokens; restored publications receive new tokens only when a DM republishes them.
 - Validate archive integrity before download and before restore.
 - Restore into a new campaign so validation cannot overwrite the source.

@@ -7,6 +7,7 @@ from pathlib import Path
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 
+from campaigns.documents import parse_document
 from campaigns.models import ArchiveItem, Campaign, CampaignDocumentVersion, CampaignMembership
 
 
@@ -67,6 +68,37 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(CampaignDocumentVersion.objects.filter(document__archive_item__id=item["id"]).count(), 1)
 
+    def test_create_binds_client_frontmatter_id_to_server_item(self):
+        client_id = uuid.uuid4()
+        item = self.create_item(title="Bound identity")
+        self.assertEqual(str(item["id"]), item["metadata"]["id"])
+        self.assertNotEqual(str(client_id), item["metadata"]["id"])
+        stored = (
+            Path("/tmp/dm-hq-test-documents")
+            .joinpath(f"campaigns/{self.campaign.id}/items/{item['id']}.md")
+            .read_text(encoding="utf-8")
+        )
+        stored_metadata, _ = parse_document(stored)
+        self.assertEqual(stored_metadata["id"], item["metadata"]["id"])
+        self.assertEqual(stored_metadata["campaign_id"], str(self.campaign.id))
+
+    def test_update_rejects_mismatched_frontmatter_id(self):
+        item = self.create_item()
+        wrong_id = uuid.uuid4()
+        bad = self.client.patch(
+            f"/api/v1/items/{item['id']}",
+            data=json.dumps(
+                {
+                    "version": item["version"],
+                    "markdown": markdown(self.campaign.id, wrong_id, title="Wrong id"),
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(bad.status_code, 422)
+        self.assertIn("Frontmatter id does not match", bad.content.decode())
+
     def test_invalid_frontmatter_and_stale_full_document_write(self):
         bad = self.post(f"/api/v1/campaigns/{self.campaign.id}/items", {"kind": "note", "markdown": "# no frontmatter"})
         self.assertEqual(bad.status_code, 422)
@@ -125,6 +157,126 @@ class ArchiveApiTests(TestCase):
             {"document_id": file["document_id"], "version": file["version"], "markdown": changed},
         )
         self.assertEqual(conflict.status_code, 409)
+        wrong_id = markdown(self.campaign.id, uuid.uuid4(), "entity", "Wrong", "Bad id")
+        rejected = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
+            {"document_id": file["document_id"], "version": applied.json()["version"], "markdown": wrong_id},
+        )
+        self.assertEqual(rejected.status_code, 422)
+        self.assertIn("Frontmatter id does not match", rejected.content.decode())
+
+    def test_default_templates_validate_typed_fields_and_canon_requirements(self):
+        templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]
+        person = next(template for template in templates if template["applies_to"] == "entity")
+        session = next(template for template in templates if template["applies_to"] == "session")
+        self.assertTrue(any(field["key"] == "species" for field in person["versions"][0]["fields"]))
+        self.assertEqual(
+            next(field for field in session["versions"][0]["fields"] if field["key"] == "session_status")["required"],
+            True,
+        )
+        entity = self.create_item(kind="entity", title="Typed NPC", fields={"species": "Human", "level": 3})
+        self.assertEqual(entity["metadata"]["fields"]["level"], 3)
+        self.assertEqual(entity["metadata"]["template"]["id"], person["id"])
+        invalid = self.client.patch(
+            f"/api/v1/items/{entity['id']}",
+            data=json.dumps(
+                {
+                    "version": entity["version"],
+                    "markdown": markdown(
+                        self.campaign.id,
+                        entity["id"],
+                        "entity",
+                        "Typed NPC",
+                        fields={"level": "three"},
+                        template=entity["metadata"]["template"],
+                    ),
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(invalid.status_code, 422)
+        session_item = self.create_item(
+            kind="session", title="Session", fields={}, template={"id": session["id"], "version": 1}
+        )
+        canon = self.client.patch(
+            f"/api/v1/items/{session_item['id']}",
+            data=json.dumps(
+                {
+                    "version": session_item["version"],
+                    "markdown": markdown(
+                        self.campaign.id,
+                        session_item["id"],
+                        "session",
+                        "Session",
+                        fields={},
+                        template=session_item["metadata"]["template"],
+                        status="canon",
+                    ),
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(canon.status_code, 422)
+
+    def test_publication_scrubs_private_frontmatter(self):
+        item = self.create_item(
+            kind="entity",
+            title="Private NPC",
+            body="Public prose",
+            aliases=["Secret name"],
+            tags=["gm-only"],
+            fields={"species": "Human"},
+        )
+        publication = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/publications",
+            {"entries": [{"item_id": item["id"], "markdown": item["markdown"]}]},
+        )
+        self.assertEqual(publication.status_code, 200)
+        public = self.client.get(f"/api/v1/publications/public/{publication.json()['token']}")
+        payload = public.json()
+        metadata = payload["entries"][0]["metadata"]
+        self.assertEqual(
+            metadata,
+            {
+                "document_type": "publication_entry",
+                "id": metadata["id"],
+                "campaign_id": str(self.campaign.id),
+                "source_item_id": item["id"],
+                "title": "Private NPC",
+            },
+        )
+        self.assertNotIn("gm-only", public.content.decode())
+        self.assertNotIn("Secret name", public.content.decode())
+
+    def test_cursor_pagination_and_workspace_sequence(self):
+        first = self.create_item(title="First")
+        self.create_item(title="Second")
+        page = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/items?limit=1").json()
+        self.assertEqual(len(page["items"]), 1)
+        self.assertTrue(page["next_cursor"])
+        next_page = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/items?limit=1&cursor={page['next_cursor']}"
+        ).json()
+        self.assertEqual(len(next_page["items"]), 1)
+        snapshot = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/workspace/snapshot").json()
+        first_document_id = next(
+            file["document_id"] for file in snapshot["files"] if file["storage_key"].endswith(f"{first['id']}.md")
+        )
+        changed = markdown(self.campaign.id, first["id"], title="First changed", body="New prose")
+        updated = self.client.patch(
+            f"/api/v1/items/{first['id']}",
+            data=json.dumps({"version": first["version"], "markdown": changed}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(updated.status_code, 200)
+        changes = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/changes?after={snapshot['manifest']['cursor']}"
+        ).json()
+        self.assertTrue(any(change["document_id"] == first_document_id for change in changes["changes"]))
+        self.assertGreater(changes["cursor"], snapshot["manifest"]["cursor"])
 
     def test_publication_and_markdown_archive_round_trip(self):
         item = self.create_item(kind="entity", title="Secret NPC", body="Private clue", fields={"species": "Human"})

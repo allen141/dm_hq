@@ -160,20 +160,6 @@ class SessionLink(models.Model):
         constraints = [models.UniqueConstraint(fields=["session", "item"], name="unique_session_item_link")]
 
 
-class ItemRevision(models.Model):
-    item = models.ForeignKey(ArchiveItem, on_delete=models.CASCADE, related_name="revisions")
-    number = models.PositiveIntegerField()
-    markdown = models.TextField(blank=True, default="")
-    content_hash = models.CharField(max_length=64, default="")
-    reason = models.CharField(max_length=240, blank=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=["item", "number"], name="unique_item_revision")]
-        ordering = ["-number"]
-
-
 class Publication(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="publications")

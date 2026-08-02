@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import io
 import json
@@ -12,19 +13,21 @@ from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import CsrfViewMiddleware, get_token
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from ninja.security import django_auth
 
 from .documents import (
     DocumentError,
-    content_hash,
     current_markdown_for_item,
     item_document_output,
     markdown_html,
     parse_document,
+    prepare_archive_item_markdown,
     project_item,
     read_current,
+    safe_publication_markdown,
     save_document,
     serialize_document,
     storage_root,
@@ -33,9 +36,9 @@ from .models import (
     ArchiveItem,
     Campaign,
     CampaignDocument,
+    CampaignDocumentVersion,
     CampaignMembership,
     EntityDetail,
-    ItemRevision,
     Publication,
     PublicationEntry,
     PublicationVersion,
@@ -205,10 +208,25 @@ def item_summary(item: ArchiveItem) -> dict[str, Any]:
     }
 
 
-def ensure_template_document(version: TemplateVersion, user) -> None:
+def ensure_template_document(version: TemplateVersion, user, fields: list[dict[str, Any]] | None = None) -> None:
     if version.document_id:
+        if fields is None:
+            return
+        metadata, body = parse_document(read_current(version.document))
+        if metadata.get("fields") == fields:
+            return
+        metadata["fields"] = fields
+        save_document(
+            version.template.campaign,
+            "template",
+            version.document.storage_key,
+            serialize_document(metadata, body),
+            user,
+            "Updated default template fields",
+            version.document.current_version,
+            version.document,
+        )
         return
-    fields = []
     metadata = {
         "document_type": "template",
         "id": str(uuid4()),
@@ -217,7 +235,7 @@ def ensure_template_document(version: TemplateVersion, user) -> None:
         "version": version.number,
         "name": version.template.name,
         "applies_to": version.template.applies_to,
-        "fields": fields,
+        "fields": fields or [],
     }
     doc = save_document(
         version.template.campaign,
@@ -257,9 +275,9 @@ def ensure_default_templates(campaign, user) -> None:
         },
         {"key": "outcome_text", "label": "Outcome", "type": "long_text", "required": False},
     ]
-    for template, _fields in ((person, person_fields), (session, session_fields)):
+    for template, fields in ((person, person_fields), (session, session_fields)):
         version, _ = TemplateVersion.objects.get_or_create(template=template, number=1)
-        ensure_template_document(version, user)
+        ensure_template_document(version, user, fields)
 
 
 def template_fields(version: TemplateVersion | None) -> list[dict[str, Any]]:
@@ -271,20 +289,10 @@ def template_fields(version: TemplateVersion | None) -> list[dict[str, Any]]:
     return []
 
 
-def record_legacy_revision(item: ArchiveItem, user, markdown: str, reason: str) -> None:
-    digest = content_hash(markdown)
-    ItemRevision.objects.update_or_create(
-        item=item,
-        number=item.document.current_version if item.document_id else item.version,
-        defaults={"markdown": markdown, "content_hash": digest, "created_by": user, "reason": reason},
-    )
-
-
 def save_item_markdown(item: ArchiveItem, markdown: str, user, expected_version: int, reason: str) -> dict[str, Any]:
     try:
+        markdown = prepare_archive_item_markdown(item, markdown)
         metadata, _ = parse_document(markdown)
-        if metadata.get("kind") != item.kind:
-            raise DocumentError("Document kind does not match item")
         doc = save_document(
             item.campaign,
             "archive_item",
@@ -303,7 +311,6 @@ def save_item_markdown(item: ArchiveItem, markdown: str, user, expected_version:
     item.version = doc.current_version
     item.save(update_fields=["document", "version", "updated_at"])
     project_item(item, metadata)
-    record_legacy_revision(item, user, doc.versions.get(number=doc.current_version).markdown, reason)
     return item_document_output(item)
 
 
@@ -388,15 +395,53 @@ def campaign_detail(request: HttpRequest, campaign_id: UUID):
     return campaign_output(get_member_campaign(request, campaign_id))
 
 
+def encode_item_cursor(item: ArchiveItem) -> str:
+    value = json.dumps({"updated_at": item.updated_at.isoformat(), "id": str(item.id)}).encode()
+    return base64.urlsafe_b64encode(value).decode().rstrip("=")
+
+
+def decode_item_cursor(cursor: str) -> tuple[Any, UUID]:
+    try:
+        padded = cursor + "=" * (-len(cursor) % 4)
+        value = json.loads(base64.urlsafe_b64decode(padded).decode())
+        updated_at = parse_datetime(str(value["updated_at"]))
+        item_id = UUID(str(value["id"]))
+        if updated_at is None:
+            raise ValueError
+        if timezone.is_naive(updated_at):
+            updated_at = timezone.make_aware(updated_at)
+        return updated_at, item_id
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise error(422, "validation", "Invalid pagination cursor") from exc
+
+
+def paginate_items(items, cursor: str | None, limit: int) -> dict[str, Any]:
+    limit = max(1, min(limit, 100))
+    items = items.order_by("-updated_at", "-id")
+    if cursor:
+        updated_at, item_id = decode_item_cursor(cursor)
+        items = items.filter(Q(updated_at__lt=updated_at) | Q(updated_at=updated_at, id__lt=item_id))
+    values = list(items[: limit + 1])
+    next_cursor = encode_item_cursor(values[limit - 1]) if len(values) > limit else None
+    return {"items": [item_summary(item) for item in values[:limit]], "next_cursor": next_cursor}
+
+
 @api.get("campaigns/{campaign_id}/items", auth=django_auth)
-def item_list(request: HttpRequest, campaign_id: UUID, kind: str | None = None, status: str | None = None):
+def item_list(
+    request: HttpRequest,
+    campaign_id: UUID,
+    kind: str | None = None,
+    status: str | None = None,
+    cursor: str | None = None,
+    limit: int = 50,
+):
     campaign = get_member_campaign(request, campaign_id)
     items = campaign.archive_items.all()
     if kind:
         items = items.filter(kind=kind)
     if status:
         items = items.filter(status=status)
-    return {"items": [item_summary(item) for item in items], "next_cursor": None}
+    return paginate_items(items, cursor, limit)
 
 
 @api.get("campaigns/{campaign_id}/sessions", auth=django_auth)
@@ -418,11 +463,18 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
     campaign = get_member_campaign(request, campaign_id)
     validate_kind(payload.kind)
     try:
-        metadata, _ = parse_document(payload.markdown)
+        metadata, body = parse_document(payload.markdown)
     except DocumentError as exc:
         raise error(422, "invalid_markdown", str(exc)) from exc
     if metadata.get("document_type") != "archive_item" or metadata.get("kind") != payload.kind:
         raise error(422, "invalid_markdown", "Frontmatter document_type and kind must match the request")
+    ensure_default_templates(campaign, request.auth)
+    if payload.kind in {ArchiveItem.Kind.ENTITY, ArchiveItem.Kind.SESSION} and not metadata.get("template"):
+        template = campaign.templates.filter(applies_to=payload.kind).order_by("created_at").first()
+        if template:
+            version = template.versions.order_by("-number").first()
+            metadata["template"] = {"id": str(template.id), "version": version.number}
+            metadata.setdefault("fields", {})
     item = ArchiveItem.objects.create(
         campaign=campaign,
         kind=payload.kind,
@@ -433,7 +485,7 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
         EntityDetail.objects.create(item=item, subject_type=str(metadata.get("subject_type") or "person"))
     if item.kind == "session":
         SessionDetail.objects.create(item=item)
-    result = save_item_markdown(item, payload.markdown, request.auth, 0, "Created")
+    result = save_item_markdown(item, serialize_document(metadata, body), request.auth, 0, "Created")
     return result
 
 
@@ -571,18 +623,27 @@ def search(
     kind: str | None = None,
     tag: str | None = None,
     alias: str | None = None,
+    cursor: str | None = None,
+    limit: int = 50,
 ):
     campaign = get_member_campaign(request, campaign_id)
     items = campaign.archive_items.filter(status__in=["draft", "canon"])
     if kind:
         items = items.filter(kind=kind)
     if q:
-        items = items.filter(Q(document__search_text__icontains=q) | Q(title__icontains=q))
+        if connection.vendor == "postgresql":
+            from django.contrib.postgres.search import SearchQuery, SearchVector
+
+            items = items.annotate(search_vector=SearchVector("document__search_text", config="english")).filter(
+                search_vector=SearchQuery(q, config="english", search_type="websearch")
+            )
+        else:
+            items = items.filter(Q(document__search_text__icontains=q) | Q(title__icontains=q))
     if tag:
         items = items.filter(item_tags__tag__name=tag)
     if alias:
         items = items.filter(aliases__value__icontains=alias)
-    return {"items": [item_summary(i) for i in items.distinct()], "next_cursor": None}
+    return paginate_items(items.distinct(), cursor, limit)
 
 
 def mutate_frontmatter(request: HttpRequest, item_id: UUID, mutate, reason: str):
@@ -752,18 +813,13 @@ def publication_create(request: HttpRequest, campaign_id: UUID, payload: Publica
         item = get_member_item(request, selected.item_id)
         if item.campaign_id != campaign.id:
             raise error(404, "not_found", "Publication item not found")
-        metadata, body = parse_document(selected.markdown)
-        metadata["document_type"] = "publication_entry"
-        metadata["id"] = str(uuid4())
-        metadata["source_item_id"] = str(item.id)
-        metadata.pop("relationships", None)
-        metadata.pop("references", None)
+        safe_markdown = safe_publication_markdown(selected.markdown, campaign.id, item.id)
         entry = PublicationEntry.objects.create(version=version, item=item)
         doc = save_document(
             campaign,
             "publication_entry",
             f"campaigns/{campaign.id}/publications/{publication.id}/v1/{item.id}.md",
-            serialize_document(metadata, body),
+            safe_markdown,
             request.auth,
             "Created publication",
         )
@@ -886,7 +942,13 @@ def workspace_snapshot(request: HttpRequest, campaign_id: UUID):
                 "markdown": read_current(doc),
             }
         )
-    cursor = max([0, *[file["version"] for file in files]])
+    cursor = (
+        CampaignDocumentVersion.objects.filter(document__campaign=campaign)
+        .order_by("-id")
+        .values_list("id", flat=True)
+        .first()
+        or 0
+    )
     return {
         "manifest": {"format": "dm-hq-workspace", "version": 1, "campaign_id": str(campaign.id), "cursor": cursor},
         "files": files,
@@ -896,19 +958,24 @@ def workspace_snapshot(request: HttpRequest, campaign_id: UUID):
 @api.get("campaigns/{campaign_id}/workspace/changes", auth=django_auth)
 def workspace_changes(request: HttpRequest, campaign_id: UUID, after: int = 0):
     campaign = get_member_campaign(request, campaign_id)
-    changes = []
-    for doc in campaign.documents.all():
-        if doc.current_version > after:
-            changes.append(
-                {
-                    "document_id": str(doc.id),
-                    "storage_key": doc.storage_key,
-                    "version": doc.current_version,
-                    "hash": doc.content_hash,
-                    "operation": "upsert",
-                }
-            )
-    return {"cursor": max([after, *[change["version"] for change in changes]]), "changes": changes}
+    versions = CampaignDocumentVersion.objects.filter(document__campaign=campaign, id__gt=after).select_related(
+        "document"
+    )
+    latest_by_document = {}
+    for version in versions.order_by("id"):
+        latest_by_document[version.document_id] = version
+    changes = [
+        {
+            "document_id": str(version.document_id),
+            "storage_key": version.document.storage_key,
+            "version": version.document.current_version,
+            "hash": version.document.content_hash,
+            "operation": "upsert",
+        }
+        for version in latest_by_document.values()
+    ]
+    cursor = max([after, *[version.id for version in versions]]) if versions else after
+    return {"cursor": cursor, "changes": changes}
 
 
 @api.post("campaigns/{campaign_id}/workspace/apply", auth=django_auth)
@@ -988,14 +1055,27 @@ def campaign_restore(request: HttpRequest):
             )
             campaign.document = doc
             campaign.save(update_fields=["document"])
+            item_id_map = {}
+            template_id_map = {}
+            for archive_name in archive.namelist():
+                if not archive_name.startswith("campaigns/") or not archive_name.endswith(".md"):
+                    continue
+                candidate_metadata, _ = parse_document(archive.read(archive_name).decode("utf-8"))
+                if candidate_metadata.get("document_type") == "archive_item" and candidate_metadata.get("id"):
+                    item_id_map[str(candidate_metadata["id"])] = str(uuid4())
+                if candidate_metadata.get("document_type") == "template" and candidate_metadata.get("template_id"):
+                    template_id_map[str(candidate_metadata["template_id"])] = str(uuid4())
             template_names = [name for name in archive.namelist() if "/templates/" in name and name.endswith(".md")]
-            for name in archive.namelist():
+            restore_names = sorted(archive.namelist(), key=lambda value: ("/templates/" not in value, value))
+            for name in restore_names:
                 if not name.startswith("campaigns/") or not name.endswith(".md") or name.endswith("/campaign.md"):
                     continue
                 raw = archive.read(name).decode("utf-8")
                 meta, body = parse_document(raw)
                 if meta.get("document_type") == "template":
-                    template_id = UUID(str(meta.get("template_id"))) if meta.get("template_id") else uuid4()
+                    original_template_id = str(meta.get("template_id") or "")
+                    template_id = UUID(template_id_map.get(original_template_id, str(uuid4())))
+                    meta["template_id"] = str(template_id)
                     template, _ = Template.objects.get_or_create(
                         id=template_id,
                         campaign=campaign,
@@ -1021,7 +1101,19 @@ def campaign_restore(request: HttpRequest):
                 if meta.get("document_type") != "archive_item":
                     continue
                 meta["campaign_id"] = str(campaign.id)
-                item_id = UUID(str(meta["id"])) if meta.get("id") else UUID(int=0)
+                original_item_id = str(meta.get("id") or "")
+                item_id = UUID(item_id_map.get(original_item_id, str(uuid4())))
+                for link_key in ("references", "relationships"):
+                    for link in meta.get(link_key, []):
+                        if isinstance(link, dict) and link.get("target_id"):
+                            link["target_id"] = item_id_map.get(str(link["target_id"]), str(link["target_id"]))
+                if isinstance(meta.get("session_links"), list):
+                    meta["session_links"] = [item_id_map.get(str(value), str(value)) for value in meta["session_links"]]
+                if isinstance(meta.get("template"), dict) and meta["template"].get("id"):
+                    meta["template"]["id"] = template_id_map.get(
+                        str(meta["template"]["id"]), str(meta["template"]["id"])
+                    )
+                meta["id"] = str(item_id)
                 item = ArchiveItem.objects.create(
                     id=item_id,
                     campaign=campaign,
@@ -1063,7 +1155,12 @@ def campaign_restore(request: HttpRequest):
                     meta["campaign_id"] = str(campaign.id)
                     meta["document_type"] = "publication_entry"
                     try:
-                        source_item_id = UUID(str(meta.get("source_item_id") or parts[-1][:-3]))
+                        source_item_id = UUID(
+                            item_id_map.get(
+                                str(meta.get("source_item_id") or parts[-1][:-3]),
+                                str(meta.get("source_item_id") or parts[-1][:-3]),
+                            )
+                        )
                     except ValueError:
                         continue
                     item = ArchiveItem.objects.filter(id=source_item_id, campaign=campaign).first()
