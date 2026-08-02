@@ -6,7 +6,15 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 
-from campaigns.models import ArchiveItem, Campaign, CampaignMembership, EntityDetail, ItemRevision, Publication
+from campaigns.models import (
+    ArchiveItem,
+    Campaign,
+    CampaignMembership,
+    EntityDetail,
+    ItemRevision,
+    Publication,
+    SessionDetail,
+)
 
 
 class ArchiveApiTests(TestCase):
@@ -27,7 +35,7 @@ class ArchiveApiTests(TestCase):
     def test_create_entity_uses_person_template_and_preserves_structure(self) -> None:
         templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates")
         self.assertEqual(templates.status_code, 200)
-        template = templates.json()["templates"][0]
+        template = next(template for template in templates.json()["templates"] if template["name"] == "Person / NPC")
         response = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/items",
             {
@@ -55,6 +63,46 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["entity"]["template_fields"][0]["key"], "species")
+
+    def test_session_uses_structured_template_fields_and_keeps_markdown_extension(self) -> None:
+        templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]
+        template = next(template for template in templates if template["name"] == "Session")
+        response = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/items",
+            {
+                "kind": "session",
+                "title": "Session One",
+                "body": "## Optional extension",
+                "template_id": template["id"],
+                "fields": {
+                    "scheduled_for": "2026-08-02",
+                    "session_status": "planned",
+                    "outcome_text": "Open questions",
+                },
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["session"]["fields"]["outcome_text"], "Open questions")
+        self.assertEqual(response.json()["session"]["template_fields"][0]["label"], "Scheduled date")
+        self.assertEqual(response.json()["body"], "## Optional extension")
+        self.assertEqual(SessionDetail.objects.count(), 1)
+        updated = self.client.patch(
+            f"/api/v1/items/{response.json()['id']}",
+            data=json.dumps(
+                {
+                    "version": 1,
+                    "fields": {
+                        "scheduled_for": "2026-08-02",
+                        "session_status": "completed",
+                        "outcome_text": "Reconciled",
+                    },
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["session"]["session_status"], "completed")
 
     def test_search_relationship_and_backlink_are_campaign_scoped(self) -> None:
         place = self.post(
@@ -127,7 +175,11 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(self.client.get(f"/api/v1/publications/public/{token}").json()["status"], "not_found")
 
     def test_export_and_restore_create_new_campaign_without_tokens(self) -> None:
-        template = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"][0]
+        template = next(
+            template
+            for template in self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]
+            if template["name"] == "Person / NPC"
+        )
         entity = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/items",
             {"kind": "entity", "title": "Exported NPC", "template_id": template["id"], "fields": {"species": "Human"}},

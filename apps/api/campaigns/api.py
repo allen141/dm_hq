@@ -35,7 +35,9 @@ from .models import (
 )
 from .services import (
     clean_markdown,
+    ensure_default_templates,
     ensure_person_template,
+    ensure_session_template,
     export_campaign,
     markdown_html,
     publication_output,
@@ -43,6 +45,7 @@ from .services import (
     random_publication_token,
     read_export,
     record_revision,
+    session_values,
 )
 
 api = NinjaAPI(title="DM HQ API", version="1.0.0")
@@ -198,6 +201,27 @@ def validate_canon(item: ArchiveItem, fields: dict[str, Any]) -> None:
             raise error(422, "validation", f"Required fields missing: {', '.join(missing)}")
 
 
+def apply_session_fields(detail: SessionDetail, fields: dict[str, Any]) -> None:
+    scheduled_raw = fields.get("scheduled_for") or None
+    if scheduled_raw is None:
+        scheduled_for = None
+    elif isinstance(scheduled_raw, date):
+        scheduled_for = scheduled_raw
+    else:
+        try:
+            scheduled_for = date.fromisoformat(str(scheduled_raw))
+        except ValueError as exc:
+            raise error(422, "validation", "Scheduled date must be an ISO date") from exc
+    session_status = str(fields.get("session_status") or "planned")
+    if session_status not in {"planned", "completed"}:
+        raise error(422, "validation", "Unknown session status")
+    detail.field_values = fields
+    detail.scheduled_for = scheduled_for
+    detail.session_status = session_status
+    detail.outcome_text = str(fields.get("outcome_text") or "")
+    detail.save()
+
+
 def item_output(item: ArchiveItem) -> dict[str, Any]:
     aliases = list(item.aliases.values_list("value", flat=True))
     tags = list(item.item_tags.select_related("tag").values_list("tag__name", flat=True))
@@ -253,12 +277,15 @@ def item_output(item: ArchiveItem) -> dict[str, Any]:
             "fields": item.entity_detail.field_values,
         }
     if item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail"):
+        detail = item.session_detail
         data["session"] = {
-            "scheduled_for": item.session_detail.scheduled_for.isoformat()
-            if item.session_detail.scheduled_for
-            else None,
-            "session_status": item.session_detail.session_status,
-            "outcome_text": item.session_detail.outcome_text,
+            "template_id": detail.template_version.template_id if detail.template_version else None,
+            "template_version": detail.template_version.number if detail.template_version else None,
+            "template_fields": detail.template_version.fields if detail.template_version else [],
+            "fields": session_values(detail),
+            "scheduled_for": detail.scheduled_for.isoformat() if detail.scheduled_for else None,
+            "session_status": detail.session_status,
+            "outcome_text": detail.outcome_text,
             "linked_item_ids": list(item.session_links.values_list("item_id", flat=True)),
         }
     return data
@@ -346,7 +373,7 @@ def campaign_create(request: HttpRequest, payload: CampaignCreate) -> dict[str, 
         raise error(422, "validation", "Campaign name cannot be empty")
     campaign = Campaign.objects.create(name=name, owner=request.auth)
     CampaignMembership.objects.create(campaign=campaign, user=request.auth, role=CampaignMembership.Role.OWNER)
-    ensure_person_template(campaign)
+    ensure_default_templates(campaign)
     return campaign_output(campaign)
 
 
@@ -419,12 +446,23 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
         )
         validate_canon(item, payload.fields)
     elif item.kind == ArchiveItem.Kind.SESSION:
-        SessionDetail.objects.create(
-            item=item,
-            scheduled_for=payload.scheduled_for,
-            session_status=payload.session_status,
-            outcome_text=payload.outcome_text,
-        )
+        template_version = None
+        if payload.template_id:
+            template_version = (
+                TemplateVersion.objects.filter(template_id=payload.template_id, template__campaign=campaign)
+                .order_by("-number")
+                .first()
+            )
+            if not template_version:
+                raise error(422, "validation", "Template not found")
+        else:
+            template_version = ensure_session_template(campaign).versions.order_by("-number").first()
+        fields = dict(payload.fields)
+        fields.setdefault("scheduled_for", payload.scheduled_for.isoformat() if payload.scheduled_for else "")
+        fields.setdefault("session_status", payload.session_status)
+        fields.setdefault("outcome_text", payload.outcome_text)
+        detail = SessionDetail.objects.create(item=item, template_version=template_version)
+        apply_session_fields(detail, fields)
     set_aliases_tags(item, payload.aliases, payload.tags)
     record_revision(item, request.auth, "Created")
     return item_output(item)
@@ -442,11 +480,20 @@ def item_update(request: HttpRequest, item_id: UUID, payload: ItemUpdate):
     item = get_member_item(request, item_id)
     if payload.version != item.version:
         raise error(409, "stale_version", "The item changed since it was opened")
-    fields = (
-        payload.fields
-        if payload.fields is not None
-        else (item.entity_detail.field_values if hasattr(item, "entity_detail") else {})
-    )
+    if item.kind == ArchiveItem.Kind.ENTITY and hasattr(item, "entity_detail"):
+        fields = payload.fields if payload.fields is not None else item.entity_detail.field_values
+    elif item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail"):
+        fields = dict(session_values(item.session_detail))
+        if payload.fields is not None:
+            fields = dict(payload.fields)
+        if payload.scheduled_for is not None:
+            fields["scheduled_for"] = payload.scheduled_for.isoformat()
+        if payload.session_status is not None:
+            fields["session_status"] = payload.session_status
+        if payload.outcome_text is not None:
+            fields["outcome_text"] = payload.outcome_text
+    else:
+        fields = {}
     if payload.title is not None:
         item.title = payload.title.strip()
     if payload.body is not None:
@@ -467,13 +514,13 @@ def item_update(request: HttpRequest, item_id: UUID, payload: ItemUpdate):
         detail.save()
     if item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail"):
         detail = item.session_detail
-        if payload.scheduled_for is not None:
-            detail.scheduled_for = payload.scheduled_for
-        if payload.session_status is not None:
-            detail.session_status = payload.session_status
-        if payload.outcome_text is not None:
-            detail.outcome_text = payload.outcome_text
-        detail.save()
+        if (
+            payload.fields is not None
+            or payload.scheduled_for is not None
+            or payload.session_status is not None
+            or payload.outcome_text is not None
+        ):
+            apply_session_fields(detail, fields)
     set_aliases_tags(item, payload.aliases, payload.tags)
     record_revision(item, request.auth, "Updated")
     return item_output(item)
@@ -524,8 +571,7 @@ def item_archive(request: HttpRequest, item_id: UUID, payload: VersionPayload):
 @api.get("campaigns/{campaign_id}/templates", auth=django_auth)
 def template_list(request: HttpRequest, campaign_id: UUID):
     campaign = get_member_campaign(request, campaign_id)
-    if not campaign.templates.exists():
-        ensure_person_template(campaign)
+    ensure_default_templates(campaign)
     return {
         "templates": [
             {
@@ -724,6 +770,13 @@ def restore_revision(request: HttpRequest, item_id: UUID, payload: RestorePayloa
         item.entity_detail.field_values = snapshot["entity"].get("fields", {})
         item.entity_detail.subject_type = snapshot["entity"].get("subject_type", "person")
         item.entity_detail.save()
+    if item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail") and snapshot.get("session"):
+        session_snapshot = snapshot["session"]
+        fields = dict(session_snapshot.get("fields", {}))
+        fields.setdefault("scheduled_for", session_snapshot.get("scheduled_for") or "")
+        fields.setdefault("session_status", session_snapshot.get("session_status", "planned"))
+        fields.setdefault("outcome_text", session_snapshot.get("outcome_text", ""))
+        apply_session_fields(item.session_detail, fields)
     record_revision(item, request.auth, payload.reason)
     return item_output(item)
 
@@ -862,7 +915,7 @@ def campaign_restore(request: HttpRequest):
         raise error(422, "invalid_archive", "The archive could not be validated") from exc
     campaign = Campaign.objects.create(name=f"{data['campaign']['name']} (restored)", owner=request.auth)
     CampaignMembership.objects.create(campaign=campaign, user=request.auth, role=CampaignMembership.Role.OWNER)
-    ensure_person_template(campaign)
+    ensure_default_templates(campaign)
     template_version_mapping: dict[str, int] = {}
     for raw_template in data.get("templates", []):
         template, _ = Template.objects.get_or_create(
@@ -896,12 +949,18 @@ def campaign_restore(request: HttpRequest):
                 field_values=raw["entity"].get("fields", {}),
             )
         if item.kind == ArchiveItem.Kind.SESSION and raw.get("session"):
-            SessionDetail.objects.create(
+            raw_session = raw["session"]
+            session_fields = dict(raw_session.get("fields", {}))
+            session_fields.setdefault("scheduled_for", raw_session.get("scheduled_for") or "")
+            session_fields.setdefault("session_status", raw_session.get("session_status", "planned"))
+            session_fields.setdefault("outcome_text", raw_session.get("outcome_text", ""))
+            detail = SessionDetail.objects.create(
                 item=item,
-                session_status=raw["session"].get("session_status", "planned"),
-                outcome_text=raw["session"].get("outcome_text", ""),
-                scheduled_for=raw["session"].get("scheduled_for") or None,
+                template_version_id=template_version_mapping.get(
+                    f"{raw_session.get('template_id')}:{raw_session.get('template_version')}"
+                ),
             )
+            apply_session_fields(detail, session_fields)
         set_aliases_tags(item, raw.get("aliases", []), raw.get("tags", []))
     for raw in data.get("items", []):
         source_id = mapping.get(raw["id"])

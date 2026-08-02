@@ -9,7 +9,7 @@ This is shared vocabulary for discovery, not a finalized database schema. The Ar
 | Membership | A user's role and access within a campaign. |
 | Entity | A durable subject such as a person, place, faction, thing, event, or piece of lore. |
 | Note | Primarily unstructured content linked to entities and sessions. |
-| Template | A reusable starting structure for an entity or planning record. |
+| Template | An immutable, reusable definition of the structured fields a DM enters for an entity or planning record. |
 | Relationship | A meaningful connection between durable campaign subjects. |
 | Claim | An assertion with possible provenance, confidence, effective time, and knowledge scope. |
 | Revision | A recoverable change to Archive content. |
@@ -22,6 +22,10 @@ This is shared vocabulary for discovery, not a finalized database schema. The Ar
 | Ruleset extension | Templates, fields, terminology, validation, and references associated with a particular game system. |
 
 ## Important distinctions
+
+### Template fields and extension prose
+
+A template version defines the structured fields a DM enters directly for a template-backed entity or session. Stable field keys and typed values support validation, search, revisions, exports, and agent interpretation. The item's Markdown body is optional extension prose for context that the current template does not model; it is not a duplicate field editor. Notes remain Markdown-first.
 
 ### Source content and published content
 

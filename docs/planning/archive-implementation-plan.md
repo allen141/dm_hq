@@ -78,8 +78,8 @@ The first schema should use a common Archive identity so notes, entities, and se
 | Campaign membership | Owner membership now; future roles without granting them yet. |
 | Archive item | Stable ID, campaign, kind, title, status, timestamps, and common Markdown body. |
 | Entity detail | Built-in subject type, template version, and flat custom values. |
-| Session detail | Planned-session metadata and captured outcome text. |
-| Template and version | Immutable field definitions, defaults, and validation rules. |
+| Session detail | Template version, structured planning/status/outcome values, and compatibility projections for the initial session API. |
+| Template and version | Immutable field definitions, defaults, and validation rules for the primary DM entry interface. |
 | Alias and tag | Searchable labels attached to an Archive item. |
 | Reference | Stable link between Archive items that produces a backlink. |
 | Relationship | Typed, directional connection between entity items with reciprocal wording and notes. |
@@ -124,6 +124,8 @@ Release 1 templates are campaign-local and use stable field keys that do not cha
 - entity reference
 
 Template versions are immutable after use. Editing a template creates a new version; existing items retain their recorded version and values. Defaults apply only when creating a value. A draft may omit required fields so quick capture remains possible; required-field validation applies when an item moves to canon.
+
+Template fields are the primary DM entry surface for every template-backed entity and session. The web UI renders labels and typed controls from the selected template version, and the API stores those values under stable keys. The shared Markdown body is an optional extension for context or exceptional details that do not belong in the template; it must not be duplicated by a second scratch/outcome editor. Notes remain Markdown-first. The initial Session template defines scheduled date, session status, and outcome.
 
 Choice options and fields use stable keys independent of their labels. Entity-reference values store Archive item IDs and participate in backlink queries. Calendar dates use ISO dates for real-world scheduling; fictional calendars remain text until the temporal model is designed.
 
@@ -235,7 +237,8 @@ API rules:
 ### Increment 4 — Use and recover
 
 - Add session items and links to relevant Archive items.
-- Add low-friction scratch capture within a session.
+- Add the Session template and render its structured planning/status/outcome fields.
+- Retain optional Markdown extension prose for details outside the template.
 - Promote an improvised outcome into the durable item.
 - Create immutable item revisions transactionally.
 - Add revision comparison sufficient to understand a restore and implement restore-as-new-revision.
@@ -270,6 +273,7 @@ Each increment must add tests at the layer that owns the behavior.
 ### Backend
 
 - Domain tests for templates, state transitions, revisions, restore, publications, and exports.
+- UI and API tests verify template fields are primary and Markdown is optional extension prose rather than a duplicate input.
 - Policy tests for owner access, unauthenticated access, cross-campaign access, and public access.
 - API tests for schemas, status codes, CSRF behavior, filtering, pagination, and error codes.
 - Migration tests that build a database from zero and upgrade a previous supported schema.

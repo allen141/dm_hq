@@ -18,10 +18,11 @@ test("an owner can create a campaign and open its Archive workspace", async ({ p
   await page.getByLabel("Title").fill("Mara Venn");
   await page.getByLabel("Kind").selectOption("entity");
   await expect(page.getByLabel("Subject type")).toHaveValue("person");
-  await page.getByLabel("Markdown note").fill("A ferrymaster with a secret.");
+  await page.getByLabel("Additional Markdown (optional)").fill("A ferrymaster with a secret.");
   await page.getByRole("button", { name: "Capture item" }).click();
   await expect(page.getByRole("heading", { name: "Mara Venn" })).toBeVisible();
   await expect(page.getByText("Sanitized preview")).toBeVisible();
+  const campaignUrl = page.url().replace(/\/items\/[^/]+$/, "");
   await expect(page.getByLabel("Species")).toBeVisible();
   await expect(page.getByLabel("Armor Class")).toBeVisible();
   await page.getByLabel("Species").fill("Human");
@@ -34,4 +35,16 @@ test("an owner can create a campaign and open its Archive workspace", async ({ p
   await page.getByRole("link", { name: "Open player handout" }).first().click();
   await expect(page.getByRole("heading", { name: "Campaign notes" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mara Venn" })).toBeVisible();
+
+  await page.goto(campaignUrl);
+  await page.getByLabel("Title").fill("Session One");
+  await page.getByLabel("Kind").selectOption("session");
+  await expect(page.getByLabel("Scheduled date")).toBeVisible();
+  await expect(page.getByLabel("Session status")).toBeVisible();
+  await expect(page.getByLabel("Outcome")).toBeVisible();
+  await page.getByLabel("Outcome").fill("Reconciled at the table.");
+  await page.getByRole("button", { name: "Capture item" }).click();
+  await expect(page.getByRole("heading", { name: "Session One" })).toBeVisible();
+  await expect(page.getByLabel("Outcome")).toHaveValue("Reconciled at the table.");
+  await expect(page.getByLabel("Additional Markdown (optional)")).toBeVisible();
 });

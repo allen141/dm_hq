@@ -29,6 +29,18 @@ PERSON_FIELDS = [
     {"key": "ability_scores", "label": "Ability scores", "type": "long_text", "required": False},
 ]
 
+SESSION_FIELDS = [
+    {"key": "scheduled_for", "label": "Scheduled date", "type": "calendar_date", "required": False},
+    {
+        "key": "session_status",
+        "label": "Session status",
+        "type": "choice",
+        "options": ["planned", "completed"],
+        "required": True,
+    },
+    {"key": "outcome_text", "label": "Outcome", "type": "long_text", "required": False},
+]
+
 
 def ensure_person_template(campaign):
     template, _ = Template.objects.get_or_create(
@@ -36,6 +48,25 @@ def ensure_person_template(campaign):
     )
     TemplateVersion.objects.get_or_create(template=template, number=1, defaults={"fields": PERSON_FIELDS})
     return template
+
+
+def ensure_session_template(campaign):
+    template, _ = Template.objects.get_or_create(campaign=campaign, name="Session", defaults={"applies_to": "session"})
+    TemplateVersion.objects.get_or_create(template=template, number=1, defaults={"fields": SESSION_FIELDS})
+    return template
+
+
+def ensure_default_templates(campaign):
+    ensure_person_template(campaign)
+    ensure_session_template(campaign)
+
+
+def session_values(detail) -> dict[str, Any]:
+    values = dict(detail.field_values or {})
+    values.setdefault("scheduled_for", detail.scheduled_for.isoformat() if detail.scheduled_for else "")
+    values.setdefault("session_status", detail.session_status)
+    values.setdefault("outcome_text", detail.outcome_text)
+    return values
 
 
 def clean_markdown(value: str) -> str:
@@ -84,6 +115,9 @@ def item_snapshot(item: ArchiveItem) -> dict[str, Any]:
     if item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail"):
         detail = item.session_detail
         data["session"] = {
+            "template_id": str(detail.template_version.template_id) if detail.template_version else None,
+            "template_version": detail.template_version.number if detail.template_version else None,
+            "fields": session_values(detail),
             "scheduled_for": detail.scheduled_for.isoformat() if detail.scheduled_for else None,
             "session_status": detail.session_status,
             "outcome_text": detail.outcome_text,

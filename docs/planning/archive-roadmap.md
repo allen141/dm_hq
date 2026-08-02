@@ -27,13 +27,14 @@ Release 1 proves that a DM can capture, retrieve, use, revise, share, and recove
 - Durable entities with built-in types for people, places, factions, things, events, and lore.
 - Draft and canon authoring states.
 - Tags, aliases, stable references, and backlinks.
-- Quick-capture inbox and scratch notes.
+- Quick-capture inbox and Markdown-first notes.
 - Private-by-default source content.
 
 **Progressive structure**
 
 - Campaign-local templates.
 - Flat custom fields.
+- Template fields are the primary DM entry interface for structured records; optional Markdown extends a specific instantiation without duplicating fields.
 - Required and optional fields, default values, and basic validation.
 - Starter templates for common campaign subjects.
 - A Person/NPC template with optional core 2014 5e reference fields, without implementing a character builder or rules compendium.
@@ -50,7 +51,8 @@ Release 1 proves that a DM can capture, retrieve, use, revise, share, and recove
 **Use during play**
 
 - Session records that link relevant Archive entities and notes.
-- Low-friction scratch capture during a session.
+- A Session template for structured planning, status, and outcome data.
+- Optional Markdown extension prose for details that do not fit the Session template.
 - Promotion of an improvised detail or outcome into durable campaign knowledge.
 
 **Safety and recovery**

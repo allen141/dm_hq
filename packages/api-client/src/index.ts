@@ -26,14 +26,14 @@ export type ArchiveItem = {
   aliases: string[];
   tags: string[];
   entity?: { subject_type: string; template_id: string | null; template_version: number | null; template_fields: TemplateField[]; fields: Record<string, unknown> };
-  session?: { scheduled_for: string | null; session_status: string; outcome_text: string; linked_item_ids: string[] };
+  session?: { template_id: string | null; template_version: number | null; template_fields: TemplateField[]; fields: Record<string, unknown>; scheduled_for: string | null; session_status: string; outcome_text: string; linked_item_ids: string[] };
   references: Array<{ id: number; target_id: string; label: string }>;
   backlinks: Array<{ id: number; source_id: string; label: string }>;
   relationships: Array<{ id: number; target_id: string; kind: string; label: string; notes: string }>;
   incoming_relationships: Array<{ id: number; source_id: string; kind: string; label: string; notes: string }>;
 };
 export type ItemSummary = Pick<ArchiveItem, "id" | "campaign_id" | "kind" | "title" | "status" | "version" | "created_at" | "updated_at">;
-export type Template = { id: string; name: string; applies_to: string; versions: Array<{ number: number; fields: Array<Record<string, unknown>> }> };
+export type Template = { id: string; name: string; applies_to: string; versions: Array<{ number: number; fields: TemplateField[] }> };
 export type PublicationSummary = { id: string; status: string; version: number; created_at: string; updated_at: string; url?: string | null; item_ids: string[] };
 export type Publication = { id: string; status: string; version: number; token?: string; url?: string; entries: Array<{ item_id: string; title: string; body: string; html: string; fields: Record<string, unknown> }> };
 

@@ -98,6 +98,9 @@ class EntityDetail(models.Model):
 
 class SessionDetail(models.Model):
     item = models.OneToOneField(ArchiveItem, on_delete=models.CASCADE, related_name="session_detail")
+    template_version = models.ForeignKey(TemplateVersion, null=True, blank=True, on_delete=models.PROTECT)
+    field_values = models.JSONField(default=dict)
+    # These columns remain as compatibility projections for the initial API/export shape.
     scheduled_for = models.DateField(null=True, blank=True)
     session_status = models.CharField(max_length=20, default="planned")
     outcome_text = models.TextField(blank=True)

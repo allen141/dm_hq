@@ -58,6 +58,7 @@ nav:
   - Decisions:
       - Decision log: decisions/index.md
       - Container delivery: decisions/0003-single-node-container-delivery.md
+      - Structured template fields: decisions/0004-structured-template-fields.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md
