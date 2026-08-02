@@ -43,9 +43,18 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["entity"]["fields"]["species"], "Human")
+        self.assertEqual(response.json()["entity"]["template_fields"][0]["label"], "Species")
         self.assertEqual(response.json()["aliases"], ["Mara", "The Ferrymaster"])
         self.assertEqual(EntityDetail.objects.count(), 1)
         self.assertEqual(ItemRevision.objects.count(), 1)
+
+    def test_person_entities_default_to_the_starter_template(self) -> None:
+        response = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/items",
+            {"kind": "entity", "title": "Unstructured NPC", "subject_type": "person"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["entity"]["template_fields"][0]["key"], "species")
 
     def test_search_relationship_and_backlink_are_campaign_scoped(self) -> None:
         place = self.post(

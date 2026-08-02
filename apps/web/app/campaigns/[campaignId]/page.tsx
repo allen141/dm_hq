@@ -35,7 +35,7 @@ export default function CampaignPage() {
 
   async function create(event: FormEvent) {
     event.preventDefault(); if (!name.trim()) return; setBusy(true); setError("");
-    try { const template = templates.find((candidate) => candidate.name === "Person / NPC"); const item = await client.createItem(campaignId, { kind, title: name, body, subject_type: subjectType, template_id: kind === "entity" ? template?.id : undefined }); router.push(`/campaigns/${campaignId}/items/${item.id}`); }
+    try { const template = templates.find((candidate) => candidate.name === "Person / NPC"); const item = await client.createItem(campaignId, { kind, title: name, body, subject_type: subjectType, template_id: kind === "entity" && subjectType === "person" ? template?.id : undefined }); router.push(`/campaigns/${campaignId}/items/${item.id}`); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Item could not be created."); }
     finally { setBusy(false); }
   }

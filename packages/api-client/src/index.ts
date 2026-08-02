@@ -5,6 +5,13 @@ export type User = components["schemas"]["UserOut"];
 export type Campaign = components["schemas"]["CampaignOut"];
 export type ItemKind = "note" | "entity" | "session";
 export type ItemStatus = "draft" | "canon" | "archived";
+export type TemplateField = {
+  key: string;
+  label: string;
+  type: "short_text" | "long_text" | "number" | "boolean" | "calendar_date" | "choice" | "entity_reference" | string;
+  required?: boolean;
+  options?: string[];
+};
 export type ArchiveItem = {
   id: string;
   campaign_id: string;
@@ -18,7 +25,7 @@ export type ArchiveItem = {
   updated_at: string;
   aliases: string[];
   tags: string[];
-  entity?: { subject_type: string; template_id: string | null; template_version: number | null; fields: Record<string, unknown> };
+  entity?: { subject_type: string; template_id: string | null; template_version: number | null; template_fields: TemplateField[]; fields: Record<string, unknown> };
   session?: { scheduled_for: string | null; session_status: string; outcome_text: string; linked_item_ids: string[] };
   references: Array<{ id: number; target_id: string; label: string }>;
   backlinks: Array<{ id: number; source_id: string; label: string }>;

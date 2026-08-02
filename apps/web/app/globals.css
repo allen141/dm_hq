@@ -39,6 +39,9 @@ h2 { margin: 0; font-size: 1.5rem; }
 .empty { color: var(--muted); margin: 32px 0 6px; }
 form { display: grid; gap: 12px; }
 label { display: grid; gap: 6px; color: var(--muted); font: 0.8rem system-ui, sans-serif; }
+fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 14px; }
+legend { padding: 0 6px; color: var(--ink); font: 700 0.9rem system-ui, sans-serif; }
+.template-fields .meta { margin: -4px 0 0; }
 input { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 11px 12px; color: var(--ink); background: #fff; }
 input:focus-visible, button:focus-visible { outline: 3px solid #b86d3c66; outline-offset: 2px; }
 button { border: 0; border-radius: 9px; padding: 11px 14px; color: #fff; background: var(--accent); font: 700 0.82rem system-ui, sans-serif; }

@@ -244,14 +244,12 @@ def item_output(item: ArchiveItem) -> dict[str, Any]:
         ],
     }
     if item.kind == ArchiveItem.Kind.ENTITY and hasattr(item, "entity_detail"):
+        template_version = item.entity_detail.template_version
         data["entity"] = {
             "subject_type": item.entity_detail.subject_type,
-            "template_id": item.entity_detail.template_version.template_id
-            if item.entity_detail.template_version
-            else None,
-            "template_version": item.entity_detail.template_version.number
-            if item.entity_detail.template_version
-            else None,
+            "template_id": template_version.template_id if template_version else None,
+            "template_version": template_version.number if template_version else None,
+            "template_fields": template_version.fields if template_version else [],
             "fields": item.entity_detail.field_values,
         }
     if item.kind == ArchiveItem.Kind.SESSION and hasattr(item, "session_detail"):
@@ -411,6 +409,8 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
             )
             if not template_version:
                 raise error(422, "validation", "Template not found")
+        elif (payload.subject_type or "person") == "person":
+            template_version = ensure_person_template(campaign).versions.order_by("-number").first()
         EntityDetail.objects.create(
             item=item,
             subject_type=payload.subject_type or "person",
@@ -495,6 +495,8 @@ def item_promote(request: HttpRequest, item_id: UUID, payload: PromotePayload):
             .order_by("-number")
             .first()
         )
+    elif payload.subject_type == "person":
+        template_version = ensure_person_template(item.campaign).versions.order_by("-number").first()
     item.kind = ArchiveItem.Kind.ENTITY
     item.version += 1
     item.save()
