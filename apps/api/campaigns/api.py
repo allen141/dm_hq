@@ -468,6 +468,11 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
         raise error(422, "invalid_markdown", str(exc)) from exc
     if metadata.get("document_type") != "archive_item" or metadata.get("kind") != payload.kind:
         raise error(422, "invalid_markdown", "Frontmatter document_type and kind must match the request")
+    # Entity documents always carry a typed subject category in frontmatter. A
+    # quick capture may omit it, so normalize the same default used by the
+    # relational projection before validation.
+    if payload.kind == ArchiveItem.Kind.ENTITY:
+        metadata.setdefault("subject_type", "person")
     ensure_default_templates(campaign, request.auth)
     if payload.kind in {ArchiveItem.Kind.ENTITY, ArchiveItem.Kind.SESSION} and not metadata.get("template"):
         template = campaign.templates.filter(applies_to=payload.kind).order_by("created_at").first()
