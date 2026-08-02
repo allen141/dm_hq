@@ -25,6 +25,7 @@ docker run --rm \
   -e RUN_ONCE=1 \
   -e PATH=/test:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
   -v "$ROOT/infrastructure/deployer/preview.environment.example:/config/environment.env:ro" \
+  -v "$ROOT/infrastructure/deployer/preview.secrets.example:/mnt/user/appdata/dm-hq/preview/secrets.env:ro" \
   -v "$ROOT/infrastructure/deployer/tests/fake-docker:/test/docker:ro" \
   "$IMAGE"
 
@@ -32,6 +33,7 @@ docker run --rm \
   --entrypoint sh \
   -v "$ROOT/infrastructure/deployer/preview.environment.example:/config/environment.env:ro" \
   -v "$ROOT/infrastructure/deployer/preview.secrets.example:/config/secrets.env:ro" \
+  -v "$ROOT/infrastructure/deployer/preview.secrets.example:/mnt/user/appdata/dm-hq/preview/secrets.env:ro" \
   "$IMAGE" -c '
     set -a
     . /config/environment.env
@@ -46,6 +48,7 @@ docker run --rm \
   --entrypoint sh \
   -v "$ROOT/infrastructure/deployer/production.environment.example:/config/environment.env:ro" \
   -v "$ROOT/infrastructure/deployer/production.secrets.example:/config/secrets.env:ro" \
+  -v "$ROOT/infrastructure/deployer/production.secrets.example:/mnt/user/appdata/dm-hq/production/secrets.env:ro" \
   "$IMAGE" -c '
     set -a
     . /config/environment.env

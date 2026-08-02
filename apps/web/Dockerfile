@@ -1,4 +1,6 @@
 FROM node:24-bookworm-slim AS builder
+ARG BUILD_VERSION=dev
+ENV BUILD_VERSION=${BUILD_VERSION}
 WORKDIR /workspace
 RUN corepack enable
 

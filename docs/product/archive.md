@@ -29,6 +29,8 @@ Writing down an improvised detail should be faster than deciding where it belong
 
 Prose can later gain a type, fields, tags, relationships, and a template. Structure should help retrieval and reuse without turning preparation into mandatory data entry.
 
+For a template-backed record, the template fields are the primary interface: the DM enters typed values directly in labeled controls, and agents can interpret stable field keys without parsing prose. The common Markdown body remains an optional extension for context or exceptional details that the template does not cover. It is not a duplicate scratch field. Notes remain Markdown-first because they are intentionally unstructured. See [ADR 0004](../decisions/0004-structured-template-fields.md).
+
 ### Keep one canonical record
 
 The Dashboard and Battlefield reference Archive subjects instead of maintaining copies. Maps, graphs, timelines, search results, and player pages are views of Archive information rather than independent stores.

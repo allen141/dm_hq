@@ -119,6 +119,14 @@ jobs:
             echo "name=production" >> "$GITHUB_OUTPUT"
             echo "pr=" >> "$GITHUB_OUTPUT"
           fi
+      - id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "value=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
       - id: api-image
         uses: docker/build-push-action@v7.3.0
         with:
@@ -126,8 +134,8 @@ jobs:
           file: apps/api/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ env.API_REPOSITORY }}:sha-${{ github.sha }}
-          build-args: BUILD_VERSION=${{ github.sha }}
+          tags: ${{ env.API_REPOSITORY }}:sha-${{ steps.version.outputs.value }}
+          build-args: BUILD_VERSION=${{ steps.version.outputs.value }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
       - id: web-image
@@ -137,8 +145,8 @@ jobs:
           file: apps/web/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ env.WEB_REPOSITORY }}:sha-${{ github.sha }}
-          build-args: BUILD_VERSION=${{ github.sha }}
+          tags: ${{ env.WEB_REPOSITORY }}:sha-${{ steps.version.outputs.value }}
+          build-args: BUILD_VERSION=${{ steps.version.outputs.value }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
       - id: release-image
@@ -149,13 +157,13 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.RELEASE_REPOSITORY }}:sha-${{ github.sha }}
+            ${{ env.RELEASE_REPOSITORY }}:sha-${{ steps.version.outputs.value }}
             ${{ env.RELEASE_REPOSITORY }}:${{ steps.channel.outputs.name }}
           build-args: |
             CHANNEL=${{ steps.channel.outputs.name }}
             API_IMAGE=${{ env.API_REPOSITORY }}@${{ steps.api-image.outputs.digest }}
             WEB_IMAGE=${{ env.WEB_REPOSITORY }}@${{ steps.web-image.outputs.digest }}
-            BUILD_VERSION=${{ github.sha }}
+            BUILD_VERSION=${{ steps.version.outputs.value }}
             BUILD_PR_NUMBER=${{ steps.channel.outputs.pr }}
       - env:
           API_DIGEST: ${{ steps.api-image.outputs.digest }}
@@ -170,7 +178,7 @@ jobs:
           {
             echo "### ${{ steps.channel.outputs.name }} release"
             echo
-            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Commit: \`${{ steps.version.outputs.value }}\`"
             echo "- API: \`${{ steps.api-image.outputs.digest }}\`"
             echo "- Web: \`${{ steps.web-image.outputs.digest }}\`"
             echo "- Release: \`${{ steps.release-image.outputs.digest }}\`"
