@@ -15,7 +15,7 @@ The temporary implementation-architecture draft proposed a React and Next.js fro
 - Keep live-play interactions responsive on desktop and tablet browsers.
 - Enforce campaign ownership and publication safety in the domain and data layers.
 - Keep the frontend and backend contract explicit and testable.
-- Support relational integrity, flat custom fields, full-text search, and immutable revisions.
+- Support relational integrity, Markdown documents, derived indexes, full-text search, and immutable Markdown revisions.
 - Preserve one source of truth for later Dashboard and Battlefield views.
 - Minimize infrastructure until measured requirements justify it.
 - Use supported, well-documented technology lines.
@@ -41,7 +41,7 @@ Use a modular monolith with separately built web and API processes:
 - **Web:** Next.js 16 App Router, React 19.2, TypeScript 5, and Node.js 24 LTS.
 - **API:** Python 3.13, Django 5.2 LTS, and Django Ninja with Pydantic schemas.
 - **Contract:** versioned REST endpoints with an OpenAPI document that generates the TypeScript API client.
-- **Persistence:** PostgreSQL using relational columns for common query and authorization fields, JSONB for flat template definitions and custom values, and built-in full-text search.
+- **Persistence:** PostgreSQL using relational columns for identity, authorization, projections, and joins; complete Markdown versions for authored content; and built-in full-text search over derived document text.
 - **Authentication:** Django users and secure HTTP-only session cookies, with CSRF protection and campaign membership checks applied by backend policies.
 - **Topology:** expose the web and API processes under one origin. Keep domain modules in one Django application and one database.
 - **Local environment:** pnpm and uv-managed workspaces orchestrated with Docker Compose.
@@ -61,7 +61,7 @@ Do not add the following until the linked product capability enters an active re
 - A graph database or dedicated search service.
 - Docker Swarm, Kubernetes, multiple application replicas, or zero-downtime rollout machinery.
 
-Markdown remains plain source text in Release 1. PostgreSQL remains the canonical graph and search store. Synchronous exports are acceptable until measured size or latency requires background processing.
+Markdown plus YAML frontmatter is canonical campaign content in Release 1. PostgreSQL stores metadata, rebuildable projections, search text, and historical Markdown versions. Synchronous exports are acceptable until measured size or latency requires background processing.
 
 ## Consequences
 

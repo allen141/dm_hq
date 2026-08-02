@@ -44,7 +44,7 @@ Two instances of a fixed DM HQ deployment-controller image poll GHCR:
 
 The controller verifies repository and workflow provenance, accepts only DM HQ image repositories, and uses a deployment definition embedded in its trusted image. Pull-request content is never mounted or executed on the node.
 
-Preview and production have separate PostgreSQL directories, secrets, networks, cookies, and hostnames. Preview data persists across pull requests and has an explicitly guarded, recoverable reset operation. Production receives daily logical backups retained for 14 days.
+Preview and production have separate PostgreSQL directories, secrets, networks, cookies, and hostnames. Preview data persists across pull requests and has an explicitly guarded, recoverable reset operation. Production receives daily logical backups retained for 14 days. The API also mounts a durable campaign-document volume (separate from PostgreSQL) at the configured document root. Backups include that volume, and deployment verification runs document reconciliation so every current SQL version has a matching file and hash.
 
 SWAG terminates HTTPS at `dmhq.tylerallen.net` and `dmhq-preview.tylerallen.net`. Only the web containers join the ingress network. API and database containers are not published on host ports.
 
@@ -52,7 +52,7 @@ SWAG terminates HTTPS at `dmhq.tylerallen.net` and `dmhq-preview.tylerallen.net`
 
 - The controller's Docker-socket mount is root-equivalent access to the node. Its image, release allowlist, provenance checks, and host configuration require security review.
 - The latest successful pull-request build replaces the shared preview; this is intentional until parallel preview environments are justified.
-- Application rollback does not reverse a completed database migration. Migrations must remain compatible with the previous application release and use expand-and-contract changes when necessary.
+- Application rollback does not reverse a completed database migration. The document volume must be restored with the matching SQL backup; SQL Markdown versions remain sufficient to reconstruct missing files. Migrations must remain compatible with the previous application release and use expand-and-contract changes when necessary.
 - Production has a short replacement interval on deployment because Phase 1 uses one container per role.
 - DNS, SWAG certificate coverage, GHCR read credentials, and node secrets require one-time operator setup.
 - A cluster scheduler, hosted deployment platform, and one-preview-per-PR infrastructure remain deferred.

@@ -200,3 +200,8 @@ Additional rulesets must not be scheduled merely because the data model can repr
 - Which 2014 5e sources may be imported, stored, indexed, or redistributed?
 - What campaign size and usage patterns justify advanced indexing or visualization?
 - Which character providers are stable, permitted, and valuable enough to support?
+
+
+## Markdown-canonical replacement
+
+The Archive implementation uses ADR 0005: one frontmatter-plus-body Markdown document per DM-authored record, durable current files, complete SQL Markdown versions, rebuildable projections, atomic writes, reconciliation, Markdown export/restore, and authenticated local-agent workspace snapshot/changes/apply endpoints. The replacement migration converts existing authored data and removes legacy JSON content fields and API shapes.

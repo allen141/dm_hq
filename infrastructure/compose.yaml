@@ -25,13 +25,16 @@ services:
       DB_NAME: dm_hq
       DB_USER: dm_hq
       DB_PASSWORD: dev-only-change-me
+      DM_HQ_DOCUMENT_ROOT: /var/lib/dm-hq/documents
       ALLOW_SEED_USER: "1"
       SEED_USERNAME: dm
       SEED_PASSWORD: password
     depends_on:
       db:
         condition: service_healthy
-    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed_dev_user && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 4"]
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py reconcile_documents && python manage.py seed_dev_user && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 4"]
+    volumes:
+      - dm_hq_documents:/var/lib/dm-hq/documents
     ports:
       - "${API_PORT:-8000}:8000"
 
@@ -48,4 +51,5 @@ services:
       - "${WEB_PORT:-3000}:3000"
 
 volumes:
+  dm_hq_documents:
   dm_hq_postgres:

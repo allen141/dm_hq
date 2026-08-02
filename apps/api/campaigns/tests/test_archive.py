@@ -1,24 +1,23 @@
 import io
 import json
 import zipfile
+import uuid
+from pathlib import Path
 
 from django.contrib.auth.models import User
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 
-from campaigns.models import (
-    ArchiveItem,
-    Campaign,
-    CampaignMembership,
-    EntityDetail,
-    ItemRevision,
-    Publication,
-    SessionDetail,
-)
+from campaigns.models import ArchiveItem, Campaign, CampaignDocumentVersion, CampaignMembership
 
 
+def markdown(campaign_id, item_id, kind="note", title="Rumor", body="First", **extra):
+    metadata = {"document_type": "archive_item", "id": str(item_id), "campaign_id": str(campaign_id), "kind": kind, "title": title, "status": "draft", "aliases": [], "tags": [], "references": [], "relationships": [], **extra}
+    return f"---\n{json.dumps(metadata, indent=2)}\n---\n\n{body}\n"
+
+
+@override_settings(DM_HQ_DOCUMENT_ROOT=Path("/tmp/dm-hq-test-documents"))
 class ArchiveApiTests(TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         self.client = Client(enforce_csrf_checks=True)
         self.user = User.objects.create_user(username="dm", password="test-password")
         self.other = User.objects.create_user(username="other", password="test-password")
@@ -27,183 +26,57 @@ class ArchiveApiTests(TestCase):
         self.assertTrue(self.client.login(username="dm", password="test-password"))
         self.csrf_token = self.client.get("/api/v1/auth/csrf").cookies["csrftoken"].value
 
-    def post(self, path: str, payload: dict):
-        return self.client.post(
-            path, data=json.dumps(payload), content_type="application/json", HTTP_X_CSRFTOKEN=self.csrf_token
-        )
+    def post(self, path, payload):
+        return self.client.post(path, data=json.dumps(payload), content_type="application/json", HTTP_X_CSRFTOKEN=self.csrf_token)
 
-    def test_create_entity_uses_person_template_and_preserves_structure(self) -> None:
-        templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates")
-        self.assertEqual(templates.status_code, 200)
-        template = next(template for template in templates.json()["templates"] if template["name"] == "Person / NPC")
-        response = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {
-                "kind": "entity",
-                "title": "Mara Venn",
-                "body": "A **quiet** ferrymaster.",
-                "subject_type": "person",
-                "template_id": template["id"],
-                "fields": {"species": "Human", "armor_class": 13},
-                "aliases": ["Mara", "The Ferrymaster"],
-                "tags": ["harbor"],
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["entity"]["fields"]["species"], "Human")
-        self.assertEqual(response.json()["entity"]["template_fields"][0]["label"], "Species")
-        self.assertEqual(response.json()["aliases"], ["Mara", "The Ferrymaster"])
-        self.assertEqual(EntityDetail.objects.count(), 1)
-        self.assertEqual(ItemRevision.objects.count(), 1)
+    def create_item(self, kind="note", title="Rumor", body="First", **extra):
+        return self.post(f"/api/v1/campaigns/{self.campaign.id}/items", {"kind": kind, "markdown": markdown(self.campaign.id, uuid.uuid4(), kind, title, body, **extra)}).json()
 
-    def test_person_entities_default_to_the_starter_template(self) -> None:
-        response = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {"kind": "entity", "title": "Unstructured NPC", "subject_type": "person"},
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["entity"]["template_fields"][0]["key"], "species")
+    def test_full_markdown_create_projects_and_materializes_file(self):
+        item = self.create_item(kind="entity", title="Mara Venn", body="A **quiet** ferrymaster.", subject_type="person", fields={"species": "Human"}, aliases=["The Ferrymaster"], tags=["harbor"])
+        self.assertEqual(item["metadata"]["fields"]["species"], "Human")
+        self.assertEqual(item["aliases"], ["The Ferrymaster"])
+        self.assertIn("A **quiet**", item["markdown"])
+        self.assertTrue(Path("/tmp/dm-hq-test-documents") .joinpath(f"campaigns/{self.campaign.id}/items/{item['id']}.md").exists())
+        self.assertEqual(CampaignDocumentVersion.objects.filter(document__archive_item__id=item["id"]).count(), 1)
 
-    def test_session_uses_structured_template_fields_and_keeps_markdown_extension(self) -> None:
-        templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]
-        template = next(template for template in templates if template["name"] == "Session")
-        response = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {
-                "kind": "session",
-                "title": "Session One",
-                "body": "## Optional extension",
-                "template_id": template["id"],
-                "fields": {
-                    "scheduled_for": "2026-08-02",
-                    "session_status": "planned",
-                    "outcome_text": "Open questions",
-                },
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["session"]["fields"]["outcome_text"], "Open questions")
-        self.assertEqual(response.json()["session"]["template_fields"][0]["label"], "Scheduled date")
-        self.assertEqual(response.json()["body"], "## Optional extension")
-        self.assertEqual(SessionDetail.objects.count(), 1)
-        updated = self.client.patch(
-            f"/api/v1/items/{response.json()['id']}",
-            data=json.dumps(
-                {
-                    "version": 1,
-                    "fields": {
-                        "scheduled_for": "2026-08-02",
-                        "session_status": "completed",
-                        "outcome_text": "Reconciled",
-                    },
-                }
-            ),
-            content_type="application/json",
-            HTTP_X_CSRFTOKEN=self.csrf_token,
-        )
-        self.assertEqual(updated.status_code, 200)
-        self.assertEqual(updated.json()["session"]["session_status"], "completed")
-
-    def test_search_relationship_and_backlink_are_campaign_scoped(self) -> None:
-        place = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {"kind": "entity", "title": "Saltmere", "subject_type": "place"},
-        ).json()
-        person = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {"kind": "entity", "title": "Mara", "body": "Keeps the salt road."},
-        ).json()
-        relation = self.post(
-            f"/api/v1/items/{person['id']}/relationships",
-            {"target_id": place["id"], "kind": "works_at", "reciprocal_label": "employs"},
-        )
-        self.assertEqual(relation.status_code, 200)
-        search = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/search?q=salt")
-        self.assertEqual(search.status_code, 200)
-        self.assertEqual([item["title"] for item in search.json()["items"]], ["Saltmere", "Mara"])
-        detail = self.client.get(f"/api/v1/items/{place['id']}")
-        self.assertEqual(detail.status_code, 200)
-        self.assertEqual(detail.json()["incoming_relationships"][0]["source_id"], person["id"])
-
-    def test_stale_update_and_restore_create_recoverable_revisions(self) -> None:
-        item = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items", {"kind": "note", "title": "Rumor", "body": "First"}
-        ).json()
-        updated = self.client.patch(
-            f"/api/v1/items/{item['id']}",
-            data=json.dumps({"version": 1, "body": "Second"}),
-            content_type="application/json",
-            HTTP_X_CSRFTOKEN=self.csrf_token,
-        )
-        self.assertEqual(updated.status_code, 200)
-        stale = self.client.patch(
-            f"/api/v1/items/{item['id']}",
-            data=json.dumps({"version": 1, "body": "Overwrite"}),
-            content_type="application/json",
-            HTTP_X_CSRFTOKEN=self.csrf_token,
-        )
+    def test_invalid_frontmatter_and_stale_full_document_write(self):
+        bad = self.post(f"/api/v1/campaigns/{self.campaign.id}/items", {"kind": "note", "markdown": "# no frontmatter"})
+        self.assertEqual(bad.status_code, 422)
+        item = self.create_item()
+        replacement = markdown(self.campaign.id, item["id"], title="Updated", body="Second")
+        updated = self.client.patch(f"/api/v1/items/{item['id']}", data=json.dumps({"version": 1, "markdown": replacement}), content_type="application/json", HTTP_X_CSRFTOKEN=self.csrf_token)
+        self.assertEqual(updated.status_code, 200); self.assertEqual(updated.json()["version"], 2)
+        stale = self.client.patch(f"/api/v1/items/{item['id']}", data=json.dumps({"version": 1, "markdown": markdown(self.campaign.id, item["id"], title="Overwrite")}), content_type="application/json", HTTP_X_CSRFTOKEN=self.csrf_token)
         self.assertEqual(stale.status_code, 409)
-        restored = self.post(f"/api/v1/items/{item['id']}/restore", {"version": 2, "revision": 1})
-        self.assertEqual(restored.status_code, 200)
-        self.assertEqual(restored.json()["body"], "First")
-        self.assertEqual(ItemRevision.objects.filter(item_id=item["id"]).count(), 3)
+        revisions = self.client.get(f"/api/v1/items/{item['id']}/revisions").json()["revisions"]
+        self.assertEqual([revision["number"] for revision in revisions], [2, 1])
 
-    def test_publication_is_snapshot_and_revocable(self) -> None:
-        private = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {"kind": "entity", "title": "Secret NPC", "body": "Private clue"},
-        ).json()
-        publication = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/publications",
-            {"entries": [{"item_id": private["id"], "title": "The Stranger", "body": "A traveler."}]},
-        )
-        self.assertEqual(publication.status_code, 200)
-        token = publication.json()["token"]
-        self.assertEqual(publication.json()["url"], f"/p/{token}")
-        handouts = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/publications")
-        self.assertEqual(handouts.status_code, 200)
-        self.assertEqual(handouts.json()["publications"][0]["url"], f"/p/{token}")
-        self.assertIn(private["id"], handouts.json()["publications"][0]["item_ids"])
+    def test_relationship_search_and_workspace_are_markdown_backed(self):
+        place = self.create_item(kind="entity", title="Saltmere", body="Salt road")
+        person = self.create_item(kind="entity", title="Mara", body="Keeps the salt road")
+        relation = self.post(f"/api/v1/items/{person['id']}/relationships", {"target_id": place["id"], "kind": "works_at", "notes": "Harbor records"})
+        self.assertEqual(relation.status_code, 200)
+        detail = self.client.get(f"/api/v1/items/{person['id']}").json()
+        self.assertEqual(detail["metadata"]["relationships"][0]["kind"], "works_at")
+        self.assertIn("Saltmere", [item["title"] for item in self.client.get(f"/api/v1/campaigns/{self.campaign.id}/search?q=Salt").json()["items"]])
+        snapshot = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/workspace/snapshot").json()
+        file = next(file for file in snapshot["files"] if file["document_id"] == str(detail["metadata"]["id"]) or file["storage_key"].endswith(f"{person['id']}.md"))
+        changed = markdown(self.campaign.id, person["id"], "entity", "Mara Updated", "New local prose")
+        applied = self.post(f"/api/v1/campaigns/{self.campaign.id}/workspace/apply", {"document_id": file["document_id"], "version": file["version"], "markdown": changed})
+        self.assertEqual(applied.status_code, 200)
+        conflict = self.post(f"/api/v1/campaigns/{self.campaign.id}/workspace/apply", {"document_id": file["document_id"], "version": file["version"], "markdown": changed})
+        self.assertEqual(conflict.status_code, 409)
+
+    def test_publication_and_markdown_archive_round_trip(self):
+        item = self.create_item(kind="entity", title="Secret NPC", body="Private clue", fields={"species": "Human"})
+        public_markdown = markdown(self.campaign.id, item["id"], "entity", "The Stranger", "A traveler.", fields={"species": "Human"})
+        publication = self.post(f"/api/v1/campaigns/{self.campaign.id}/publications", {"entries": [{"item_id": item["id"], "markdown": public_markdown}]})
+        self.assertEqual(publication.status_code, 200); token = publication.json()["token"]
         public = self.client.get(f"/api/v1/publications/public/{token}")
-        self.assertEqual(public.status_code, 200)
-        self.assertEqual(public.json()["entries"][0]["title"], "The Stranger")
-        self.assertNotIn("Private clue", public.content.decode())
-        revoke = self.client.post(
-            f"/api/v1/publications/{publication.json()['id']}/revoke", HTTP_X_CSRFTOKEN=self.csrf_token
-        )
-        self.assertEqual(revoke.status_code, 200)
-        self.assertEqual(self.client.get(f"/api/v1/publications/public/{token}").json()["status"], "not_found")
-
-    def test_export_and_restore_create_new_campaign_without_tokens(self) -> None:
-        template = next(
-            template
-            for template in self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]
-            if template["name"] == "Person / NPC"
-        )
-        entity = self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {"kind": "entity", "title": "Exported NPC", "template_id": template["id"], "fields": {"species": "Human"}},
-        ).json()
-        self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/items",
-            {"kind": "note", "title": "Exported note", "body": "Portable prose"},
-        )
-        self.post(
-            f"/api/v1/campaigns/{self.campaign.id}/publications",
-            {"entries": [{"item_id": entity["id"], "title": "Safe NPC", "body": "Public prose"}]},
-        )
+        self.assertEqual(public.status_code, 200); self.assertNotIn("Private clue", public.content.decode()); self.assertIn("A traveler", public.content.decode())
         export = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/exports")
-        self.assertEqual(export.status_code, 200)
         with zipfile.ZipFile(io.BytesIO(export.content)) as archive:
-            self.assertIn("manifest.json", archive.namelist())
-            self.assertIn("campaign.json", archive.namelist())
-            self.assertNotIn("token", archive.read("campaign.json").decode())
-        upload = SimpleUploadedFile("archive.zip", export.content, content_type="application/zip")
-        restored = self.client.post("/api/v1/exports/restore", {"archive": upload}, HTTP_X_CSRFTOKEN=self.csrf_token)
-        self.assertEqual(restored.status_code, 200)
-        self.assertTrue(Campaign.objects.filter(name="Glass Coast (restored)").exists())
-        restored_campaign_id = restored.json()["id"]
-        self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored_campaign_id, title="Exported note").exists())
-        restored_entity = ArchiveItem.objects.get(campaign_id=restored_campaign_id, title="Exported NPC")
-        self.assertIsNotNone(restored_entity.entity_detail.template_version_id)
-        self.assertTrue(Publication.objects.filter(campaign_id=restored_campaign_id, status="revoked").exists())
+            self.assertIn("manifest.json", archive.namelist()); self.assertNotIn("campaign.json", archive.namelist()); self.assertTrue(any(name.endswith(".md") for name in archive.namelist())); self.assertNotIn("token", "".join(archive.namelist()))
+        restored = self.client.post("/api/v1/exports/restore", {"archive": __import__("django").core.files.uploadedfile.SimpleUploadedFile("archive.zip", export.content, content_type="application/zip")}, HTTP_X_CSRFTOKEN=self.csrf_token)
+        self.assertEqual(restored.status_code, 200); self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())

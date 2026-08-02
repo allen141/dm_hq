@@ -50,6 +50,7 @@ nav:
   - Architecture:
       - Overview: architecture/index.md
       - Domain model: architecture/domain-model.md
+      - Markdown documents: architecture/markdown-documents.md
   - Planning:
       - Roadmap: planning/roadmap.md
       - Archive roadmap: planning/archive-roadmap.md
@@ -58,7 +59,8 @@ nav:
   - Decisions:
       - Decision log: decisions/index.md
       - Container delivery: decisions/0003-single-node-container-delivery.md
-      - Structured template fields: decisions/0004-structured-template-fields.md
+      - Structured template fields (superseded): decisions/0004-structured-template-fields.md
+      - Markdown campaign documents: decisions/0005-markdown-canonical-campaign-documents.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md

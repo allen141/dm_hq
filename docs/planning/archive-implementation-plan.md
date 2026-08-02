@@ -125,7 +125,7 @@ Release 1 templates are campaign-local and use stable field keys that do not cha
 
 Template versions are immutable after use. Editing a template creates a new version; existing items retain their recorded version and values. Defaults apply only when creating a value. A draft may omit required fields so quick capture remains possible; required-field validation applies when an item moves to canon.
 
-Template fields are the primary DM entry surface for every template-backed entity and session. The web UI renders labels and typed controls from the selected template version, and the API stores those values under stable keys. The shared Markdown body is an optional extension for context or exceptional details that do not belong in the template; it must not be duplicated by a second scratch/outcome editor. Notes remain Markdown-first. The initial Session template defines scheduled date, session status, and outcome.
+Template controls are an editing projection over the selected template document and the item document frontmatter. The API stores and versions the complete Markdown document, including typed values and body. Notes remain Markdown-first. The initial Session template defines frontmatter keys for scheduling, status, and outcome.
 
 Choice options and fields use stable keys independent of their labels. Entity-reference values store Archive item IDs and participate in backlink queries. Calendar dates use ISO dates for real-world scheduling; fictional calendars remain text until the temporal model is designed.
 
@@ -134,14 +134,14 @@ The initial Person template includes optional core 2014 D&D 5e reference fields 
 ### Revision rules
 
 - Every successful item mutation creates a revision in the same database transaction.
-- A revision captures the item, subtype data, custom values, aliases, tags, and stable references.
+- A revision captures the complete canonical Markdown document and its derived projections.
 - Restoring a revision creates a new current revision; it never deletes later history.
 - Relationship changes are audited but are not included in item restore until relationship revision behavior is designed.
 - Revision timestamps record when DM HQ stored the change. Fictional effective time is deferred.
 
 ### Publication rules
 
-- A publication copies a safe title, summary, selected fields, and selected prose into an independent snapshot.
+- A publication stores an independently versioned safe Markdown document; private relationships and adjacent records are excluded unless represented in that snapshot.
 - Private source fields, relationships, backlinks, and adjacent records are excluded unless explicitly copied.
 - Internal links in selected prose become plain text unless their targets have deliberately published player URLs.
 - Publishing a new version does not mutate the source item.
@@ -273,7 +273,7 @@ Each increment must add tests at the layer that owns the behavior.
 ### Backend
 
 - Domain tests for templates, state transitions, revisions, restore, publications, and exports.
-- UI and API tests verify template fields are primary and Markdown is optional extension prose rather than a duplicate input.
+- UI and API tests verify form controls and source mode edit one canonical Markdown document and that saves contain only the complete document.
 - Policy tests for owner access, unauthenticated access, cross-campaign access, and public access.
 - API tests for schemas, status codes, CSRF behavior, filtering, pagination, and error codes.
 - Migration tests that build a database from zero and upgrade a previous supported schema.
@@ -326,3 +326,8 @@ Release 1 preserves these seams without implementing them:
 - Revision restore and export/restore are demonstrated against representative campaign data.
 - The strict documentation build, application builds, migrations, tests, and security checks pass in CI.
 - No deferred infrastructure or feature is present without a documented need and decision.
+
+
+## Markdown-canonical replacement
+
+The Archive implementation uses ADR 0005: one frontmatter-plus-body Markdown document per DM-authored record, durable current files, complete SQL Markdown versions, rebuildable projections, atomic writes, reconciliation, Markdown export/restore, and authenticated local-agent workspace snapshot/changes/apply endpoints. The replacement migration converts existing authored data and removes legacy JSON content fields and API shapes.

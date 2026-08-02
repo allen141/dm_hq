@@ -25,11 +25,11 @@ This is shared vocabulary for discovery, not a finalized database schema. The Ar
 
 ### Template fields and extension prose
 
-A template version defines the structured fields a DM enters directly for a template-backed entity or session. Stable field keys and typed values support validation, search, revisions, exports, and agent interpretation. The item's Markdown body is optional extension prose for context that the current template does not model; it is not a duplicate field editor. Notes remain Markdown-first.
+A template version is itself a Markdown document whose frontmatter defines typed controls. Template-backed records store those values in their own Markdown frontmatter, alongside aliases, tags, links, and relationship notes. The complete document (frontmatter plus body) is canonical; controls are an editing projection and notes remain Markdown-first.
 
 ### Source content and published content
 
-Player visibility is not a side effect of viewing the same object. A publication has its own safe title, summary, selected content, revision, and lifecycle so private edits are not accidentally exposed. The first release uses publication snapshots; live derived publications may be evaluated later.
+Player visibility is not a side effect of viewing the same object. A publication has its own safe Markdown document, revision, and lifecycle so private edits are not accidentally exposed. The first release uses publication snapshots; live derived publications may be evaluated later.
 
 ### Relationship and claim
 

@@ -29,7 +29,7 @@ Writing down an improvised detail should be faster than deciding where it belong
 
 Prose can later gain a type, fields, tags, relationships, and a template. Structure should help retrieval and reuse without turning preparation into mandatory data entry.
 
-For a template-backed record, the template fields are the primary interface: the DM enters typed values directly in labeled controls, and agents can interpret stable field keys without parsing prose. The common Markdown body remains an optional extension for context or exceptional details that the template does not cover. It is not a duplicate scratch field. Notes remain Markdown-first because they are intentionally unstructured. See [ADR 0004](../decisions/0004-structured-template-fields.md).
+For a template-backed record, typed controls edit YAML frontmatter in the canonical Markdown document. The complete frontmatter and body are sent, versioned, exported, and indexed together. Notes remain Markdown-first because they are intentionally unstructured. See [ADR 0005](../decisions/0005-markdown-canonical-campaign-documents.md).
 
 ### Keep one canonical record
 
@@ -77,7 +77,7 @@ Revision history answers what the user edited and when. Fictional chronology ans
 
 ### Source content and publication
 
-A publication has its own safe title, summary, selected content, revision, and lifecycle. Editing a private Archive record does not silently publish the change. Revocation prevents future player access without erasing the publication history.
+A publication has its own safe Markdown document, revision, and lifecycle. Editing a private Archive record does not silently publish the change. Revocation prevents future player access without erasing the publication history.
 
 ## Core workflows
 
@@ -96,3 +96,8 @@ A publication has its own safe title, summary, selected content, revision, and l
 ## Release direction
 
 [The Archive roadmap](../planning/archive-roadmap.md) defines the current first-release candidate and preserves later capabilities without authorizing implementation before the project exits discovery.
+
+
+## Canonical campaign documents
+
+Every DM-authored item, template version, and publication entry is one Markdown file with YAML frontmatter and a Markdown body. Typed controls edit frontmatter; source mode edits the complete document. The API returns Markdown, rendered HTML, parsed metadata, projections, version, and hash. PostgreSQL indexes and relationship tables are derived for fast navigation and search, while the persistent document volume provides a local-file working set for authorized agent workspaces.

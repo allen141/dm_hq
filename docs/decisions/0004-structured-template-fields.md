@@ -1,6 +1,6 @@
 # ADR 0004: Structured template fields with Markdown extensions
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0005](0005-markdown-canonical-campaign-documents.md)
 - **Date:** 2026-08-02
 - **Owners:** Product and Engineering
 
@@ -27,3 +27,5 @@ Release 1 applies this rule to entities and sessions. The Person/NPC template ex
 - New fields are added through a new immutable template version rather than by changing existing records in place.
 - A template may still be incomplete during draft capture; canon validation applies to required fields.
 - The UI must not reintroduce separate textareas that duplicate a template field's meaning.
+
+> This decision is retained for historical context. ADR 0005 makes the complete Markdown document, including typed template values, canonical.

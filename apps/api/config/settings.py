@@ -74,6 +74,7 @@ USE_I18N = True
 BUILD_PR_NUMBER = os.environ.get("BUILD_PR_NUMBER", "")
 USE_TZ = True
 STATIC_URL = "/static/"
+DM_HQ_DOCUMENT_ROOT = Path(os.environ.get("DM_HQ_DOCUMENT_ROOT", str(BASE_DIR / "documents")))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CSRF_TRUSTED_ORIGINS = [origin for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if origin]
