@@ -53,6 +53,7 @@ export function createApiClient(fetcher: typeof fetch = (...args) => fetch(...ar
     relationship: (itemId: string, payload: Record<string, unknown>) => request<Record<string, unknown>>(`/api/v1/items/${itemId}/relationships`, { method: "POST", body: JSON.stringify(payload) }),
     sessionLink: (itemId: string, targetId: string) => request<Record<string, unknown>>(`/api/v1/items/${itemId}/session-links`, { method: "POST", body: JSON.stringify({ item_id: targetId }) }),
     revisions: (itemId: string) => request<{ revisions: Array<{ number: number; reason: string; created_at: string; markdown: string; content_hash: string }> }>(`/api/v1/items/${itemId}/revisions`),
+    revisionCompare: (itemId: string, revision: number, against?: number) => request<{ revision: number; against: number | null; markdown: string; previous_markdown: string | null }>(`/api/v1/items/${itemId}/revisions/${revision}${against ? `?against=${against}` : ""}`),
     restore: (itemId: string, payload: { revision: number; version: number; reason?: string }) => request<ArchiveItem>(`/api/v1/items/${itemId}/restore`, { method: "POST", body: JSON.stringify(payload) }),
     createPublication: (campaignId: string, entries: Array<{ item_id: string; markdown: string }>) => request<Publication>(`/api/v1/campaigns/${campaignId}/publications`, { method: "POST", body: JSON.stringify({ entries }) }),
     publications: (campaignId: string) => request<{ publications: PublicationSummary[] }>(`/api/v1/campaigns/${campaignId}/publications`),
