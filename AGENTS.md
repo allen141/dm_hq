@@ -33,6 +33,12 @@ DM HQ is in documentation and discovery. Do not introduce application code, fram
 - Do not place campaign content, credentials, personal data, or secrets in examples.
 - When requirements are ambiguous, document the assumption or open question rather than silently presenting it as settled.
 
+## Interactive CI and deployment
+
+- When working interactively with a developer, push completed changes and report the updated branch or MR without waiting for CI, preview deployment, or production deployment to finish.
+- Only wait for and monitor CI or deployment completion when working autonomously without an available developer to provide direction.
+- If checks are already available, report their current status, but do not block iterative developer feedback on them.
+
 ## Future implementation guidance
 
 Once implementation begins:
