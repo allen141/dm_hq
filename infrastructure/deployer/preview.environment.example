@@ -1,4 +1,4 @@
 CONTAINER_PREFIX=dmhq-preview
 ENV_ROOT=/mnt/user/appdata/dm-hq/preview
-SECRETS_FILE=/config/secrets.env
+SECRETS_FILE=/mnt/user/appdata/dm-hq/preview/secrets.env
 COMPOSE_PROJECT_NAME=dmhq-preview
