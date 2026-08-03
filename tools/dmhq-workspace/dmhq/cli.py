@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from .client import ApiError
+from .client import ApiError, SessionClient
 from .storage import profiles, prompt_token, save_profile, token_for
 from .workspace import Workspace, WorkspaceError
 
@@ -16,6 +16,24 @@ def workspace_from_args(args) -> Workspace:
 
 
 def cmd_auth(args) -> int:
+    if args.auth_command == "setup":
+        base_url = (args.base_url or input("DM HQ base URL: ")).strip().rstrip("/")
+        if not base_url:
+            raise RuntimeError("A DM HQ base URL is required.")
+        username = (args.username or input("DM HQ username: ")).strip()
+        if not username:
+            raise RuntimeError("A DM HQ username is required.")
+        import getpass
+
+        password = getpass.getpass("DM HQ password (not saved): ")
+        name = (args.name or input("Token name [Local workspace]: ").strip() or "Local workspace")
+        session = SessionClient(base_url)
+        session.login(username, password)
+        token = session.create_agent_token(name)
+        save_profile(base_url, token["token"])
+        print(f"Saved DM HQ profile for {base_url}")
+        print(f"Created agent token {token['id']} ({token['name']}). The password was not saved.")
+        return 0
     if args.auth_command == "add":
         token = args.token or prompt_token()
         save_profile(args.base_url, token)
@@ -95,7 +113,14 @@ def parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     auth = sub.add_parser("auth")
     auth_sub = auth.add_subparsers(dest="auth_command", required=True)
-    add = auth_sub.add_parser("add")
+    setup = auth_sub.add_parser(
+        "setup",
+        help="log in once, create a personal agent token, and save it locally",
+    )
+    setup.add_argument("--base-url", help="DM HQ URL; prompted when omitted")
+    setup.add_argument("--username", help="login username; prompted when omitted")
+    setup.add_argument("--name", help="agent token name; prompted when omitted")
+    add = auth_sub.add_parser("add", help="save an existing personal agent token")
     add.add_argument("--base-url", required=True)
     add.add_argument("--token")
     auth_sub.add_parser("list")

@@ -4,11 +4,11 @@ DM HQ’s first agent integration is a local Markdown workspace. The repository 
 
 ## Setup
 
-Create a personal agent token in the DM HQ web application, then run:
+Install the CLI, then use the guided setup. It prompts for the DM HQ URL, username, password, and token name; the password is used only for the session exchange and is never stored:
 
 ```text
 python -m pip install -e tools/dmhq-workspace
-dmhq auth add --base-url https://dm-hq.example
+dmhq auth setup --base-url https://dm-hq.example
 dmhq workspace init --campaign <campaign-id>
 cd <workspace-path>
 dmhq skills install
