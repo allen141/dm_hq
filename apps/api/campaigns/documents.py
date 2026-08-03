@@ -24,6 +24,7 @@ from .models import (
     SessionLink,
     Tag,
     TemplateVersion,
+    WorkspaceChange,
 )
 
 
@@ -497,6 +498,17 @@ def save_document(
     document.content_hash = digest
     document.search_text = searchable_text(metadata, body)
     document.save(update_fields=["current_version", "content_hash", "search_text", "updated_at"])
+    if document.document_type != "publication_entry":
+        WorkspaceChange.objects.create(
+            campaign_id=document.campaign_id,
+            document=document,
+            document_identifier=document.id,
+            storage_key=document.storage_key,
+            operation=WorkspaceChange.Operation.UPSERT,
+            version=document.current_version,
+            content_hash=digest,
+            markdown=normalized,
+        )
     write_current(document, normalized)
     return document
 

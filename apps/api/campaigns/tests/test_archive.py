@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 
 from campaigns.documents import parse_document
-from campaigns.models import ArchiveItem, Campaign, CampaignDocumentVersion, CampaignMembership
+from campaigns.models import ArchiveItem, Campaign, CampaignDocument, CampaignDocumentVersion, CampaignMembership
 
 
 def markdown(campaign_id, item_id, kind="note", title="Rumor", body="First", **extra):
@@ -149,18 +149,18 @@ class ArchiveApiTests(TestCase):
         changed = markdown(self.campaign.id, person["id"], "entity", "Mara Updated", "New local prose")
         applied = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
-            {"document_id": file["document_id"], "version": file["version"], "markdown": changed},
+            {"document_id": file["document_id"], "version": file["version"], "hash": file["hash"], "markdown": changed},
         )
         self.assertEqual(applied.status_code, 200)
         conflict = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
-            {"document_id": file["document_id"], "version": file["version"], "markdown": changed},
+            {"document_id": file["document_id"], "version": file["version"], "hash": file["hash"], "markdown": changed},
         )
         self.assertEqual(conflict.status_code, 409)
         wrong_id = markdown(self.campaign.id, uuid.uuid4(), "entity", "Wrong", "Bad id")
         rejected = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
-            {"document_id": file["document_id"], "version": applied.json()["version"], "markdown": wrong_id},
+            {"document_id": file["document_id"], "version": applied.json()["version"], "hash": applied.json()["hash"], "markdown": wrong_id},
         )
         self.assertEqual(rejected.status_code, 422)
         self.assertIn("Frontmatter id does not match", rejected.content.decode())
@@ -310,3 +310,64 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())
+
+
+    def test_workspace_pages_include_markdown_and_hash_conflicts(self):
+        item = self.create_item(title="Local item", body="Initial")
+        snapshot = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/workspace/snapshot?limit=1").json()
+        self.assertEqual(snapshot["manifest"]["version"], 2)
+        self.assertTrue(snapshot["files"])
+        file = next(value for value in snapshot["files"] if value["storage_key"].endswith(f"{item['id']}.md"))
+        token_response = self.client.post(
+            "/api/v1/auth/agent-tokens",
+            data=json.dumps({"name": "workspace"}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(token_response.status_code, 200)
+        headers = {"HTTP_AUTHORIZATION": f"Bearer {token_response.json()['token']}"}
+        changed = markdown(self.campaign.id, item["id"], title="Local changed", body="Updated")
+        applied = self.client.post(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
+            data=json.dumps({"document_id": file["document_id"], "version": file["version"], "hash": file["hash"], "markdown": changed}),
+            content_type="application/json",
+            **headers,
+        )
+        self.assertEqual(applied.status_code, 200)
+        self.assertEqual(applied.json()["version"], file["version"] + 1)
+        self.assertIn("Updated", applied.json()["markdown"])
+        stale = self.client.post(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
+            data=json.dumps({"document_id": file["document_id"], "version": file["version"], "hash": file["hash"], "markdown": changed}),
+            content_type="application/json",
+            **headers,
+        )
+        self.assertEqual(stale.status_code, 409)
+        changes = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/changes?after={snapshot['manifest']['cursor']}",
+            **headers,
+        ).json()
+        event = next(change for change in changes["changes"] if change["document_id"] == file["document_id"])
+        self.assertEqual(event["operation"], "upsert")
+        self.assertIn("Updated", event["markdown"])
+
+    def test_workspace_delete_events_use_stable_document_ids(self):
+        item = self.create_item(title="To delete")
+        snapshot = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/workspace/snapshot").json()
+        file = next(value for value in snapshot["files"] if value["storage_key"].endswith(f"{item['id']}.md"))
+        document = CampaignDocument.objects.get(id=file["document_id"])
+        document.delete()
+        token_response = self.client.post(
+            "/api/v1/auth/agent-tokens",
+            data=json.dumps({"name": "delete-check"}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        headers = {"HTTP_AUTHORIZATION": f"Bearer {token_response.json()['token']}"}
+        changes = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/changes?after={snapshot['manifest']['cursor']}",
+            **headers,
+        ).json()
+        event = next(change for change in changes["changes"] if change["document_id"] == file["document_id"])
+        self.assertEqual(event["operation"], "delete")
+        self.assertIsNone(event["markdown"])

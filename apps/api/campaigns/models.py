@@ -227,3 +227,39 @@ class CampaignDocumentVersion(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["document", "number"], name="unique_document_version")]
         ordering = ["-number"]
+
+
+class AgentToken(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="agent_tokens")
+    name = models.CharField(max_length=120)
+    token_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class WorkspaceChange(models.Model):
+    class Operation(models.TextChoices):
+        UPSERT = "upsert", "Upsert"
+        DELETE = "delete", "Delete"
+
+    id = models.BigAutoField(primary_key=True)
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="workspace_changes")
+    document = models.ForeignKey(
+        CampaignDocument, null=True, blank=True, on_delete=models.SET_NULL, related_name="workspace_changes"
+    )
+    document_identifier = models.UUIDField()
+    storage_key = models.CharField(max_length=512)
+    operation = models.CharField(max_length=12, choices=Operation.choices)
+    version = models.PositiveIntegerField(null=True, blank=True)
+    content_hash = models.CharField(max_length=64, blank=True, default="")
+    markdown = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["campaign", "id"])]

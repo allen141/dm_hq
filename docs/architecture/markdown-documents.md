@@ -55,13 +55,14 @@ A Markdown archive contains `manifest.json` for technical format metadata, curre
 
 ## Agent workspace protocol
 
-An authenticated DM agent can request:
+The initial local-agent implementation is documented in the [local agent workspace](agent-workspace.md) page. Authenticated agents use bearer tokens and can request:
 
-- `GET /campaigns/{id}/workspace/snapshot` — all current authorized Markdown files plus a technical manifest and cursor.
-- `GET /campaigns/{id}/workspace/changes?after={cursor}` — document IDs, versions, hashes, and operations.
-- `POST /campaigns/{id}/workspace/apply` — a complete Markdown document, document ID, and base version.
+- `GET /campaigns/{id}/workspace/snapshot?after={storage_key}&limit={n}` — paged current authorized Markdown files plus a stable technical cursor.
+- `GET /campaigns/{id}/workspace/changes?after={cursor}&limit={n}` — paged upsert/delete events, complete Markdown for upserts, versions, and hashes.
+- `GET /campaigns/{id}/workspace/documents/{document_id}` — one current authorized document.
+- `POST /campaigns/{id}/workspace/apply` — a complete Markdown document, base version, and base hash.
 
-Apply uses the same parser, validation, projection, version, and atomic-file service as the UI. A stale base version returns a conflict and never overwrites newer server content. A local agent can therefore maintain a fast file cache, edit locally, and reconcile safely without gaining access to another campaign.
+Apply uses the same parser, validation, projection, version, and atomic-file service as the UI. A stale base version or hash returns a conflict and never overwrites newer server content.
 
 ## Publication safety
 

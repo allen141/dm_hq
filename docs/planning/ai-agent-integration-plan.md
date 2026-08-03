@@ -8,18 +8,21 @@
 
 DM HQ will own a provider-neutral agent gateway. The gateway exposes campaign-scoped search, Markdown retrieval, synchronization, proposal, preview, and version-safe write operations. Model hosts are adapters around that contract:
 
-- A private Custom GPT Action is the first Plus-based pilot.
-- A local sync bridge is the fast-indexing option for development and advanced users.
-- An MCP server is the long-term interoperability surface for supported ChatGPT workspaces and other MCP clients.
+- A repo-native local agent workspace is the primary pilot and fast-indexing workflow.
+- Codex or another local agent operates on an exact Markdown cache and local search index supplied by the workspace tools.
+- A private Custom GPT Action is an optional Plus-based adapter, not the primary storage or execution surface.
+- An MCP server is an interoperability adapter for supported ChatGPT workspaces and other MCP clients.
 - An embedded Responses API assistant is the future DM HQ-paid product.
 
 The model never becomes the source of truth. DM HQ Markdown documents remain authoritative; local indexes, uploaded files, and vector stores are derived caches.
+
+The repository distributes the workspace client, local indexing tools, agent skills, and setup guidance. Campaign content is kept in a separate local workspace and is never committed to Git.
 
 ## Goals
 
 - Let a DM use an AI assistant to develop, revise, and add campaign content.
 - Give the assistant versioned guidance about DM HQ concepts, permissions, document grammar, and safe write behavior.
-- Support the developer’s existing ChatGPT Plus subscription during the pilot.
+- Support the developer’s existing ChatGPT Plus subscription during the pilot through Codex/local workflows and, where available, a Custom GPT Action or Project used for conversation context.
 - Support users who have no ChatGPT subscription through local clients, other model providers, or a future DM HQ-hosted tier.
 - Keep the same tool contract usable for future monetization.
 - Make repeated campaign queries fast through a local Markdown cache without weakening server authority.
@@ -27,19 +30,36 @@ The model never becomes the source of truth. DM HQ Markdown documents remain aut
 
 ## Non-goals
 
-- Giving an agent direct PostgreSQL or filesystem access.
+- Giving an agent direct PostgreSQL or DM HQ server-filesystem access.
 - Treating an OpenAI vector store, ChatGPT conversation, or local index as canonical storage.
 - Assuming ChatGPT Plus can be used as an API credential or API credit balance.
+- Assuming a ChatGPT Project or Custom GPT provides a durable local filesystem or can execute the repository workspace client by itself.
 - Building a ChatGPT-specific data model that cannot support other clients.
 - Allowing an assistant to publish player content or mark records canon without explicit approval.
 
 ## Product surfaces and hosting choices
 
-### Plus pilot: Custom GPT Action
+### Primary pilot: repo-native local agent workspace
+
+The repository will provide a small workspace suite that a DM can clone and run locally. It will:
+
+- Authenticate to DM HQ with a user-scoped credential.
+- Download a campaign-scoped snapshot of authorized Markdown documents.
+- Materialize exact Markdown files in a separate, ignored workspace directory.
+- Maintain a local full-text index, with optional semantic indexing later.
+- Track synchronization cursors, versions, hashes, and authorization scope.
+- Validate and push complete Markdown documents through the DM HQ workspace API.
+- Detect conflicts and stage merge proposals instead of overwriting newer server content.
+
+Codex or another local agent can then use ordinary filesystem search and editing against the local Markdown corpus. The local workspace is a materialized working set, never a second source of truth.
+
+The repository should ship provider-neutral guidance through `AGENTS.md`, versioned skill resources, command examples, and a setup/check workflow. Client-specific installation instructions may copy or register those skills for Codex, an IDE agent, or another local MCP-capable client.
+
+### Optional Plus adapter: Custom GPT Action
 
 A private Custom GPT can call an HTTPS DM HQ agent API described by an OpenAPI schema. The Action uses OAuth or a scoped bearer token and exposes read/search tools first, followed by approval-gated writes.
 
-This is the fastest way to test the workflow with the developer’s Plus subscription. It does not provide a persistent local filesystem or automatic campaign synchronization inside the ChatGPT conversation. Action requests still cross the network, although the API can answer from a server-side derived index.
+This can provide a ChatGPT Plus-facing experiment, but it does not provide a persistent local filesystem or automatic campaign synchronization inside the ChatGPT conversation. Action requests still cross the network. A local bridge can sit behind the Action, but that remains an optional and more complex adapter to the primary workspace workflow.
 
 Reference: [Configuring Actions in GPTs](https://help.openai.com/en/articles/9442513).
 
@@ -53,9 +73,9 @@ References: [Build an MCP server](https://developers.openai.com/plugins/build/mc
 
 ### Local sync bridge
 
-A local companion process maintains an authorized Markdown working set and local search index. It can expose the same agent tools over a local MCP server or a small localhost API. If a ChatGPT-hosted client must reach it, use a supported secure tunnel; never expose the database or document volume directly.
+A local companion process maintains the authorized Markdown working set and local search index described above. It exposes the same agent tools over a local CLI, local MCP server, or small localhost API. The first implementation should optimize for the CLI/filesystem path used by Codex and IDE agents; a tunnelled ChatGPT connection is optional.
 
-ChatGPT does not automatically mount arbitrary local files. The bridge is a separate process that must be running and must authenticate to DM HQ.
+ChatGPT does not automatically mount arbitrary local files. The bridge is a separate process that must be running and must authenticate to DM HQ. A ChatGPT Project may hold instructions or uploaded reference material, but it is not the local cache executor.
 
 ### Embedded DM HQ assistant
 
@@ -131,6 +151,21 @@ DM HQ current Markdown + SQL versions
                 │
         DM HQ validates and commits
 ```
+
+### Repository workspace suite
+
+The repository should provide a small, provider-neutral local workspace package with:
+
+- A `dmhq` workspace CLI for authentication, campaign selection, snapshot, incremental sync, validation, status, and push.
+- A separate workspace root selected by configuration, never the Git checkout itself.
+- A `.dmhq` directory containing sync state, campaign scope, content hashes, and local index metadata.
+- Exact Markdown materialization under campaign-scoped directories.
+- A disposable SQLite full-text index over authorized Markdown and selected frontmatter metadata.
+- A conflict queue or merge workspace for documents rejected because their server version advanced.
+- Credential storage through the operating system credential store where available, with environment-variable fallback for development.
+- Versioned `AGENTS.md`, skill resources, and client setup guidance that teach local-first reads and server-authoritative writes.
+
+Campaign data, sync tokens, indexes, and credentials must be excluded from version control. The tool may offer an explicit encrypted export or backup, but it must not silently add the working set to the repository.
 
 ### Initial synchronization
 
@@ -226,29 +261,30 @@ The agent should receive concise tool descriptions plus a short global instructi
 
 ## Delivery phases
 
-### Phase 1: Agent contract and Plus pilot
+### Phase 1: Local workspace foundation
 
-- Define the agent gateway schemas and tool names.
-- Add OAuth or scoped bearer tokens.
-- Produce a small OpenAPI Action surface.
-- Build a private Custom GPT for read-only campaign exploration.
-- Add proposal and approval instructions.
-- Test search, document retrieval, session preparation, and draft creation.
+- Define the provider-neutral agent gateway schemas and tool names.
+- Add OAuth or scoped bearer tokens and campaign-scoped authorization.
+- Implement the local workspace CLI and configuration.
+- Implement snapshot download, exact Markdown materialization, cursor persistence, and local indexing.
+- Add validation, status, incremental sync, and conflict-aware push commands.
+- Package `AGENTS.md`, skills, examples, and setup/check guidance for Codex and IDE agents.
+- Test search, document retrieval, session preparation, draft creation, and stale-write handling from the local workspace.
 
-**Exit:** the developer can use a Plus Custom GPT to search a campaign and propose valid Markdown drafts without bypassing DM HQ authorization.
+**Exit:** the developer can clone the repository, authenticate, sync a campaign, use a local agent against the Markdown files, and safely push validated changes without bypassing DM HQ authorization.
 
-### Phase 2: Local cache bridge
+### Phase 2: ChatGPT Plus and local-client adapters
 
-- Implement the snapshot and incremental sync client.
-- Add local exact-Markdown storage and FTS indexing.
-- Add conflict-aware write queue.
-- Add document fetch and deletion semantics to the workspace API.
-- Expose the local cache through a local agent interface.
-- Evaluate latency and stale-read behavior against server-only calls.
+- Produce a small OpenAPI Action surface over the same gateway.
+- Build a private Custom GPT for read-only exploration and proposal workflows where the user has Plus access.
+- Document that Actions still use network retrieval and do not create a durable local filesystem.
+- Optionally expose the running local workspace through a secure bridge for clients that can reach it; never expose the database or document volume directly.
+- Add client-specific setup instructions without changing the workspace or server contract.
+- Evaluate local-first latency and model tool-call count against server-only Action retrieval.
 
-**Exit:** repeated reads are served locally, changes converge safely, and stale writes produce actionable conflicts.
+**Exit:** the local workflow remains complete without ChatGPT, while a Plus user can use a Custom GPT as an optional conversational adapter with the same authorization and write semantics.
 
-### Phase 3: MCP server and optional UI
+### Phase 3: Remote MCP server and optional UI
 
 - Implement the remote MCP gateway over the same service layer.
 - Add structured outputs and read/write safety annotations.
@@ -302,14 +338,16 @@ The agent should receive concise tool descriptions plus a short global instructi
 - Measure server-only versus local-cache latency.
 - Measure snapshot size and incremental change volume across representative campaigns.
 - Track model tool-call count and unnecessary retrievals.
+- Verify that the local agent can discover the skill guidance and operate without a ChatGPT subscription.
 - Test API and model cost with and without semantic indexing.
 - Validate backup, restore, reconciliation, and cache rebuild procedures.
 
 ## Decisions to confirm before implementation
 
-- Whether the first Plus pilot should use Custom GPT Actions or wait for a supported ChatGPT MCP workspace.
-- Whether DM HQ will provide a local bridge or document a third-party/local MCP client first.
+- Whether the first local client should use the CLI only or also expose a local MCP interface.
+- Whether DM HQ will provide a tunnelled bridge for ChatGPT Actions or document that adapter as an advanced setup.
 - Whether semantic indexing is needed for the first campaign sizes.
+- Which operating-system credential stores and local workspace platforms are supported in the first release.
 - Whether users may bring their own API keys for the future embedded assistant.
 - The free-tier budget and monthly usage caps.
 - Whether publication documents should be excluded from the default agent cache.

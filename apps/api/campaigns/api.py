@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import json
+import secrets
 import zipfile
 from typing import Any
 from uuid import UUID, uuid4
@@ -14,9 +15,10 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import CsrfViewMiddleware, get_token
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.views.decorators.csrf import csrf_exempt
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
-from ninja.security import django_auth
+from ninja.security import HttpBearer, django_auth
 
 from .documents import (
     DocumentError,
@@ -33,6 +35,7 @@ from .documents import (
     storage_root,
 )
 from .models import (
+    AgentToken,
     ArchiveItem,
     Campaign,
     CampaignDocument,
@@ -45,6 +48,7 @@ from .models import (
     SessionDetail,
     Template,
     TemplateVersion,
+    WorkspaceChange,
 )
 
 api = NinjaAPI(title="DM HQ API", version="2.0.0")
@@ -125,9 +129,28 @@ class RestorePayload(Schema):
     reason: str = "Restored revision"
 
 
+class AgentTokenCreate(Schema):
+    name: str = "Local workspace"
+    expires_at: str | None = None
+
+
+class AgentTokenOut(Schema):
+    id: UUID
+    name: str
+    created_at: str
+    last_used_at: str | None = None
+    expires_at: str | None = None
+    revoked_at: str | None = None
+
+
+class AgentTokenCreated(AgentTokenOut):
+    token: str
+
+
 class WorkspaceApplyPayload(Schema):
     document_id: UUID
     version: int
+    hash: str
     markdown: str
     reason: str = "Workspace update"
 
@@ -137,9 +160,68 @@ def error(status: int, code: str, message: str) -> HttpError:
 
 
 def enforce_csrf(request: HttpRequest) -> None:
+    if request.headers.get("Authorization", "").startswith("Bearer "):
+        return
     middleware = CsrfViewMiddleware(lambda current_request: None)
     if middleware.process_view(request, None, (), {}) is not None:
         raise HttpError(403, "csrf_failed: CSRF verification failed")
+
+
+def _token_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+class AgentBearerAuth(HttpBearer):
+    def authenticate(self, request: HttpRequest, token: str):
+        record = AgentToken.objects.select_related("user").filter(
+            token_hash=_token_hash(token), revoked_at__isnull=True
+        ).first()
+        if record is None or (record.expires_at and record.expires_at <= timezone.now()):
+            return None
+        AgentToken.objects.filter(id=record.id).update(last_used_at=timezone.now())
+        return record.user
+
+
+agent_bearer_auth = AgentBearerAuth()
+
+
+def _current_agent_token(request: HttpRequest):
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        return None
+    raw = header.removeprefix("Bearer ").strip()
+    if not raw:
+        return None
+    token = AgentToken.objects.select_related("user").filter(token_hash=_token_hash(raw), revoked_at__isnull=True).first()
+    if token is None or (token.expires_at and token.expires_at <= timezone.now()):
+        return None
+    AgentToken.objects.filter(id=token.id).update(last_used_at=timezone.now())
+    return token
+
+
+def _agent_token_user(request: HttpRequest):
+    token = _current_agent_token(request)
+    return token.user if token else None
+
+
+def workspace_auth(request: HttpRequest):
+    if getattr(request, "user", None) is not None and request.user.is_authenticated:
+        return request.user
+    user = _agent_token_user(request)
+    if user is None:
+        raise HttpError(401, "Unauthorized")
+    return user
+
+
+def agent_token_output(token: AgentToken) -> dict[str, Any]:
+    return {
+        "id": token.id,
+        "name": token.name,
+        "created_at": token.created_at.isoformat(),
+        "last_used_at": token.last_used_at.isoformat() if token.last_used_at else None,
+        "expires_at": token.expires_at.isoformat() if token.expires_at else None,
+        "revoked_at": token.revoked_at.isoformat() if token.revoked_at else None,
+    }
 
 
 def get_member_campaign(request: HttpRequest, campaign_id: UUID) -> Campaign:
@@ -361,7 +443,46 @@ def auth_me(request: HttpRequest):
     return {"id": request.auth.id, "username": request.auth.username}
 
 
-@api.get("campaigns", auth=django_auth, response=list[CampaignOut])
+@api.post("auth/agent-tokens", auth=django_auth, response=AgentTokenCreated)
+@transaction.atomic
+def agent_token_create(request: HttpRequest, payload: AgentTokenCreate):
+    enforce_csrf(request)
+    name = payload.name.strip() or "Local workspace"
+    expires_at = parse_datetime(payload.expires_at) if payload.expires_at else None
+    if payload.expires_at and expires_at is None:
+        raise error(422, "validation", "expires_at must be an ISO-8601 datetime")
+    raw = "dmhq_" + secrets.token_urlsafe(32)
+    token = AgentToken.objects.create(
+        user=request.auth,
+        name=name,
+        token_hash=_token_hash(raw),
+        expires_at=expires_at,
+    )
+    return {**agent_token_output(token), "token": raw}
+
+
+@api.get("auth/agent-tokens", auth=django_auth, response=list[AgentTokenOut])
+def agent_token_list(request: HttpRequest):
+    return [agent_token_output(token) for token in AgentToken.objects.filter(user=request.auth)]
+
+
+@api.post("auth/agent-tokens/{token_id}/revoke", auth=[django_auth, agent_bearer_auth], response=AgentTokenOut)
+@csrf_exempt
+@transaction.atomic
+def agent_token_revoke(request: HttpRequest, token_id: UUID):
+    enforce_csrf(request)
+    token = AgentToken.objects.filter(id=token_id, user=request.auth).first()
+    current = _current_agent_token(request)
+    if current is not None and str(current.id) != str(token_id):
+        raise error(403, "forbidden", "A bearer token can only revoke itself")
+    if token is None:
+        raise error(404, "not_found", "Agent token not found")
+    token.revoked_at = timezone.now()
+    token.save(update_fields=["revoked_at"])
+    return agent_token_output(token)
+
+
+@api.get("campaigns", auth=[django_auth, agent_bearer_auth], response=list[CampaignOut])
 def campaign_list(request: HttpRequest):
     return [campaign_output(c) for c in Campaign.objects.filter(memberships__user=request.auth)]
 
@@ -456,7 +577,8 @@ def session_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate)
     return item_create(request, campaign_id, payload.model_copy(update={"kind": "session"}))
 
 
-@api.post("campaigns/{campaign_id}/items", auth=django_auth)
+@api.post("campaigns/{campaign_id}/items", auth=[django_auth, agent_bearer_auth])
+@csrf_exempt
 @transaction.atomic
 def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
     enforce_csrf(request)
@@ -933,95 +1055,128 @@ def campaign_export(request: HttpRequest, campaign_id: UUID):
     return response
 
 
-@api.get("campaigns/{campaign_id}/workspace/snapshot", auth=django_auth)
-def workspace_snapshot(request: HttpRequest, campaign_id: UUID):
-    campaign = get_member_campaign(request, campaign_id)
-    files = []
-    for doc in campaign.documents.all().order_by("storage_key"):
-        files.append(
-            {
-                "document_id": str(doc.id),
-                "storage_key": doc.storage_key,
-                "version": doc.current_version,
-                "hash": doc.content_hash,
-                "markdown": read_current(doc),
-            }
-        )
-    cursor = (
-        CampaignDocumentVersion.objects.filter(document__campaign=campaign)
-        .order_by("-id")
-        .values_list("id", flat=True)
-        .first()
-        or 0
-    )
+def workspace_document_output(document: CampaignDocument) -> dict[str, Any]:
     return {
-        "manifest": {"format": "dm-hq-workspace", "version": 1, "campaign_id": str(campaign.id), "cursor": cursor},
-        "files": files,
+        "document_id": str(document.id),
+        "storage_key": document.storage_key,
+        "markdown": read_current(document),
+        "version": document.current_version,
+        "hash": document.content_hash,
     }
 
 
-@api.get("campaigns/{campaign_id}/workspace/changes", auth=django_auth)
-def workspace_changes(request: HttpRequest, campaign_id: UUID, after: int = 0):
+def workspace_limit(limit: int) -> int:
+    return max(1, min(limit, 500))
+
+
+@api.get("campaigns/{campaign_id}/workspace/snapshot", auth=[django_auth, agent_bearer_auth])
+def workspace_snapshot(request: HttpRequest, campaign_id: UUID, after: str = "", limit: int = 100, cursor: int | None = None):
     campaign = get_member_campaign(request, campaign_id)
-    versions = CampaignDocumentVersion.objects.filter(document__campaign=campaign, id__gt=after).select_related(
-        "document"
+    limit = workspace_limit(limit)
+    documents = campaign.documents.exclude(document_type="publication_entry").order_by("storage_key")
+    if after:
+        documents = documents.filter(storage_key__gt=after)
+    rows = list(documents[: limit + 1])
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    next_after = rows[-1].storage_key if has_more and rows else None
+    if cursor is None:
+        cursor = (
+            WorkspaceChange.objects.filter(campaign=campaign).order_by("-id").values_list("id", flat=True).first() or 0
+        )
+    return {
+        "manifest": {
+            "format": "dm-hq-workspace",
+            "version": 2,
+            "campaign_id": str(campaign.id),
+            "cursor": cursor,
+            "next_after": next_after,
+            "has_more": has_more,
+        },
+        "files": [workspace_document_output(document) for document in rows],
+    }
+
+
+@api.get("campaigns/{campaign_id}/workspace/changes", auth=[django_auth, agent_bearer_auth])
+def workspace_changes(request: HttpRequest, campaign_id: UUID, after: int = 0, limit: int = 100):
+    campaign = get_member_campaign(request, campaign_id)
+    limit = workspace_limit(limit)
+    events = list(
+        WorkspaceChange.objects.filter(campaign=campaign, id__gt=after)
+        .exclude(document__document_type="publication_entry")
+        .order_by("id")[: limit + 1]
     )
-    latest_by_document = {}
-    for version in versions.order_by("id"):
-        latest_by_document[version.document_id] = version
+    has_more = len(events) > limit
+    events = events[:limit]
+    cursor = events[-1].id if events else after
     changes = [
         {
-            "document_id": str(version.document_id),
-            "storage_key": version.document.storage_key,
-            "version": version.document.current_version,
-            "hash": version.document.content_hash,
-            "operation": "upsert",
+            "document_id": str(event.document_identifier),
+            "storage_key": event.storage_key,
+            "operation": event.operation,
+            "version": event.version,
+            "hash": event.content_hash,
+            "markdown": event.markdown if event.operation == WorkspaceChange.Operation.UPSERT else None,
         }
-        for version in latest_by_document.values()
+        for event in events
     ]
-    cursor = max([after, *[version.id for version in versions]]) if versions else after
-    return {"cursor": cursor, "changes": changes}
+    return {"cursor": cursor, "has_more": has_more, "changes": changes}
 
 
-@api.post("campaigns/{campaign_id}/workspace/apply", auth=django_auth)
+@api.get("campaigns/{campaign_id}/workspace/documents/{document_id}", auth=[django_auth, agent_bearer_auth])
+def workspace_document(request: HttpRequest, campaign_id: UUID, document_id: UUID):
+    campaign = get_member_campaign(request, campaign_id)
+    document = CampaignDocument.objects.filter(
+        id=document_id, campaign=campaign
+    ).exclude(document_type="publication_entry").first()
+    if document is None:
+        raise error(404, "not_found", "Document not found")
+    return workspace_document_output(document)
+
+
+@api.post("campaigns/{campaign_id}/workspace/apply", auth=[django_auth, agent_bearer_auth])
+@csrf_exempt
 @transaction.atomic
 def workspace_apply(request: HttpRequest, campaign_id: UUID, payload: WorkspaceApplyPayload):
     enforce_csrf(request)
     campaign = get_member_campaign(request, campaign_id)
-    doc = CampaignDocument.objects.filter(id=payload.document_id, campaign=campaign).first()
+    doc = (
+        CampaignDocument.objects.filter(id=payload.document_id, campaign=campaign)
+        .exclude(document_type="publication_entry")
+        .first()
+    )
     if not doc:
         raise error(404, "not_found", "Document not found")
+    if doc.current_version != payload.version or (payload.hash and doc.content_hash != payload.hash):
+        raise error(409, "stale_version", "The document changed since it was opened")
     try:
         metadata, _ = parse_document(payload.markdown)
         if doc.document_type == "archive_item":
             item = ArchiveItem.objects.filter(document=doc, campaign=campaign).first()
             if not item:
                 raise error(404, "not_found", "Archive item not found")
-            return save_item_markdown(item, payload.markdown, request.auth, payload.version, payload.reason)
-        updated = save_document(
-            campaign,
-            doc.document_type,
-            doc.storage_key,
-            payload.markdown,
-            request.auth,
-            payload.reason,
-            payload.version,
-            doc,
-        )
-        if doc.document_type == "campaign":
-            campaign.name = str(metadata.get("title") or campaign.name)
-            campaign.save(update_fields=["name", "updated_at"])
-        elif doc.document_type == "template":
-            version = TemplateVersion.objects.filter(document=doc).first()
-            if version:
-                version.template.name = str(metadata.get("name") or version.template.name)
-                version.template.save(update_fields=["name"])
-        return {
-            "document_id": str(updated.id),
-            "markdown": payload.markdown,
-            "version": updated.current_version,
-            "hash": updated.content_hash,
-        }
+            save_item_markdown(item, payload.markdown, request.auth, payload.version, payload.reason)
+            updated = item.document
+        else:
+            updated = save_document(
+                campaign,
+                doc.document_type,
+                doc.storage_key,
+                payload.markdown,
+                request.auth,
+                payload.reason,
+                payload.version,
+                doc,
+            )
+            if doc.document_type == "campaign":
+                campaign.name = str(metadata.get("title") or campaign.name)
+                campaign.save(update_fields=["name", "updated_at"])
+            elif doc.document_type == "template":
+                version = TemplateVersion.objects.filter(document=doc).first()
+                if version:
+                    version.template.name = str(metadata.get("name") or version.template.name)
+                    version.template.save(update_fields=["name"])
+        return workspace_document_output(updated)
     except DocumentError as exc:
         if str(exc) == "stale_version":
             raise error(409, "stale_version", "The document changed since it was opened") from exc

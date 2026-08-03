@@ -51,6 +51,7 @@ nav:
       - Overview: architecture/index.md
       - Domain model: architecture/domain-model.md
       - Markdown documents: architecture/markdown-documents.md
+      - Local agent workspace: architecture/agent-workspace.md
   - Planning:
       - Roadmap: planning/roadmap.md
       - Archive roadmap: planning/archive-roadmap.md

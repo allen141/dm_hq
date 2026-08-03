@@ -3,7 +3,7 @@ import json
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 
-from campaigns.models import Campaign, CampaignMembership
+from campaigns.models import AgentToken, Campaign, CampaignMembership
 
 
 class CampaignApiTests(TestCase):
@@ -92,3 +92,30 @@ class CampaignApiTests(TestCase):
             HTTP_X_CSRFTOKEN=token,
         )
         self.assertEqual(response.status_code, 422)
+
+    def test_agent_token_is_one_time_and_campaign_scoped(self) -> None:
+        self.assertTrue(self.client.login(username="dm", password="test-password"))
+        csrf = self.csrf()
+        response = self.client.post(
+            "/api/v1/auth/agent-tokens",
+            data=json.dumps({"name": "Codex"}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=csrf,
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["token"].startswith("dmhq_"))
+        self.assertNotEqual(payload["token"], AgentToken.objects.get(id=payload["id"]).token_hash)
+        bearer = {"HTTP_AUTHORIZATION": f"Bearer {payload['token']}"}
+        listed = self.client.get("/api/v1/campaigns", **bearer)
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.json(), [])
+        bearer_client = Client(enforce_csrf_checks=True)
+        revoked = bearer_client.post(
+            f"/api/v1/auth/agent-tokens/{payload['id']}/revoke",
+            data="{}",
+            content_type="application/json",
+            **bearer,
+        )
+        self.assertEqual(revoked.status_code, 200)
+        self.assertEqual(bearer_client.get("/api/v1/campaigns", **bearer).status_code, 401)
