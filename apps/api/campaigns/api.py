@@ -39,7 +39,6 @@ from .models import (
     ArchiveItem,
     Campaign,
     CampaignDocument,
-    CampaignDocumentVersion,
     CampaignMembership,
     EntityDetail,
     Publication,
@@ -173,9 +172,11 @@ def _token_hash(value: str) -> str:
 
 class AgentBearerAuth(HttpBearer):
     def authenticate(self, request: HttpRequest, token: str):
-        record = AgentToken.objects.select_related("user").filter(
-            token_hash=_token_hash(token), revoked_at__isnull=True
-        ).first()
+        record = (
+            AgentToken.objects.select_related("user")
+            .filter(token_hash=_token_hash(token), revoked_at__isnull=True)
+            .first()
+        )
         if record is None or (record.expires_at and record.expires_at <= timezone.now()):
             return None
         AgentToken.objects.filter(id=record.id).update(last_used_at=timezone.now())
@@ -192,7 +193,9 @@ def _current_agent_token(request: HttpRequest):
     raw = header.removeprefix("Bearer ").strip()
     if not raw:
         return None
-    token = AgentToken.objects.select_related("user").filter(token_hash=_token_hash(raw), revoked_at__isnull=True).first()
+    token = (
+        AgentToken.objects.select_related("user").filter(token_hash=_token_hash(raw), revoked_at__isnull=True).first()
+    )
     if token is None or (token.expires_at and token.expires_at <= timezone.now()):
         return None
     AgentToken.objects.filter(id=token.id).update(last_used_at=timezone.now())
@@ -1070,7 +1073,9 @@ def workspace_limit(limit: int) -> int:
 
 
 @api.get("campaigns/{campaign_id}/workspace/snapshot", auth=[django_auth, agent_bearer_auth])
-def workspace_snapshot(request: HttpRequest, campaign_id: UUID, after: str = "", limit: int = 100, cursor: int | None = None):
+def workspace_snapshot(
+    request: HttpRequest, campaign_id: UUID, after: str = "", limit: int = 100, cursor: int | None = None
+):
     campaign = get_member_campaign(request, campaign_id)
     limit = workspace_limit(limit)
     documents = campaign.documents.exclude(document_type="publication_entry").order_by("storage_key")
@@ -1126,9 +1131,11 @@ def workspace_changes(request: HttpRequest, campaign_id: UUID, after: int = 0, l
 @api.get("campaigns/{campaign_id}/workspace/documents/{document_id}", auth=[django_auth, agent_bearer_auth])
 def workspace_document(request: HttpRequest, campaign_id: UUID, document_id: UUID):
     campaign = get_member_campaign(request, campaign_id)
-    document = CampaignDocument.objects.filter(
-        id=document_id, campaign=campaign
-    ).exclude(document_type="publication_entry").first()
+    document = (
+        CampaignDocument.objects.filter(id=document_id, campaign=campaign)
+        .exclude(document_type="publication_entry")
+        .first()
+    )
     if document is None:
         raise error(404, "not_found", "Document not found")
     return workspace_document_output(document)

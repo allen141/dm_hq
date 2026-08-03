@@ -258,7 +258,7 @@ class WorkspaceChange(models.Model):
     operation = models.CharField(max_length=12, choices=Operation.choices)
     version = models.PositiveIntegerField(null=True, blank=True)
     content_hash = models.CharField(max_length=64, blank=True, default="")
-    markdown = models.TextField(null=True, blank=True)
+    markdown = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

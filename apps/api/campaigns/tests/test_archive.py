@@ -160,7 +160,12 @@ class ArchiveApiTests(TestCase):
         wrong_id = markdown(self.campaign.id, uuid.uuid4(), "entity", "Wrong", "Bad id")
         rejected = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
-            {"document_id": file["document_id"], "version": applied.json()["version"], "hash": applied.json()["hash"], "markdown": wrong_id},
+            {
+                "document_id": file["document_id"],
+                "version": applied.json()["version"],
+                "hash": applied.json()["hash"],
+                "markdown": wrong_id,
+            },
         )
         self.assertEqual(rejected.status_code, 422)
         self.assertIn("Frontmatter id does not match", rejected.content.decode())
@@ -311,7 +316,6 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())
 
-
     def test_workspace_pages_include_markdown_and_hash_conflicts(self):
         item = self.create_item(title="Local item", body="Initial")
         snapshot = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/workspace/snapshot?limit=1").json()
@@ -329,7 +333,14 @@ class ArchiveApiTests(TestCase):
         changed = markdown(self.campaign.id, item["id"], title="Local changed", body="Updated")
         applied = self.client.post(
             f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
-            data=json.dumps({"document_id": file["document_id"], "version": file["version"], "hash": file["hash"], "markdown": changed}),
+            data=json.dumps(
+                {
+                    "document_id": file["document_id"],
+                    "version": file["version"],
+                    "hash": file["hash"],
+                    "markdown": changed,
+                }
+            ),
             content_type="application/json",
             **headers,
         )
@@ -338,7 +349,14 @@ class ArchiveApiTests(TestCase):
         self.assertIn("Updated", applied.json()["markdown"])
         stale = self.client.post(
             f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
-            data=json.dumps({"document_id": file["document_id"], "version": file["version"], "hash": file["hash"], "markdown": changed}),
+            data=json.dumps(
+                {
+                    "document_id": file["document_id"],
+                    "version": file["version"],
+                    "hash": file["hash"],
+                    "markdown": changed,
+                }
+            ),
             content_type="application/json",
             **headers,
         )
