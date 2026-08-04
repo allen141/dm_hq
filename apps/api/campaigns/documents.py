@@ -625,9 +625,7 @@ def ensure_item_document(item: ArchiveItem, user, reason: str = "Created") -> Ca
         return item.document
     metadata = metadata_for_item(item)
     markdown = serialize_document(metadata, getattr(item, "body", ""))
-    doc = save_document(
-        item.campaign, "archive_item", None, markdown, user, reason
-    )
+    doc = save_document(item.campaign, "archive_item", None, markdown, user, reason)
     item.document = doc
     item.save(update_fields=["document"])
     return doc

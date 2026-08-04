@@ -63,9 +63,7 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(item["metadata"]["fields"]["species"], "Human")
         self.assertEqual(item["aliases"], ["The Ferrymaster"])
         self.assertIn("A **quiet**", item["markdown"])
-        self.assertTrue(
-            Path("/tmp/dm-hq-test-documents").joinpath(item["storage_key"]).exists()
-        )
+        self.assertTrue(Path("/tmp/dm-hq-test-documents").joinpath(item["storage_key"]).exists())
         self.assertEqual(CampaignDocumentVersion.objects.filter(document__archive_item__id=item["id"]).count(), 1)
 
     def test_create_binds_client_frontmatter_id_to_server_item(self):
@@ -73,11 +71,7 @@ class ArchiveApiTests(TestCase):
         item = self.create_item(title="Bound identity")
         self.assertEqual(str(item["id"]), item["metadata"]["id"])
         self.assertNotEqual(str(client_id), item["metadata"]["id"])
-        stored = (
-            Path("/tmp/dm-hq-test-documents")
-            .joinpath(item["storage_key"])
-            .read_text(encoding="utf-8")
-        )
+        stored = Path("/tmp/dm-hq-test-documents").joinpath(item["storage_key"]).read_text(encoding="utf-8")
         stored_metadata, _ = parse_document(stored)
         self.assertEqual(stored_metadata["id"], item["metadata"]["id"])
         self.assertEqual(stored_metadata["campaign_id"], str(self.campaign.id))
@@ -143,8 +137,7 @@ class ArchiveApiTests(TestCase):
         file = next(
             file
             for file in snapshot["files"]
-            if file["document_id"] == str(detail["metadata"]["id"])
-            or file["storage_key"] == person["storage_key"]
+            if file["document_id"] == str(detail["metadata"]["id"]) or file["storage_key"] == person["storage_key"]
         )
         changed = markdown(self.campaign.id, person["id"], "entity", "Mara Updated", "New local prose")
         applied = self.post(
@@ -235,12 +228,19 @@ class ArchiveApiTests(TestCase):
         snapshot = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/workspace/snapshot").json()
         renamed = self.client.patch(
             f"/api/v1/items/{item['id']}",
-            data=json.dumps({
-                "version": item["version"],
-                "markdown": markdown(
-                    self.campaign.id, item["id"], "entity", "Mara Venn (renamed)", "Harbor keeper", slug="ferrymaster"
-                ),
-            }),
+            data=json.dumps(
+                {
+                    "version": item["version"],
+                    "markdown": markdown(
+                        self.campaign.id,
+                        item["id"],
+                        "entity",
+                        "Mara Venn (renamed)",
+                        "Harbor keeper",
+                        slug="ferrymaster",
+                    ),
+                }
+            ),
             content_type="application/json",
             HTTP_X_CSRFTOKEN=self.csrf_token,
         )
@@ -262,10 +262,12 @@ class ArchiveApiTests(TestCase):
         item = self.create_item(title="Stable Name")
         replacement = self.client.patch(
             f"/api/v1/items/{item['id']}",
-            data=json.dumps({
-                "version": item["version"],
-                "markdown": markdown(self.campaign.id, item["id"], title="Display Name Changed"),
-            }),
+            data=json.dumps(
+                {
+                    "version": item["version"],
+                    "markdown": markdown(self.campaign.id, item["id"], title="Display Name Changed"),
+                }
+            ),
             content_type="application/json",
             HTTP_X_CSRFTOKEN=self.csrf_token,
         )
@@ -273,10 +275,12 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(replacement.json()["storage_key"], item["storage_key"])
         invalid = self.client.patch(
             f"/api/v1/items/{item['id']}",
-            data=json.dumps({
-                "version": replacement.json()["version"],
-                "markdown": markdown(self.campaign.id, item["id"], title="Bad", slug="../escape"),
-            }),
+            data=json.dumps(
+                {
+                    "version": replacement.json()["version"],
+                    "markdown": markdown(self.campaign.id, item["id"], title="Bad", slug="../escape"),
+                }
+            ),
             content_type="application/json",
             HTTP_X_CSRFTOKEN=self.csrf_token,
         )
