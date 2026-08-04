@@ -27,7 +27,7 @@ DM HQ is in **discovery and documentation**. These documents are a starting poin
 3. identify a narrow, testable first release; and
 4. record architecture choices before implementation.
 
-See the [roadmap](planning/roadmap.md) and [open questions](planning/open-questions.md) for the next decisions.
+Start with the [DM user guide](guides/index.md) for practical workflows, then see the [roadmap](planning/roadmap.md) and [open questions](planning/open-questions.md) for the next decisions.
 
 !!! note "Working vocabulary"
 

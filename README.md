@@ -30,11 +30,11 @@ The node pulls releases from GHCR; GitHub Actions does not receive access to the
 
 ## Local agent workspace
 
-The repository includes a local Markdown cache and sync CLI for Codex and other filesystem-capable agents. See the [local agent workspace guide](docs/architecture/agent-workspace.md).
+The repository includes a containerized local Markdown cache and sync CLI for Codex and other filesystem-capable agents. It requires Docker, but no host Python or pip. See the [local agent workspace guide](docs/architecture/agent-workspace.md).
 
 ```text
-python -m pip install -e tools/dmhq-workspace
-dmhq auth add --base-url http://127.0.0.1:8000
+export PATH="$PWD/tools/dmhq-workspace/bin:$PATH"
+dmhq auth setup --base-url http://127.0.0.1:8000
 dmhq workspace init --campaign <campaign-id>
 cd <workspace-path>
 dmhq sync

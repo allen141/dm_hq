@@ -4,18 +4,27 @@ DM HQ’s first agent integration is a local Markdown workspace. The repository 
 
 ## Setup
 
-Install the CLI, then use the guided setup. It prompts for the DM HQ URL, username, password, and token name; the password is used only for the session exchange and is never stored:
+The recommended path uses the repository container launcher. It requires Docker, but does not require Python or pip on the DM's host. The launcher builds a Python 3.13 image, mounts the local data directory, and routes the CLI's API calls through that container:
 
 ```text
-python -m pip install -e tools/dmhq-workspace
+export PATH="$PWD/tools/dmhq-workspace/bin:$PATH"
 dmhq auth setup --base-url https://dm-hq.example
+dmhq campaign list
 dmhq workspace init --campaign <campaign-id>
 cd <workspace-path>
 dmhq skills install
 dmhq sync
 ```
 
-The CLI stores the cache under the platform user-data directory by default. `DMHQ_DATA_ROOT`, `DMHQ_BASE_URL`, `DMHQ_TOKEN`, and `--workspace-root` provide development overrides. Campaign files, credentials, sync state, conflicts, and indexes must not be committed to Git.
+On Unraid, the default host data directory is `/mnt/user/appdata/dm-hq/agent-workspaces`. On other hosts it defaults to the platform user-data directory. Set `DMHQ_DATA_ROOT` to override it. Set `DMHQ_IMAGE` to select an image tag or `DMHQ_REBUILD=1` to rebuild after package changes.
+
+The guided setup prompts for the DM HQ URL, username, password, and token name; the password is used only for the session exchange and is never stored. `DMHQ_BASE_URL` and `DMHQ_TOKEN` may be supplied for non-interactive development. Campaign files, credentials, sync state, conflicts, and indexes must not be committed to Git.
+
+A direct Python installation remains available for hosts with Python 3.11 or newer:
+
+```text
+python -m pip install -e tools/dmhq-workspace
+```
 
 ## Local layout
 

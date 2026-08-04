@@ -47,6 +47,9 @@ nav:
       - The Archive: product/archive.md
       - The Dashboard: product/dashboard.md
       - The Battlefield: product/battlefield.md
+  - DM user guide:
+      - Overview: guides/index.md
+      - End-to-end workflows: guides/dm-user-workflows.md
   - Architecture:
       - Overview: architecture/index.md
       - Domain model: architecture/domain-model.md
