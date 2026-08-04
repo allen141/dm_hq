@@ -6,7 +6,7 @@ export type ItemKind = "note" | "entity" | "session";
 export type ItemStatus = "draft" | "canon" | "archived";
 export type TemplateField = { key: string; label: string; type: string; required?: boolean; options?: string[] };
 export type ArchiveItem = {
-  id: string; campaign_id: string; kind: ItemKind; markdown: string; html: string; metadata: Record<string, unknown>;
+  id: string; campaign_id: string; kind: ItemKind; markdown: string; storage_key?: string | null; html: string; metadata: Record<string, unknown>;
   title: string; status: ItemStatus; version: number; created_at: string; updated_at: string;
   aliases: string[]; tags: string[]; references: Array<{ id: number; target_id: string; label: string }>;
   backlinks: Array<{ id: number; source_id: string; label: string }>;
@@ -17,8 +17,8 @@ export type ItemSummary = Pick<ArchiveItem, "id" | "campaign_id" | "kind" | "tit
 export type Template = { id: string; name: string; applies_to: string; versions: Array<{ number: number; markdown: string; fields: TemplateField[] }> };
 export type PublicationSummary = { id: string; status: string; version: number; created_at: string; updated_at: string; url?: string | null; item_ids: string[] };
 export type Publication = { id: string; status: string; version: number; token?: string; url?: string; entries: Array<{ item_id: string; markdown: string; title: string; body: string; html: string; metadata: Record<string, unknown> }> };
-export type WorkspaceChange = { document_id: string; storage_key: string; version: number | null; hash: string; operation: "upsert" | "delete"; markdown: string | null };
-export type WorkspaceDocument = { document_id: string; storage_key: string; version: number; hash: string; markdown: string };
+export type WorkspaceChange = { document_id: string; previous_storage_key?: string | null; storage_key: string; version: number | null; hash: string; operation: "upsert" | "move" | "delete"; markdown: string | null };
+export type WorkspaceDocument = { document_id: string; previous_storage_key?: string | null; storage_key: string; version: number; hash: string; markdown: string };
 export type WorkspaceSnapshot = { manifest: { format: string; version: number; campaign_id: string; cursor: number; next_after: string | null; has_more: boolean }; files: WorkspaceDocument[] };
 
 export class ApiError extends Error {

@@ -16,6 +16,8 @@ dmhq sync
 dmhq search harbor
 dmhq validate
 dmhq push
+# Explicitly rename a document (the slug is stored in frontmatter)
+dmhq rename campaigns/glass-coast--aa1f7439/items/marra-venn--10f0abcd.md --slug ferrymaster
 ```
 
 Run the launcher from the synchronized campaign workspace for commands that operate on local files. Commands use readable summaries by default; add `--json` to `auth list`, `auth revoke`, `campaign list`, `workspace` commands, or their top-level aliases when scripting or handing results to an agent. Set `DMHQ_DATA_ROOT` to choose another persistent host directory, `DMHQ_IMAGE` to choose an image tag, and `DMHQ_REBUILD=1` after changing the package. The default on Unraid is `/mnt/user/appdata/dm-hq/agent-workspaces`; other hosts use `$XDG_DATA_HOME/dm-hq` or `$HOME/.local/share/dm-hq`.
@@ -27,3 +29,5 @@ The direct Python package remains available for environments with Python 3.11 or
 ```text
 python -m pip install -e tools/dmhq-workspace
 ```
+
+File names combine a normalized human-readable slug with an 8-character UUID suffix. Editing a title does not move a file. Slug edits are server-side renames; the CLI handles the resulting move event and creates conflicts if the old path is locally dirty.

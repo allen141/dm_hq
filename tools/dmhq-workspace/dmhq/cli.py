@@ -194,6 +194,22 @@ def cmd_campaign(args) -> int:
     return 0
 
 
+def _rename_markdown(path: Path, slug: str) -> None:
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    if not text.startswith("---\n") or "\n---\n" not in text[4:]:
+        raise WorkspaceError(f"{path}: missing frontmatter")
+    end = text.find("\n---\n", 4)
+    try:
+        metadata = json.loads(text[4:end])
+    except json.JSONDecodeError as exc:
+        raise WorkspaceError(f"{path}: JSON frontmatter is required for rename") from exc
+    if not isinstance(metadata, dict):
+        raise WorkspaceError(f"{path}: frontmatter must be an object")
+    metadata["slug"] = slug
+    body = text[end + 6 :].strip()
+    path.write_text("---\n" + json.dumps(metadata, indent=2, ensure_ascii=False) + "\n---\n\n" + body + "\n", encoding="utf-8")
+
+
 def cmd_workspace(args) -> int:
     if args.workspace_command == "init":
         base_url, _ = token_for(args.base_url)
@@ -228,6 +244,20 @@ def cmd_workspace(args) -> int:
         return 1 if errors else 0
     if args.workspace_command == "push":
         emit(workspace.push(path=args.path), args, render_push)
+        return 0
+    if args.workspace_command == "rename":
+        path = Path(args.path).expanduser().resolve()
+        if not path.exists():
+            raise WorkspaceError(f"Document does not exist: {path}")
+        if workspace.root not in path.parents:
+            raise WorkspaceError("Rename path must be inside the selected workspace")
+        tracked = {workspace.path_for(record["storage_key"]) for record in workspace.state["documents"].values()}
+        if path not in tracked:
+            raise WorkspaceError("Rename path is not a synchronized DM HQ document")
+        _rename_markdown(path, args.slug)
+        result = workspace.push(path=str(path))
+        result["path"] = str(path)
+        emit(result, args, lambda value: f"Renamed and pushed {value['path']}\n  Applied: {value.get('applied', 0)}\n  Conflicts: {value.get('conflicts', 0)}")
         return 0
     if args.workspace_command == "conflicts":
         paths = sorted(str(path.parent) for path in (workspace.meta / "conflicts").glob("*/metadata.json"))
@@ -294,6 +324,11 @@ def parser() -> argparse.ArgumentParser:
     push.add_argument("path", nargs="?")
     push.add_argument("--workspace")
     add_json_option(push)
+    rename = workspace_sub.add_parser("rename")
+    rename.add_argument("path")
+    rename.add_argument("--slug", required=True)
+    rename.add_argument("--workspace")
+    add_json_option(rename)
     for name in ("sync", "pull", "status", "conflicts"):
         command = sub.add_parser(name)
         command.set_defaults(command="workspace", workspace_command=name)
@@ -320,6 +355,12 @@ def parser() -> argparse.ArgumentParser:
     push.add_argument("path", nargs="?")
     push.add_argument("--workspace")
     add_json_option(push)
+    rename = sub.add_parser("rename")
+    rename.set_defaults(command="workspace", workspace_command="rename")
+    rename.add_argument("path")
+    rename.add_argument("--slug", required=True)
+    rename.add_argument("--workspace")
+    add_json_option(rename)
     return parser
 
 

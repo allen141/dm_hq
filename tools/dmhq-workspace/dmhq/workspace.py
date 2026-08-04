@@ -57,7 +57,7 @@ class Workspace:
         meta = root / ".dmhq"
         meta.mkdir(parents=True, exist_ok=True)
         (meta / "conflicts").mkdir(exist_ok=True)
-        (root / "campaigns" / campaign_id).mkdir(parents=True, exist_ok=True)
+        (root / "campaigns").mkdir(parents=True, exist_ok=True)
         (meta / "config.toml").write_text(
             f'base_url = "{base_url.rstrip("/")}"\ncampaign_id = "{campaign_id}"\n', encoding="utf-8"
         )
@@ -142,25 +142,34 @@ class Workspace:
     def _apply_change(self, change: dict) -> None:
         document_id = change["document_id"]
         current = self.state["documents"].get(document_id)
+        previous_key = change.get("previous_storage_key") or (current or {}).get("storage_key")
+        previous_path = self.path_for(previous_key) if previous_key else None
         path = self.path_for(change["storage_key"])
-        local_hash = sha256_file(path) if path.exists() else None
+        local_path = previous_path if change.get("operation") == "move" and previous_path else path
+        local_hash = sha256_file(local_path) if local_path and local_path.exists() else None
         base_hash = current.get("hash") if current else None
         if change["operation"] == "delete":
             if local_hash and local_hash != base_hash:
-                self._write_conflict(change, path.read_text(encoding="utf-8"), None, "delete")
+                self._write_conflict(change, local_path.read_text(encoding="utf-8"), None, "delete")
                 return
             path.unlink(missing_ok=True)
+            if previous_path and previous_path != path:
+                previous_path.unlink(missing_ok=True)
             self.state["documents"].pop(document_id, None)
             with self.index() as index:
                 index.remove(document_id)
             return
         if local_hash and base_hash and local_hash != base_hash and change["hash"] != base_hash:
-            self._write_conflict(change, path.read_text(encoding="utf-8"), change.get("markdown"), "update")
+            self._write_conflict(change, local_path.read_text(encoding="utf-8"), change.get("markdown"), change["operation"])
+            if change.get("operation") == "move" and path != local_path:
+                self.write_file(change)
             self.state["documents"][document_id] = {"storage_key": change["storage_key"], "version": change["version"], "hash": change["hash"]}
             return
         if local_hash and base_hash and local_hash != base_hash and change["hash"] == base_hash:
             return
         self.write_file(change)
+        if previous_path and previous_path != path:
+            previous_path.unlink(missing_ok=True)
         self.state["documents"][document_id] = {"storage_key": change["storage_key"], "version": change["version"], "hash": change["hash"]}
         with self.index() as index:
             index.upsert(document_id, change["storage_key"], change["version"], change["hash"], change["markdown"])
@@ -171,7 +180,17 @@ class Workspace:
         (target / "local.md").write_text(local_markdown, encoding="utf-8")
         if server_markdown is not None:
             (target / "server.md").write_text(server_markdown, encoding="utf-8")
-        (target / "metadata.json").write_text(json.dumps({"operation": operation, "document_id": change["document_id"], "storage_key": change["storage_key"], "version": change.get("version"), "hash": change.get("hash")}, indent=2) + "\n", encoding="utf-8")
+        metadata = {
+            "operation": operation,
+            "document_id": change["document_id"],
+            "previous_storage_key": change.get("previous_storage_key"),
+            "storage_key": change["storage_key"],
+            "version": change.get("version"),
+            "hash": change.get("hash"),
+            "base_version": self.state.get("documents", {}).get(change["document_id"], {}).get("version"),
+            "base_hash": self.state.get("documents", {}).get(change["document_id"], {}).get("hash"),
+        }
+        (target / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
 
     def changed_documents(self, path: str | None = None) -> list[tuple[str, dict, Path]]:
         result = []
@@ -201,7 +220,11 @@ class Workspace:
                 self._write_conflict({**current, "operation": "update"}, markdown, current["markdown"], "push")
                 conflicts += 1
                 continue
+            old_path = file_path
             self.write_file(result)
+            new_path = self.path_for(result["storage_key"])
+            if old_path != new_path:
+                old_path.unlink(missing_ok=True)
             self.state["documents"][document_id] = {"storage_key": result["storage_key"], "version": result["version"], "hash": result["hash"]}
             with self.index() as index:
                 index.upsert(document_id, result["storage_key"], result["version"], result["hash"], result["markdown"])
@@ -243,7 +266,9 @@ class Workspace:
     def create_item(self, client, kind: str, markdown: str) -> dict:
         result = client.create_item(self.config["campaign_id"], kind, markdown)
         document_id = str(result["id"])
-        storage_key = f"campaigns/{self.config['campaign_id']}/items/{document_id}.md"
+        storage_key = result.get("storage_key")
+        if not storage_key:
+            raise WorkspaceError("DM HQ did not return the canonical storage path for the new document")
         record = {
             "document_id": document_id,
             "storage_key": storage_key,

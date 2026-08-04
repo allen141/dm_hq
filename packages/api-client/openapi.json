@@ -467,6 +467,209 @@
         ],
         "title": "WorkspaceApplyPayload",
         "type": "object"
+      },
+      "WorkspaceChangeOut": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markdown"
+          },
+          "operation": {
+            "enum": [
+              "upsert",
+              "move",
+              "delete"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "previous_storage_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Storage Key"
+          },
+          "storage_key": {
+            "title": "Storage Key",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "document_id",
+          "storage_key",
+          "operation",
+          "hash"
+        ],
+        "title": "WorkspaceChangeOut",
+        "type": "object"
+      },
+      "WorkspaceChangesOut": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "cursor": {
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cursor",
+          "has_more",
+          "changes"
+        ],
+        "title": "WorkspaceChangesOut",
+        "type": "object"
+      },
+      "WorkspaceDocumentOut": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "previous_storage_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Storage Key"
+          },
+          "storage_key": {
+            "title": "Storage Key",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "storage_key",
+          "markdown",
+          "version",
+          "hash"
+        ],
+        "title": "WorkspaceDocumentOut",
+        "type": "object"
+      },
+      "WorkspaceManifestOut": {
+        "properties": {
+          "campaign_id": {
+            "format": "uuid",
+            "title": "Campaign Id",
+            "type": "string"
+          },
+          "cursor": {
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "version",
+          "campaign_id",
+          "cursor",
+          "has_more"
+        ],
+        "title": "WorkspaceManifestOut",
+        "type": "object"
+      },
+      "WorkspaceSnapshotOut": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceDocumentOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/WorkspaceManifestOut"
+          }
+        },
+        "required": [
+          "manifest",
+          "files"
+        ],
+        "title": "WorkspaceSnapshotOut",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -1250,6 +1453,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceDocumentOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },
@@ -1301,6 +1511,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceChangesOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },
@@ -1342,6 +1559,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceDocumentOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },
@@ -1409,6 +1633,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSnapshotOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },

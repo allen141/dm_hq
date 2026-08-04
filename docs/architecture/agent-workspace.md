@@ -35,17 +35,17 @@ python -m pip install -e tools/dmhq-workspace
     state.json
     index.sqlite
     conflicts/<document-id>/
-  campaigns/<campaign-id>/
+  campaigns/<campaign-slug>--<campaign-short-id>/
     campaign.md
-    items/*.md
-    templates/**/*.md
+    items/<item-slug>--<item-short-id>.md
+    templates/<template-slug>--<template-short-id>/v<n>.md
 ```
 
 Publication documents are excluded from the default private-DM cache.
 
 ## Synchronization
 
-The initial snapshot is paged by storage key and records a change cursor. Each document is stored with its server version and SHA-256 hash. Incremental changes are paged after that cursor and include complete Markdown for upserts or a delete operation. The cursor advances only after the local file and index update succeeds.
+The initial snapshot is paged by storage key and records a change cursor. Each document is stored with its server version and SHA-256 hash. Incremental changes are paged after that cursor and include complete Markdown for upserts and moves, or a delete operation. A move includes the previous storage key so the client can remove the old clean file atomically. The cursor advances only after the local file and index update succeeds.
 
 A local file is clean when its hash matches the recorded server hash. A clean file is replaced by a newer server copy. A dirty file is preserved when the server has not changed. If both copies changed, the CLI writes local and server Markdown plus metadata under `.dmhq/conflicts/` and never overwrites either copy.
 
@@ -60,3 +60,5 @@ The web application creates and lists personal bearer tokens through session-aut
 `skills/dmhq-workspace/SKILL.md` is the provider-neutral skill source. `dmhq skills install` writes a workspace-level `AGENTS.md` and a local skill copy for Codex or another filesystem-capable agent. Agents search local Markdown first, preserve frontmatter and body, cite document IDs and versions, validate before pushing, and stop for conflicts or approval-gated canon/publication actions.
 
 Custom GPT Actions, MCP, embeddings, and hosted DM HQ assistants are adapters for later phases; they are not required for local operation.
+
+To intentionally rename a document, edit its `slug` frontmatter and push, or run `dmhq rename <path> --slug <new-slug>`. Never rename a file alone; the server validates the Markdown slug and remains authoritative.

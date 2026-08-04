@@ -246,6 +246,7 @@ class AgentToken(models.Model):
 class WorkspaceChange(models.Model):
     class Operation(models.TextChoices):
         UPSERT = "upsert", "Upsert"
+        MOVE = "move", "Move"
         DELETE = "delete", "Delete"
 
     id = models.BigAutoField(primary_key=True)
@@ -254,6 +255,7 @@ class WorkspaceChange(models.Model):
         CampaignDocument, null=True, blank=True, on_delete=models.SET_NULL, related_name="workspace_changes"
     )
     document_identifier = models.UUIDField()
+    previous_storage_key = models.CharField(max_length=512, blank=True, default="")
     storage_key = models.CharField(max_length=512)
     operation = models.CharField(max_length=12, choices=Operation.choices)
     version = models.PositiveIntegerField(null=True, blank=True)

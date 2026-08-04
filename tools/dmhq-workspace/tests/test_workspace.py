@@ -26,6 +26,29 @@ class WorkspaceTests(unittest.TestCase):
                 index.upsert("doc-1", record["storage_key"], 1, "base", record["markdown"])
                 self.assertEqual(index.search("Harbor")[0]["document_id"], "doc-1")
 
+    def test_server_move_removes_old_path_and_materializes_new_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = Workspace.init("http://example.test", "campaign-1", root)
+            old_key = "campaigns/campaign-1/items/old--doc-1.md"
+            new_key = "campaigns/campaign-1/items/new--doc-1.md"
+            old_path = workspace.path_for(old_key)
+            old_path.parent.mkdir(parents=True)
+            old_path.write_text("old", encoding="utf-8")
+            workspace.state["documents"]["doc-1"] = {"storage_key": old_key, "version": 1, "hash": "cba06b5736faf67e54b07b561eae94395e774c517a7d910a54369e1263ccfbd4"}
+            workspace._apply_change({
+                "document_id": "doc-1",
+                "previous_storage_key": old_key,
+                "storage_key": new_key,
+                "operation": "move",
+                "version": 2,
+                "hash": "server",
+                "markdown": "new",
+            })
+            self.assertFalse(old_path.exists())
+            self.assertEqual(workspace.path_for(new_key).read_text(encoding="utf-8"), "new")
+            self.assertEqual(workspace.state["documents"]["doc-1"]["storage_key"], new_key)
+
     def test_server_change_creates_conflict_without_overwriting_local_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

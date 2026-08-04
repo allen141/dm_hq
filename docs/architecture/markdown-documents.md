@@ -35,10 +35,10 @@ Marra keeps the harbor records...
 Current files live below `DM_HQ_DOCUMENT_ROOT`:
 
 ```text
-campaigns/{campaign_id}/campaign.md
-campaigns/{campaign_id}/items/{item_id}.md
-campaigns/{campaign_id}/templates/{template_id}/v{version}.md
-campaigns/{campaign_id}/publications/{publication_id}/v{version}/{item_id}.md
+campaigns/{campaign-slug}--{campaign-short-id}/campaign.md
+campaigns/{campaign-slug}--{campaign-short-id}/items/{item-slug}--{item-short-id}.md
+campaigns/{campaign-slug}--{campaign-short-id}/templates/{template-slug}--{template-short-id}/v{version}.md
+campaigns/{campaign-slug}--{campaign-short-id}/publications/publication--{publication-short-id}/v{version}/{item-slug}--{item-short-id}.md
 ```
 
 `CampaignDocument` stores the owner, type, storage key, current version, hash, and derived search text containing body prose plus deliberately searchable metadata (title, aliases, tags, subject type, and field values), never raw frontmatter syntax. `CampaignDocumentVersion` stores complete immutable Markdown snapshots. Campaign, archive-item, template-version, and publication-entry rows point to their documents. Alias, tag, reference, relationship, session-link, title, status, and template projections are rebuilt from frontmatter; they are never independent sources of truth.
@@ -47,7 +47,7 @@ Writes validate the document type, UUIDs, campaign ownership, required values, t
 
 ## Frontmatter identity
 
-Every archive item document uses one stable UUID in three places: the `ArchiveItem` row, the `id` key in YAML frontmatter, and the `{item_id}` segment of the storage path (`campaigns/{campaign_id}/items/{item_id}.md`). Clients may omit `id` on create or supply a provisional value (for example from quick-capture UI code that drafts markdown before the server assigns an id); the API always rewrites frontmatter to the server-assigned item id before the first version is stored. Updates and workspace apply reject documents whose frontmatter `id` differs from the bound item. API responses always return matching values in the top-level `id` field and `metadata.id`.
+Every document keeps its authoritative UUID in PostgreSQL and the `id` key in frontmatter. The `slug` key is canonical path metadata: it is normalized to lowercase ASCII kebab-case, bounded to 80 characters, and cannot contain path separators. Display-name edits do not change a path. An explicit slug edit changes the storage key, atomically moves the current file, creates a new version, and emits one workspace `move` event containing both paths. The short UUID suffix prevents collisions between equal names while keeping paths readable.
 
 ## Export and restore
 
@@ -58,7 +58,7 @@ A Markdown archive contains `manifest.json` for technical format metadata, curre
 The initial local-agent implementation is documented in the [local agent workspace](agent-workspace.md) page. Authenticated agents use bearer tokens and can request:
 
 - `GET /campaigns/{id}/workspace/snapshot?after={storage_key}&limit={n}` — paged current authorized Markdown files plus a stable technical cursor.
-- `GET /campaigns/{id}/workspace/changes?after={cursor}&limit={n}` — paged upsert/delete events, complete Markdown for upserts, versions, and hashes.
+- `GET /campaigns/{id}/workspace/changes?after={cursor}&limit={n}` — paged upsert/move/delete events, complete Markdown for upserts and moves, versions, hashes, and old paths for moves.
 - `GET /campaigns/{id}/workspace/documents/{document_id}` — one current authorized document.
 - `POST /campaigns/{id}/workspace/apply` — a complete Markdown document, base version, and base hash.
 
@@ -67,3 +67,7 @@ Apply uses the same parser, validation, projection, version, and atomic-file ser
 ## Publication safety
 
 Publication creation treats submitted Markdown as a source for a separate safe document. Only the selected title and Markdown body are retained in the publication entry; private status, aliases, tags, template values, relationships, references, and session links are not player-visible. The player route renders the safe title and body only.
+
+## Forward migration
+
+Migration `0012_slug_based_paths` converts the currently deployed UUID-only database and document volume in place. It derives slugs, adds them to current and historical Markdown frontmatter, rewrites files with atomic materialization, updates storage keys and hashes, and backfills workspace events. It preflights missing files, malformed documents, and path collisions and aborts with a report instead of discarding authored data. Legacy paths and payloads are not supported after the migration.

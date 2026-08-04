@@ -4,7 +4,7 @@ import io
 import json
 import secrets
 import zipfile
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from django.conf import settings
@@ -154,6 +154,45 @@ class WorkspaceApplyPayload(Schema):
     reason: str = "Workspace update"
 
 
+class WorkspaceDocumentOut(Schema):
+    document_id: UUID
+    previous_storage_key: str | None = None
+    storage_key: str
+    markdown: str
+    version: int
+    hash: str
+
+
+class WorkspaceChangeOut(Schema):
+    document_id: UUID
+    previous_storage_key: str | None = None
+    storage_key: str
+    operation: Literal["upsert", "move", "delete"]
+    version: int | None = None
+    hash: str
+    markdown: str | None = None
+
+
+class WorkspaceChangesOut(Schema):
+    cursor: int
+    has_more: bool
+    changes: list[WorkspaceChangeOut]
+
+
+class WorkspaceManifestOut(Schema):
+    format: str
+    version: int
+    campaign_id: UUID
+    cursor: int
+    next_after: str | None = None
+    has_more: bool
+
+
+class WorkspaceSnapshotOut(Schema):
+    manifest: WorkspaceManifestOut
+    files: list[WorkspaceDocumentOut]
+
+
 def error(status: int, code: str, message: str) -> HttpError:
     return HttpError(status, f"{code}: {message}")
 
@@ -260,7 +299,7 @@ def ensure_campaign_document(campaign: Campaign, user) -> CampaignDocument:
     document = save_document(
         campaign,
         "campaign",
-        f"campaigns/{campaign.id}/campaign.md",
+        None,
         serialize_document(metadata, ""),
         user,
         "Materialized campaign",
@@ -325,7 +364,7 @@ def ensure_template_document(version: TemplateVersion, user, fields: list[dict[s
     doc = save_document(
         version.template.campaign,
         "template",
-        f"campaigns/{version.template.campaign_id}/templates/{version.template_id}/v{version.number}.md",
+        None,
         serialize_document(metadata, ""),
         user,
         "Created template",
@@ -381,7 +420,7 @@ def save_item_markdown(item: ArchiveItem, markdown: str, user, expected_version:
         doc = save_document(
             item.campaign,
             "archive_item",
-            f"campaigns/{item.campaign_id}/items/{item.id}.md",
+            None,
             markdown,
             user,
             reason,
@@ -503,7 +542,7 @@ def campaign_create(request: HttpRequest, payload: CampaignCreate):
     doc = save_document(
         campaign,
         "campaign",
-        f"campaigns/{campaign.id}/campaign.md",
+        None,
         serialize_document(metadata, ""),
         request.auth,
         "Created campaign",
@@ -706,7 +745,7 @@ def template_create(request: HttpRequest, campaign_id: UUID, payload: dict[str, 
     doc = save_document(
         campaign,
         "template",
-        f"campaigns/{campaign.id}/templates/{template.id}/v1.md",
+        None,
         markdown,
         request.auth,
         "Created template",
@@ -735,7 +774,7 @@ def template_version_create(request: HttpRequest, template_id: UUID, payload: di
     doc = save_document(
         template.campaign,
         "template",
-        f"campaigns/{template.campaign_id}/templates/{template.id}/v{number}.md",
+        None,
         markdown,
         request.auth,
         "Created template version",
@@ -943,12 +982,14 @@ def publication_create(request: HttpRequest, campaign_id: UUID, payload: Publica
         item = get_member_item(request, selected.item_id)
         if item.campaign_id != campaign.id:
             raise error(404, "not_found", "Publication item not found")
-        safe_markdown = safe_publication_markdown(selected.markdown, campaign.id, item.id)
+        safe_markdown = safe_publication_markdown(
+            selected.markdown, campaign.id, item.id, publication.id, version.number
+        )
         entry = PublicationEntry.objects.create(version=version, item=item)
         doc = save_document(
             campaign,
             "publication_entry",
-            f"campaigns/{campaign.id}/publications/{publication.id}/v1/{item.id}.md",
+            None,
             safe_markdown,
             request.auth,
             "Created publication",
@@ -1058,10 +1099,11 @@ def campaign_export(request: HttpRequest, campaign_id: UUID):
     return response
 
 
-def workspace_document_output(document: CampaignDocument) -> dict[str, Any]:
+def workspace_document_output(document: CampaignDocument, previous_storage_key: str | None = None) -> dict[str, Any]:
     return {
         "document_id": str(document.id),
         "storage_key": document.storage_key,
+        "previous_storage_key": previous_storage_key or None,
         "markdown": read_current(document),
         "version": document.current_version,
         "hash": document.content_hash,
@@ -1072,7 +1114,9 @@ def workspace_limit(limit: int) -> int:
     return max(1, min(limit, 500))
 
 
-@api.get("campaigns/{campaign_id}/workspace/snapshot", auth=[django_auth, agent_bearer_auth])
+@api.get(
+    "campaigns/{campaign_id}/workspace/snapshot", auth=[django_auth, agent_bearer_auth], response=WorkspaceSnapshotOut
+)
 def workspace_snapshot(
     request: HttpRequest, campaign_id: UUID, after: str = "", limit: int = 100, cursor: int | None = None
 ):
@@ -1102,7 +1146,9 @@ def workspace_snapshot(
     }
 
 
-@api.get("campaigns/{campaign_id}/workspace/changes", auth=[django_auth, agent_bearer_auth])
+@api.get(
+    "campaigns/{campaign_id}/workspace/changes", auth=[django_auth, agent_bearer_auth], response=WorkspaceChangesOut
+)
 def workspace_changes(request: HttpRequest, campaign_id: UUID, after: int = 0, limit: int = 100):
     campaign = get_member_campaign(request, campaign_id)
     limit = workspace_limit(limit)
@@ -1118,17 +1164,22 @@ def workspace_changes(request: HttpRequest, campaign_id: UUID, after: int = 0, l
         {
             "document_id": str(event.document_identifier),
             "storage_key": event.storage_key,
+            "previous_storage_key": event.previous_storage_key or None,
             "operation": event.operation,
             "version": event.version,
             "hash": event.content_hash,
-            "markdown": event.markdown if event.operation == WorkspaceChange.Operation.UPSERT else None,
+            "markdown": event.markdown if event.operation != WorkspaceChange.Operation.DELETE else None,
         }
         for event in events
     ]
     return {"cursor": cursor, "has_more": has_more, "changes": changes}
 
 
-@api.get("campaigns/{campaign_id}/workspace/documents/{document_id}", auth=[django_auth, agent_bearer_auth])
+@api.get(
+    "campaigns/{campaign_id}/workspace/documents/{document_id}",
+    auth=[django_auth, agent_bearer_auth],
+    response=WorkspaceDocumentOut,
+)
 def workspace_document(request: HttpRequest, campaign_id: UUID, document_id: UUID):
     campaign = get_member_campaign(request, campaign_id)
     document = (
@@ -1141,7 +1192,9 @@ def workspace_document(request: HttpRequest, campaign_id: UUID, document_id: UUI
     return workspace_document_output(document)
 
 
-@api.post("campaigns/{campaign_id}/workspace/apply", auth=[django_auth, agent_bearer_auth])
+@api.post(
+    "campaigns/{campaign_id}/workspace/apply", auth=[django_auth, agent_bearer_auth], response=WorkspaceDocumentOut
+)
 @csrf_exempt
 @transaction.atomic
 def workspace_apply(request: HttpRequest, campaign_id: UUID, payload: WorkspaceApplyPayload):
@@ -1154,6 +1207,7 @@ def workspace_apply(request: HttpRequest, campaign_id: UUID, payload: WorkspaceA
     )
     if not doc:
         raise error(404, "not_found", "Document not found")
+    previous_storage_key = doc.storage_key
     if doc.current_version != payload.version or (payload.hash and doc.content_hash != payload.hash):
         raise error(409, "stale_version", "The document changed since it was opened")
     try:
@@ -1183,7 +1237,9 @@ def workspace_apply(request: HttpRequest, campaign_id: UUID, payload: WorkspaceA
                 if version:
                     version.template.name = str(metadata.get("name") or version.template.name)
                     version.template.save(update_fields=["name"])
-        return workspace_document_output(updated)
+        return workspace_document_output(
+            updated, previous_storage_key if updated.storage_key != previous_storage_key else None
+        )
     except DocumentError as exc:
         if str(exc) == "stale_version":
             raise error(409, "stale_version", "The document changed since it was opened") from exc
@@ -1215,7 +1271,7 @@ def campaign_restore(request: HttpRequest):
             doc = save_document(
                 campaign,
                 "campaign",
-                f"campaigns/{campaign.id}/campaign.md",
+                None,
                 serialize_document(campaign_metadata, campaign_body),
                 request.auth,
                 "Restored campaign",
@@ -1257,7 +1313,7 @@ def campaign_restore(request: HttpRequest):
                     document = save_document(
                         campaign,
                         "template",
-                        f"campaigns/{campaign.id}/templates/{template.id}/v{number}.md",
+                        None,
                         serialize_document(meta, body),
                         request.auth,
                         "Restored template",
@@ -1310,22 +1366,21 @@ def campaign_restore(request: HttpRequest):
                 )
                 for name in archive.namelist():
                     parts = name.split("/")
-                    if (
-                        len(parts) < 6
-                        or parts[2] != "publications"
-                        or parts[3] != publication_id
-                        or not name.endswith(".md")
-                    ):
+                    if len(parts) < 6 or parts[2] != "publications" or not name.endswith(".md"):
                         continue
                     raw = archive.read(name).decode("utf-8")
                     meta, body = parse_document(raw)
+                    archived_publication_id = str(meta.get("publication_id") or parts[3])
+                    if archived_publication_id != publication_id:
+                        continue
                     meta["campaign_id"] = str(campaign.id)
                     meta["document_type"] = "publication_entry"
+                    meta["publication_id"] = str(publication.id)
                     try:
                         source_item_id = UUID(
                             item_id_map.get(
-                                str(meta.get("source_item_id") or parts[-1][:-3]),
-                                str(meta.get("source_item_id") or parts[-1][:-3]),
+                                str(meta.get("source_item_id") or parts[-1][:-3].rsplit("--", 1)[0]),
+                                str(meta.get("source_item_id") or parts[-1][:-3].rsplit("--", 1)[0]),
                             )
                         )
                     except ValueError:
@@ -1334,6 +1389,7 @@ def campaign_restore(request: HttpRequest):
                     if not item:
                         continue
                     number = int(parts[-2].lstrip("v") or 1)
+                    meta["version"] = number
                     version, _ = PublicationVersion.objects.get_or_create(
                         publication=publication, number=number, defaults={"created_by": request.auth}
                     )
@@ -1341,7 +1397,7 @@ def campaign_restore(request: HttpRequest):
                     document = save_document(
                         campaign,
                         "publication_entry",
-                        f"campaigns/{campaign.id}/publications/{publication.id}/v{number}/{item.id}.md",
+                        None,
                         serialize_document(meta, body),
                         request.auth,
                         "Restored publication",
