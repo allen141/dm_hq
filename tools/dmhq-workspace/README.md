@@ -8,6 +8,7 @@ On Unraid, from the repository checkout:
 export PATH="$PWD/tools/dmhq-workspace/bin:$PATH"
 dmhq auth setup --base-url https://dmhq-preview.tylerallen.net
 dmhq campaign list
+# Use `dmhq campaign list --json` for scripts and agent tooling.
 dmhq workspace init --campaign <campaign-id>
 cd /mnt/user/appdata/dm-hq/agent-workspaces/workspaces/<campaign-id>
 dmhq skills install
@@ -17,7 +18,7 @@ dmhq validate
 dmhq push
 ```
 
-Run the launcher from the synchronized campaign workspace for commands that operate on local files. Set `DMHQ_DATA_ROOT` to choose another persistent host directory, `DMHQ_IMAGE` to choose an image tag, and `DMHQ_REBUILD=1` after changing the package. The default on Unraid is `/mnt/user/appdata/dm-hq/agent-workspaces`; other hosts use `$XDG_DATA_HOME/dm-hq` or `$HOME/.local/share/dm-hq`.
+Run the launcher from the synchronized campaign workspace for commands that operate on local files. Commands use readable summaries by default; add `--json` to `auth list`, `auth revoke`, `campaign list`, `workspace` commands, or their top-level aliases when scripting or handing results to an agent. Set `DMHQ_DATA_ROOT` to choose another persistent host directory, `DMHQ_IMAGE` to choose an image tag, and `DMHQ_REBUILD=1` after changing the package. The default on Unraid is `/mnt/user/appdata/dm-hq/agent-workspaces`; other hosts use `$XDG_DATA_HOME/dm-hq` or `$HOME/.local/share/dm-hq`.
 
 The guided setup logs in once, creates a personal agent token, and stores only that token locally. The password is never saved. For a token created elsewhere, use `dmhq auth add --base-url <url>`.
 
