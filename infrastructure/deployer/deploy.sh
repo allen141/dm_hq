@@ -43,7 +43,7 @@ PREVIOUS_FILE="$STATE_DIR/previous-release"
 LOCK_DIR="$STATE_DIR/deploy.lock"
 LOG_FILE="$STATE_DIR/deploy.log"
 
-mkdir -p "$STATE_DIR" "$ENV_ROOT/postgres" "$ENV_ROOT/backups"
+mkdir -p "$STATE_DIR" "$ENV_ROOT/postgres" "$ENV_ROOT/backups" "$ENV_ROOT/documents"
 
 log() {
   printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" | tee -a "$LOG_FILE"
@@ -152,6 +152,11 @@ deploy_once() {
   fi
   if ! compose run --rm --no-deps api python manage.py migrate --noinput; then
     log "Database migration failed"
+    printf '%s\n' "$release_digest" > "$FAILED_FILE"
+    return 0
+  fi
+  if ! compose run --rm --no-deps api python manage.py reconcile_documents; then
+    log "Campaign-document reconciliation failed"
     printf '%s\n' "$release_digest" > "$FAILED_FILE"
     return 0
   fi

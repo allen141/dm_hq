@@ -1,0 +1,44 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+IMAGE=${DMHQ_IMAGE:-dmhq-workspace:local}
+
+if [ -n "${DMHQ_DATA_ROOT:-}" ]; then
+    HOST_DATA_ROOT=$DMHQ_DATA_ROOT
+elif [ -d /mnt/user/appdata ]; then
+    HOST_DATA_ROOT=/mnt/user/appdata/dm-hq/agent-workspaces
+else
+    HOST_DATA_ROOT=${XDG_DATA_HOME:-$HOME/.local/share}/dm-hq
+fi
+
+mkdir -p "$HOST_DATA_ROOT"
+HOST_DATA_ROOT=$(CDPATH= cd -- "$HOST_DATA_ROOT" && pwd)
+
+if [ "${DMHQ_REBUILD:-0}" = "1" ] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    docker build --tag "$IMAGE" --file "$SCRIPT_DIR/../Dockerfile" "$SCRIPT_DIR/.."
+fi
+
+ENV_ARGS=""
+if [ -n "${DMHQ_BASE_URL:-}" ]; then
+    ENV_ARGS="$ENV_ARGS --env DMHQ_BASE_URL=$DMHQ_BASE_URL"
+fi
+if [ -n "${DMHQ_TOKEN:-}" ]; then
+    ENV_ARGS="$ENV_ARGS --env DMHQ_TOKEN=$DMHQ_TOKEN"
+fi
+
+# The current host directory is the agent's working directory. Run this
+# launcher from the synchronized campaign workspace, not the Git checkout.
+TTY_ARGS="--interactive --tty"
+if [ ! -t 0 ]; then
+    TTY_ARGS="--interactive"
+fi
+exec docker run --rm $TTY_ARGS \
+    --user "$(id -u):$(id -g)" \
+    --env HOME=/tmp/dmhq-home \
+    --env "DMHQ_DATA_ROOT=$HOST_DATA_ROOT" \
+    $ENV_ARGS \
+    --volume "$HOST_DATA_ROOT:$HOST_DATA_ROOT" \
+    --volume "$PWD:$PWD" \
+    --workdir "$PWD" \
+    "$IMAGE" "$@"

@@ -1,10 +1,12 @@
 export type User = { id: number; username: string };
+export type AgentToken = { id: string; name: string; created_at: string; last_used_at?: string | null; expires_at?: string | null; revoked_at?: string | null };
+export type AgentTokenCreated = AgentToken & { token: string };
 export type Campaign = { id: string; name: string; owner_id: number; created_at: string; updated_at: string };
 export type ItemKind = "note" | "entity" | "session";
 export type ItemStatus = "draft" | "canon" | "archived";
 export type TemplateField = { key: string; label: string; type: string; required?: boolean; options?: string[] };
 export type ArchiveItem = {
-  id: string; campaign_id: string; kind: ItemKind; markdown: string; html: string; metadata: Record<string, unknown>;
+  id: string; campaign_id: string; kind: ItemKind; markdown: string; storage_key?: string | null; html: string; metadata: Record<string, unknown>;
   title: string; status: ItemStatus; version: number; created_at: string; updated_at: string;
   aliases: string[]; tags: string[]; references: Array<{ id: number; target_id: string; label: string }>;
   backlinks: Array<{ id: number; source_id: string; label: string }>;
@@ -15,8 +17,9 @@ export type ItemSummary = Pick<ArchiveItem, "id" | "campaign_id" | "kind" | "tit
 export type Template = { id: string; name: string; applies_to: string; versions: Array<{ number: number; markdown: string; fields: TemplateField[] }> };
 export type PublicationSummary = { id: string; status: string; version: number; created_at: string; updated_at: string; url?: string | null; item_ids: string[] };
 export type Publication = { id: string; status: string; version: number; token?: string; url?: string; entries: Array<{ item_id: string; markdown: string; title: string; body: string; html: string; metadata: Record<string, unknown> }> };
-export type WorkspaceChange = { document_id: string; storage_key: string; version: number; hash: string; operation: "upsert" | "delete" };
-export type WorkspaceSnapshot = { manifest: { format: string; version: number; cursor: number }; files: Array<{ document_id: string; storage_key: string; version: number; hash: string; markdown: string }> };
+export type WorkspaceChange = { document_id: string; previous_storage_key?: string | null; storage_key: string; version: number | null; hash: string; operation: "upsert" | "move" | "delete"; markdown: string | null };
+export type WorkspaceDocument = { document_id: string; previous_storage_key?: string | null; storage_key: string; version: number; hash: string; markdown: string };
+export type WorkspaceSnapshot = { manifest: { format: string; version: number; campaign_id: string; cursor: number; next_after: string | null; has_more: boolean }; files: WorkspaceDocument[] };
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message); this.name = "ApiError"; }
@@ -37,6 +40,9 @@ export function createApiClient(fetcher: typeof fetch = (...args) => fetch(...ar
   }
   return {
     csrf: async () => { const response = await request<{ csrfToken: string }>("/api/v1/auth/csrf"); csrfToken = response.csrfToken; return response; },
+    agentTokens: () => request<AgentToken[]>("/api/v1/auth/agent-tokens"),
+    createAgentToken: (name: string, expires_at?: string) => request<AgentTokenCreated>("/api/v1/auth/agent-tokens", { method: "POST", body: JSON.stringify({ name, expires_at }) }),
+    revokeAgentToken: (tokenId: string) => request<AgentToken>(`/api/v1/auth/agent-tokens/${tokenId}/revoke`, { method: "POST", body: JSON.stringify({}) }),
     me: () => request<User>("/api/v1/auth/me"),
     login: (username: string, password: string) => request<User>("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
     logout: () => request<{ status: string }>("/api/v1/auth/logout", { method: "POST" }),
@@ -62,8 +68,9 @@ export function createApiClient(fetcher: typeof fetch = (...args) => fetch(...ar
     publicPublication: (token: string) => request<Publication | { status: string }>(`/api/v1/publications/public/${token}`),
     exportCampaign: async (campaignId: string) => { const response = await fetcher(`/api/v1/campaigns/${campaignId}/exports`, { credentials: "include" }); if (!response.ok) throw new ApiError(response.status, "Export failed."); return response.blob(); },
     restoreCampaign: (file: File) => { const form = new FormData(); form.append("archive", file); return request<Campaign>("/api/v1/exports/restore", { method: "POST", body: form }); },
-    workspaceSnapshot: (campaignId: string) => request<WorkspaceSnapshot>(`/api/v1/campaigns/${campaignId}/workspace/snapshot`),
-    workspaceChanges: (campaignId: string, cursor = 0) => request<{ cursor: number; changes: WorkspaceChange[] }>(`/api/v1/campaigns/${campaignId}/workspace/changes?after=${cursor}`),
-    workspaceApply: (campaignId: string, payload: { document_id: string; version: number; markdown: string; reason?: string }) => request<ArchiveItem>(`/api/v1/campaigns/${campaignId}/workspace/apply`, { method: "POST", body: JSON.stringify(payload) }),
+    workspaceSnapshot: (campaignId: string, params: { after?: string; limit?: number; cursor?: number } = {}) => { const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined) as [string, string][]).toString(); return request<WorkspaceSnapshot>(`/api/v1/campaigns/${campaignId}/workspace/snapshot${query ? `?${query}` : ""}`); },
+    workspaceChanges: (campaignId: string, cursor = 0, limit = 100) => request<{ cursor: number; has_more: boolean; changes: WorkspaceChange[] }>(`/api/v1/campaigns/${campaignId}/workspace/changes?after=${cursor}&limit=${limit}`),
+    workspaceDocument: (campaignId: string, documentId: string) => request<WorkspaceDocument>(`/api/v1/campaigns/${campaignId}/workspace/documents/${documentId}`),
+    workspaceApply: (campaignId: string, payload: { document_id: string; version: number; hash: string; markdown: string; reason?: string }) => request<WorkspaceDocument>(`/api/v1/campaigns/${campaignId}/workspace/apply`, { method: "POST", body: JSON.stringify(payload) }),
   };
 }

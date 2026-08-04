@@ -28,6 +28,18 @@ Successful same-repository pull requests publish a signed container release for 
 
 The node pulls releases from GHCR; GitHub Actions does not receive access to the Docker host. See the [deployment operations guide](docs/operations/deployment.md) for bootstrap, review, recovery, reset, and backup procedures.
 
+## Local agent workspace
+
+The repository includes a containerized local Markdown cache and sync CLI for Codex and other filesystem-capable agents. It requires Docker, but no host Python or pip. See the [local agent workspace guide](docs/architecture/agent-workspace.md).
+
+```text
+export PATH="$PWD/tools/dmhq-workspace/bin:$PATH"
+dmhq auth setup --base-url http://127.0.0.1:8000
+dmhq workspace init --campaign <campaign-id>
+cd <workspace-path>
+dmhq sync
+```
+
 ## Work with the documentation locally
 
 Python 3.11 or newer is recommended.

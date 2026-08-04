@@ -1,6 +1,147 @@
 {
   "components": {
     "schemas": {
+      "AgentTokenCreate": {
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "name": {
+            "default": "Local workspace",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "title": "AgentTokenCreate",
+        "type": "object"
+      },
+      "AgentTokenCreated": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "token"
+        ],
+        "title": "AgentTokenCreated",
+        "type": "object"
+      },
+      "AgentTokenOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "AgentTokenOut",
+        "type": "object"
+      },
       "CampaignCreate": {
         "properties": {
           "name": {
@@ -300,6 +441,10 @@
             "title": "Document Id",
             "type": "string"
           },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
           "markdown": {
             "title": "Markdown",
             "type": "string"
@@ -317,13 +462,221 @@
         "required": [
           "document_id",
           "version",
+          "hash",
           "markdown"
         ],
         "title": "WorkspaceApplyPayload",
         "type": "object"
+      },
+      "WorkspaceChangeOut": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markdown"
+          },
+          "operation": {
+            "enum": [
+              "upsert",
+              "move",
+              "delete"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "previous_storage_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Storage Key"
+          },
+          "storage_key": {
+            "title": "Storage Key",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "document_id",
+          "storage_key",
+          "operation",
+          "hash"
+        ],
+        "title": "WorkspaceChangeOut",
+        "type": "object"
+      },
+      "WorkspaceChangesOut": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "cursor": {
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cursor",
+          "has_more",
+          "changes"
+        ],
+        "title": "WorkspaceChangesOut",
+        "type": "object"
+      },
+      "WorkspaceDocumentOut": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "previous_storage_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Storage Key"
+          },
+          "storage_key": {
+            "title": "Storage Key",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "storage_key",
+          "markdown",
+          "version",
+          "hash"
+        ],
+        "title": "WorkspaceDocumentOut",
+        "type": "object"
+      },
+      "WorkspaceManifestOut": {
+        "properties": {
+          "campaign_id": {
+            "format": "uuid",
+            "title": "Campaign Id",
+            "type": "string"
+          },
+          "cursor": {
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "version",
+          "campaign_id",
+          "cursor",
+          "has_more"
+        ],
+        "title": "WorkspaceManifestOut",
+        "type": "object"
+      },
+      "WorkspaceSnapshotOut": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceDocumentOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/WorkspaceManifestOut"
+          }
+        },
+        "required": [
+          "manifest",
+          "files"
+        ],
+        "title": "WorkspaceSnapshotOut",
+        "type": "object"
       }
     },
     "securitySchemes": {
+      "AgentBearerAuth": {
+        "scheme": "bearer",
+        "type": "http"
+      },
       "SessionAuth": {
         "in": "cookie",
         "name": "sessionid",
@@ -338,6 +691,104 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/agent-tokens": {
+      "get": {
+        "operationId": "campaigns_api_agent_token_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentTokenOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Agent Token List"
+      },
+      "post": {
+        "operationId": "campaigns_api_agent_token_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentTokenCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTokenCreated"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Agent Token Create"
+      }
+    },
+    "/api/v1/auth/agent-tokens/{token_id}/revoke": {
+      "post": {
+        "operationId": "campaigns_api_agent_token_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Token Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTokenOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "summary": "Agent Token Revoke"
+      }
+    },
     "/api/v1/auth/csrf": {
       "get": {
         "operationId": "campaigns_api_csrf_token",
@@ -443,6 +894,9 @@
         "security": [
           {
             "SessionAuth": []
+          },
+          {
+            "AgentBearerAuth": []
           }
         ],
         "summary": "Campaign List"
@@ -660,6 +1114,9 @@
         "security": [
           {
             "SessionAuth": []
+          },
+          {
+            "AgentBearerAuth": []
           }
         ],
         "summary": "Item Create"
@@ -996,12 +1453,22 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceDocumentOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },
         "security": [
           {
             "SessionAuth": []
+          },
+          {
+            "AgentBearerAuth": []
           }
         ],
         "summary": "Workspace Apply"
@@ -1030,19 +1497,87 @@
               "title": "After",
               "type": "integer"
             }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceChangesOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },
         "security": [
           {
             "SessionAuth": []
+          },
+          {
+            "AgentBearerAuth": []
           }
         ],
         "summary": "Workspace Changes"
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/workspace/documents/{document_id}": {
+      "get": {
+        "operationId": "campaigns_api_workspace_document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceDocumentOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "summary": "Workspace Document"
       }
     },
     "/api/v1/campaigns/{campaign_id}/workspace/snapshot": {
@@ -1058,16 +1593,62 @@
               "title": "Campaign Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "After",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSnapshotOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },
         "security": [
           {
             "SessionAuth": []
+          },
+          {
+            "AgentBearerAuth": []
           }
         ],
         "summary": "Workspace Snapshot"

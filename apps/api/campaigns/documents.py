@@ -5,6 +5,7 @@ import json
 import os
 import re
 import tempfile
+import unicodedata
 import uuid
 from datetime import date
 from pathlib import Path
@@ -24,11 +25,85 @@ from .models import (
     SessionLink,
     Tag,
     TemplateVersion,
+    WorkspaceChange,
 )
 
 
 class DocumentError(ValueError):
     pass
+
+
+SLUG_MAX_LENGTH = 80
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def normalize_slug(value: Any, fallback: str = "untitled", reject_separators: bool = False) -> str:
+    """Return the filesystem-safe, canonical slug for a document name."""
+    raw = str(value or "").strip()
+    if reject_separators and ("/" in raw or "\\" in raw or raw in {".", ".."}):
+        raise DocumentError("Slug may not contain path separators")
+    normalized = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii").lower()
+    normalized = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")[:SLUG_MAX_LENGTH].strip("-")
+    return normalized or fallback
+
+
+def ensure_slug(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Populate and canonicalize the explicit frontmatter slug."""
+    if not isinstance(metadata, dict):
+        raise DocumentError("Frontmatter must be an object")
+    explicit = metadata.get("slug")
+    source = explicit or metadata.get("title") or metadata.get("name") or "untitled"
+    metadata["slug"] = normalize_slug(source, reject_separators=explicit is not None)
+    return metadata
+
+
+def _short_id(value: Any) -> str:
+    try:
+        return uuid.UUID(str(value)).hex[:8]
+    except (ValueError, TypeError, AttributeError):
+        return str(value).replace("-", "")[:8]
+
+
+def campaign_path_segment(campaign, campaign_slug: str | None = None) -> str:
+    return f"{normalize_slug(campaign_slug or campaign.name)}--{_short_id(campaign.id)}"
+
+
+def storage_key_for(campaign, document_type: str, metadata: dict[str, Any]) -> str:
+    """Build the only supported current-file path for a canonical document."""
+    campaign_slug = metadata.get("campaign_slug")
+    if (
+        not campaign_slug
+        and document_type != CampaignDocument.DocumentType.CAMPAIGN
+        and getattr(campaign, "document_id", None)
+    ):
+        try:
+            campaign_metadata, _ = parse_document(read_current(campaign.document))
+            campaign_slug = campaign_metadata.get("slug")
+        except (DocumentError, OSError):
+            campaign_slug = None
+    campaign_segment = campaign_path_segment(campaign, campaign_slug)
+    if document_type == CampaignDocument.DocumentType.CAMPAIGN:
+        return f"campaigns/{campaign_segment}/campaign.md"
+    if document_type == CampaignDocument.DocumentType.ARCHIVE_ITEM:
+        item_slug = normalize_slug(metadata.get("slug"))
+        return f"campaigns/{campaign_segment}/items/{item_slug}--{_short_id(metadata['id'])}.md"
+    if document_type == CampaignDocument.DocumentType.TEMPLATE:
+        template_id = metadata.get("template_id") or metadata.get("id")
+        template_slug = normalize_slug(metadata.get("slug") or metadata.get("name"))
+        return (
+            f"campaigns/{campaign_segment}/templates/{template_slug}--{_short_id(template_id)}"
+            f"/v{int(metadata.get('version') or 1)}.md"
+        )
+    if document_type == CampaignDocument.DocumentType.PUBLICATION_ENTRY:
+        publication_id = metadata.get("publication_id") or "publication"
+        publication_slug = normalize_slug(metadata.get("publication_slug") or "publication")
+        item_id = metadata.get("source_item_id") or metadata.get("item_id") or metadata.get("id")
+        item_slug = normalize_slug(metadata.get("slug") or metadata.get("title"))
+        return (
+            f"campaigns/{campaign_segment}/publications/{publication_slug}--{_short_id(publication_id)}"
+            f"/v{int(metadata.get('version') or 1)}/{item_slug}--{_short_id(item_id)}.md"
+        )
+    raise DocumentError(f"Unsupported document type: {document_type}")
 
 
 def storage_root() -> Path:
@@ -171,15 +246,22 @@ def markdown_body(markdown: str) -> str:
     return parse_document(markdown)[1]
 
 
-def safe_publication_markdown(markdown: str, campaign_id: Any, source_item_id: Any) -> str:
+def safe_publication_markdown(
+    markdown: str, campaign_id: Any, source_item_id: Any, publication_id: Any | None = None, version: int = 1
+) -> str:
     metadata, body = parse_document(markdown)
     safe_metadata = {
         "document_type": "publication_entry",
         "id": str(uuid.uuid4()),
         "campaign_id": str(campaign_id),
         "source_item_id": str(source_item_id),
+        "publication_id": str(publication_id) if publication_id else None,
+        "version": version,
         "title": str(metadata.get("title") or "Untitled"),
+        "slug": normalize_slug(metadata.get("slug") or metadata.get("title") or "untitled"),
     }
+    if safe_metadata["publication_id"] is None:
+        safe_metadata.pop("publication_id")
     return serialize_document(safe_metadata, body)
 
 
@@ -215,6 +297,7 @@ def metadata_for_item(item: ArchiveItem) -> dict[str, Any]:
         "campaign_id": str(item.campaign_id),
         "kind": item.kind,
         "title": item.title,
+        "slug": normalize_slug(item.title),
         "status": item.status,
         "aliases": list(item.aliases.values_list("value", flat=True)),
         "tags": list(item.item_tags.select_related("tag").values_list("tag__name", flat=True)),
@@ -304,7 +387,8 @@ def project_item(item: ArchiveItem, metadata: dict[str, Any]) -> None:
 
 @transaction.atomic
 def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id: Any) -> None:
-    required = {"document_type", "id", "campaign_id"}
+    ensure_slug(metadata)
+    required = {"document_type", "id", "campaign_id", "slug"}
     missing = sorted(required - metadata.keys())
     if missing:
         raise DocumentError("Missing frontmatter keys: " + ", ".join(missing))
@@ -456,11 +540,15 @@ def prepare_archive_item_markdown(item: ArchiveItem, markdown: str) -> str:
         metadata["campaign_id"] = str(item.campaign_id)
     elif str(metadata.get("id")) != str(item.id):
         raise DocumentError("Frontmatter id does not match archive item")
+    if item.document_id and not metadata.get("slug"):
+        current_metadata, _ = parse_document(read_current(item.document))
+        metadata["slug"] = current_metadata.get("slug")
     if item.kind == "entity":
         metadata.setdefault(
             "subject_type",
             getattr(getattr(item, "entity_detail", None), "subject_type", "person"),
         )
+    ensure_slug(metadata)
     validate_metadata(metadata, "archive_item", item.campaign_id)
     if metadata.get("kind") != item.kind:
         raise DocumentError("Document kind does not match item")
@@ -470,7 +558,7 @@ def prepare_archive_item_markdown(item: ArchiveItem, markdown: str) -> str:
 def save_document(
     campaign,
     document_type: str,
-    storage_key: str,
+    storage_key: str | None,
     markdown: str,
     user,
     reason: str = "",
@@ -478,13 +566,21 @@ def save_document(
     document: CampaignDocument | None = None,
 ) -> CampaignDocument:
     metadata, body = parse_document(markdown)
+    if document is not None and not metadata.get("slug"):
+        current_metadata, _ = parse_document(read_current(document))
+        metadata["slug"] = current_metadata.get("slug")
+    ensure_slug(metadata)
     validate_metadata(metadata, document_type, campaign.id)
+    derived_storage_key = storage_key_for(campaign, document_type, metadata)
     if document is None:
         document = CampaignDocument.objects.create(
-            campaign=campaign, document_type=document_type, storage_key=storage_key, current_version=0
+            campaign=campaign, document_type=document_type, storage_key=derived_storage_key, current_version=0
         )
+        previous_storage_key = None
     else:
         document = CampaignDocument.objects.select_for_update().get(id=document.id)
+        previous_storage_key = document.storage_key
+        document.storage_key = derived_storage_key
     if expected_version is not None and document.current_version != expected_version:
         raise DocumentError("stale_version")
     number = document.current_version + 1
@@ -496,8 +592,25 @@ def save_document(
     document.current_version = number
     document.content_hash = digest
     document.search_text = searchable_text(metadata, body)
-    document.save(update_fields=["current_version", "content_hash", "search_text", "updated_at"])
+    document.save(update_fields=["storage_key", "current_version", "content_hash", "search_text", "updated_at"])
+    if document.document_type != "publication_entry":
+        moved = previous_storage_key and previous_storage_key != document.storage_key
+        WorkspaceChange.objects.create(
+            campaign_id=document.campaign_id,
+            document=document,
+            document_identifier=document.id,
+            previous_storage_key=previous_storage_key if moved else "",
+            storage_key=document.storage_key,
+            operation=WorkspaceChange.Operation.MOVE if moved else WorkspaceChange.Operation.UPSERT,
+            version=document.current_version,
+            content_hash=digest,
+            markdown=normalized,
+        )
     write_current(document, normalized)
+    if previous_storage_key and previous_storage_key != document.storage_key:
+        old_path = storage_root() / previous_storage_key
+        if old_path != storage_root() / document.storage_key:
+            old_path.unlink(missing_ok=True)
     return document
 
 
@@ -513,7 +626,7 @@ def ensure_item_document(item: ArchiveItem, user, reason: str = "Created") -> Ca
     metadata = metadata_for_item(item)
     markdown = serialize_document(metadata, getattr(item, "body", ""))
     doc = save_document(
-        item.campaign, "archive_item", f"campaigns/{item.campaign_id}/items/{item.id}.md", markdown, user, reason
+        item.campaign, "archive_item", None, markdown, user, reason
     )
     item.document = doc
     item.save(update_fields=["document"])
@@ -528,6 +641,7 @@ def item_document_output(item: ArchiveItem) -> dict[str, Any]:
         "campaign_id": item.campaign_id,
         "kind": item.kind,
         "markdown": markdown,
+        "storage_key": item.document.storage_key if item.document_id else None,
         "html": markdown_html(body),
         "metadata": metadata,
         "title": metadata.get("title", item.title),

@@ -21,6 +21,7 @@ services:
     env_file: ${SECRETS_FILE}
     environment:
       DB_HOST: db
+      DM_HQ_DOCUMENT_ROOT: /var/lib/dm-hq/documents
       BUILD_VERSION: ${BUILD_VERSION}
       BUILD_PR_NUMBER: ${BUILD_PR_NUMBER:-}
     depends_on:
@@ -30,6 +31,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    volumes:
+      - ${ENV_ROOT}/documents:/var/lib/dm-hq/documents
     networks:
       internal:
         aliases:
