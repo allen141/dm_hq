@@ -159,3 +159,5 @@ The first Phase 1 operational review must include one successful restore exercis
 ## Campaign-document volume and reconciliation
 
 The API mounts `dm_hq_documents` at `/var/lib/dm-hq/documents` (`DM_HQ_DOCUMENT_ROOT`). Back up this volume with PostgreSQL backups. After deployment or restore, run `python manage.py reconcile_documents`; it verifies current-file hashes against SQL Markdown versions and atomically repairs missing or stale files.
+
+The production deployment controller creates the document directory, mounts it into both the migration container and the running API container, applies Django migrations, and runs `reconcile_documents` before marking the release healthy. The slug-path migration (`0012_slug_based_paths`) therefore runs as part of a normal production release, but it must not be attempted without current PostgreSQL and document-volume backups. The migration fails closed when it finds a missing current file, malformed Markdown, or a path collision. Application-image rollback does not reverse a completed database migration; restore the matching database and document-volume backups if a data rollback is required.
