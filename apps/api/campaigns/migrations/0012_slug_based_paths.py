@@ -110,7 +110,13 @@ def forwards(apps, schema_editor):
             continue
         try:
             metadata, body = parse(version.markdown)
-            source = metadata.get("title") or metadata.get("name") or getattr(relation, "title", None) or getattr(relation, "name", None) or "untitled"
+            source = (
+                metadata.get("title")
+                or metadata.get("name")
+                or getattr(relation, "title", None)
+                or getattr(relation, "name", None)
+                or "untitled"
+            )
             stable_slug = slugify(metadata.get("slug") or source)
             metadata["slug"] = stable_slug
             metadata["campaign_id"] = str(campaign.id)
@@ -174,7 +180,9 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="workspacechange",
             name="operation",
-            field=models.CharField(choices=[("upsert", "Upsert"), ("move", "Move"), ("delete", "Delete")], max_length=12),
+            field=models.CharField(
+                choices=[("upsert", "Upsert"), ("move", "Move"), ("delete", "Delete")], max_length=12
+            ),
         ),
         migrations.RunPython(forwards, migrations.RunPython.noop),
     ]
