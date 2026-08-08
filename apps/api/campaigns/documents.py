@@ -464,9 +464,10 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
         target_id = link["target_identifier"]
         if link["target_type"] == "campaign" and str(target_id) != str(campaign_id):
             raise DocumentError("Campaign links must target this campaign")
-        if link["target_type"] == "item" and not ArchiveItem.objects.filter(
-            id=target_id, campaign_id=campaign_id
-        ).exists():
+        if (
+            link["target_type"] == "item"
+            and not ArchiveItem.objects.filter(id=target_id, campaign_id=campaign_id).exists()
+        ):
             raise DocumentError("Document link target does not exist in this campaign")
 
     if document_type == CampaignDocument.DocumentType.CAMPAIGN:
@@ -928,6 +929,7 @@ def markdown_html(value: str, campaign_id: Any | None = None) -> str:
     if MarkdownIt is not None:
         source = clean_body(value)
         if campaign_id is not None:
+
             def local_link(match: re.Match[str]) -> str:
                 target_type, target_id = match.group(2), match.group(3)
                 href = (
@@ -954,6 +956,7 @@ def markdown_html(value: str, campaign_id: Any | None = None) -> str:
         text = re.sub(r"^## (.+)$", r"<h2>\1</h2>", text)
         text = re.sub(r"^# (.+)$", r"<h1>\1</h1>", text)
         if campaign_id is not None:
+
             def render_link(match):
                 target_type, target_id = match.group(2), match.group(3)
                 href = (

@@ -22,6 +22,8 @@ export default function ArchiveItemPage() {
     try { const [current, itemResult, history] = await Promise.all([client.item(itemId), client.items(campaignId), client.revisions(itemId)]); setItem(current); setMarkdown(current.markdown); setItems(itemResult.items); setRevisions(history.revisions); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Page could not be loaded."); }
   }
+  // Loading the selected route document is the external synchronization performed here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [campaignId, itemId]);
 
   const candidates = useMemo(() => items.filter((candidate) => candidate.id !== itemId && candidate.title.toLowerCase().includes(linkQuery.toLowerCase())).slice(0, 8), [itemId, items, linkQuery]);

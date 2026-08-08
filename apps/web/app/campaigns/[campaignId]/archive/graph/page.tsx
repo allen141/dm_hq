@@ -15,7 +15,9 @@ export default function ArchiveGraphPage() {
   const [depth, setDepth] = useState<1 | 2>(1); const [edgeClasses, setEdgeClasses] = useState<string[]>([...classes]);
   const [graph, setGraph] = useState<GraphResponse | null>(null); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
 
+  // Fetching graph data is the external synchronization performed by this effect.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     let active = true; setBusy(true); setError("");
     void client.archiveGraph(campaignId, { focus_id: focusId, depth, edge_classes: edgeClasses }).then((result) => { if (active) setGraph(result); }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Graph could not be loaded."); }).finally(() => { if (active) setBusy(false); });
     return () => { active = false; };

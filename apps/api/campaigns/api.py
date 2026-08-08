@@ -788,7 +788,7 @@ def archive_graph(
             if len(visited) + len(new_nodes) > max_nodes:
                 nodes_truncated = True
                 continue
-            edge_id = f'{edge["edge_class"]}:{edge["id"]}'
+            edge_id = f"{edge['edge_class']}:{edge['id']}"
             if edge_id not in included_edge_ids:
                 if len(included_edges) >= max_edges:
                     edges_truncated = True
@@ -810,8 +810,6 @@ def archive_graph(
         "limits": {"max_nodes": max_nodes, "max_edges": max_edges},
         "truncated": {"nodes": nodes_truncated, "edges": edges_truncated},
     }
-
-
 
 
 def page_identity(item: ArchiveItem) -> dict[str, Any]:
@@ -862,21 +860,33 @@ def archive_view_output(view: ArchiveView) -> dict[str, Any]:
         member_set = set(items)
         for rel in Relationship.objects.filter(source__campaign=view.campaign).order_by("authored_position", "edge_id"):
             if str(rel.source_id) in member_set and str(rel.target_id) in member_set:
-                edges.append({
-                    "id": str(rel.edge_id),
-                    "edge_class": "relationship",
-                    "source_id": rel.source_id,
-                    "target_id": rel.target_id,
-                    "kind": rel.kind,
-                    "label": rel.label,
-                    "inverse_label": rel.inverse_label,
-                })
+                edges.append(
+                    {
+                        "id": str(rel.edge_id),
+                        "edge_class": "relationship",
+                        "source_id": rel.source_id,
+                        "target_id": rel.target_id,
+                        "kind": rel.kind,
+                        "label": rel.label,
+                        "inverse_label": rel.inverse_label,
+                    }
+                )
     return {
-        "id": view.id, "campaign_id": view.campaign_id, "view_type": view.view_type, "title": view.title,
-        "slug": metadata.get("slug", ""), "status": view.status, "version": view.document.current_version,
-        "markdown": markdown, "html": markdown_html(body, view.campaign_id), "description": body,
-        "background": metadata.get("background"), "placements": placements, "members": members,
-        "settings": metadata.get("settings", {}), "edges": edges,
+        "id": view.id,
+        "campaign_id": view.campaign_id,
+        "view_type": view.view_type,
+        "title": view.title,
+        "slug": metadata.get("slug", ""),
+        "status": view.status,
+        "version": view.document.current_version,
+        "markdown": markdown,
+        "html": markdown_html(body, view.campaign_id),
+        "description": body,
+        "background": metadata.get("background"),
+        "placements": placements,
+        "members": members,
+        "settings": metadata.get("settings", {}),
+        "edges": edges,
     }
 
 
@@ -884,8 +894,13 @@ def archive_view_metadata(
     view_id: UUID, campaign_id: UUID, payload: ArchiveViewPayload, status: str = "active"
 ) -> dict[str, Any]:
     metadata = {
-        "document_type": "archive_view", "schema_version": 1, "id": str(view_id), "campaign_id": str(campaign_id),
-        "view_type": payload.view_type, "title": payload.title.strip(), "status": status,
+        "document_type": "archive_view",
+        "schema_version": 1,
+        "id": str(view_id),
+        "campaign_id": str(campaign_id),
+        "view_type": payload.view_type,
+        "title": payload.title.strip(),
+        "status": status,
     }
     if payload.view_type == "map":
         metadata["background"] = payload.background or {}
@@ -1058,6 +1073,7 @@ def archive_view_archive(request: HttpRequest, campaign_id: UUID, view_id: UUID,
 def archive_view_restore(request: HttpRequest, campaign_id: UUID, view_id: UUID, payload: VersionPayload):
     enforce_csrf(request)
     return _archive_view_status(request, campaign_id, view_id, payload, "active")
+
 
 @api.patch("items/{item_id}", auth=django_auth)
 @transaction.atomic

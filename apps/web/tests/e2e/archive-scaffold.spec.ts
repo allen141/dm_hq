@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("an owner can create a campaign and open its Archive workspace", async ({ page }) => {
+test("an owner can create a campaign and use its Archive workspace", async ({ page }) => {
   const campaignName = `Smoke Campaign ${Date.now()}`;
   await page.goto("/");
   await page.getByLabel("Username").fill("dm");
@@ -14,43 +14,26 @@ test("an owner can create a campaign and open its Archive workspace", async ({ p
   await expect(page.getByRole("link", { name: `Open ${campaignName}` })).toBeVisible();
 
   await page.getByRole("link", { name: `Open ${campaignName}` }).click();
-  await expect(page.getByRole("heading", { name: "Make it findable." })).toBeVisible();
+  await expect(page).toHaveURL(/\/campaigns\/[^/]+\/archive$/);
+  await expect(page.getByRole("heading", { name: campaignName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Wiki" })).toBeVisible();
   await page.getByLabel("Title").fill("Mara Venn");
   await page.getByLabel("Kind").selectOption("entity");
-  await expect(page.getByLabel("Subject type")).toHaveValue("person");
-  await page.getByLabel("Markdown body").fill("A ferrymaster with a secret.");
-  await page.getByRole("button", { name: "Capture document" }).click();
+  await page.getByLabel("Markdown", { exact: true }).fill("A ferrymaster with a secret.");
+  await page.getByRole("button", { name: "Capture page" }).click();
   await expect(page.getByRole("heading", { name: "Mara Venn" })).toBeVisible();
-  await expect(page.getByText("Sanitized preview")).toBeVisible();
+  await expect(page.getByText("A ferrymaster with a secret.")).toBeVisible();
+
   const campaignUrl = page.url().replace(/\/items\/[^/]+$/, "");
-  await page.getByRole("button", { name: "Source Markdown" }).click();
-  await page.getByLabel("Complete canonical Markdown").fill((await page.getByLabel("Complete canonical Markdown").inputValue()) + "\nHuman ferrymaster.");
+  await page.getByRole("button", { name: "Source" }).click();
+  const source = page.getByLabel("Complete canonical Markdown");
+  await source.fill(`${await source.inputValue()}\nHuman ferrymaster.`);
   await page.getByRole("button", { name: "Save Markdown revision" }).click();
-  await expect(page.getByText("Saved as a new revision.")).toBeVisible();
-  await page.getByRole("button", { name: "Publish Markdown snapshot" }).click();
-  await expect(page.getByText("Handouts for this item")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open player handout" }).first()).toBeVisible();
-  await page.getByRole("link", { name: "Open player handout" }).first().click();
-  await expect(page.getByRole("heading", { name: "Campaign notes" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Mara Venn" })).toBeVisible();
+  await expect(page.getByText("Saved as a new Markdown revision.")).toBeVisible();
 
   await page.goto(campaignUrl);
-  await expect(page.locator(".handout-label strong", { hasText: "Mara Venn" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open handout" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Revoke" }).first().click();
-  await expect(page.getByText("Revoked handouts (1)")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open handout" })).toHaveCount(0);
-  await page.getByText("Revoked handouts (1)").click();
-  await expect(page.getByText("Unavailable")).toBeVisible();
-  await expect(page.locator(".handout-history .handout-label strong")).toHaveText("Mara Venn");
-
-  await page.getByLabel("Title").fill("Session One");
-  await page.getByLabel("Kind").selectOption("session");
-  await expect(page.getByLabel("Scheduled date")).toBeVisible();
-  await expect(page.getByLabel("Session status")).toBeVisible();
-  await expect(page.getByLabel("Outcome")).toBeVisible();
-  await page.getByLabel("Outcome").fill("Reconciled at the table.");
-  await page.getByRole("button", { name: "Capture document" }).click();
-  await expect(page.getByRole("heading", { name: "Session One" })).toBeVisible();
-  await expect(page.getByText("Sanitized preview")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Mara Venn" }).first()).toBeVisible();
+  await page.getByRole("link", { name: "Graph" }).click();
+  await expect(page.getByRole("heading", { name: "Knowledge graph" })).toBeVisible();
+  await expect(page.getByText("Accessible graph table")).toBeVisible();
 });

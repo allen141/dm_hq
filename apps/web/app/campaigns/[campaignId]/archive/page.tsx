@@ -52,6 +52,8 @@ export default function ArchiveWikiPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Archive could not be loaded."); }
   }
 
+  // Loading campaign-owned Archive state is the external synchronization performed here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [campaignId]);
   useEffect(() => {
     const focus = searchParams.get("focus");

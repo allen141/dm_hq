@@ -241,9 +241,7 @@ class ArchiveApiTests(TestCase):
             },
         )
         self.assertEqual(relation.status_code, 200)
-        graph = self.client.get(
-            f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1"
-        )
+        graph = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1")
         self.assertEqual(graph.status_code, 200)
         graph_payload = graph.json()
         self.assertEqual({node["id"] for node in graph_payload["nodes"]}, {source["id"], target["id"]})
