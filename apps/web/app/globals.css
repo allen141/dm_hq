@@ -256,6 +256,7 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
 .graph-shell .graph-vitals { color: #9dbab6; }
 .graph-shell .graph-vitals strong { color: #fff3d1; }
 .graph-shell .graph-command-deck { align-items: center; padding: 10px; }
+.graph-shell .graph-command-deck .graph-vitals { flex: 0 0 auto; margin: 0 4px 0 2px; }
 .graph-shell .graph-command-deck fieldset { border-color: rgb(157 197 190 / 18%); border-radius: 11px; background: rgb(18 51 57 / 62%); }
 .graph-shell .graph-command-deck legend { color: #9dbab6; }
 .graph-shell .graph-command-deck button { color: #c7dcda; background: transparent; box-shadow: none; }
@@ -282,7 +283,7 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
   .graph-shell { padding: 10px 14px 42px; }
   .graph-shell .graph-page { padding-top: 18px; }
   .graph-shell .graph-page-heading { display: block; padding: 18px; }
-  .graph-shell .graph-vitals { justify-content: flex-start; margin-top: 18px; text-align: left; }
+  .graph-shell .graph-command-deck .graph-vitals { justify-content: flex-start; margin: 0; text-align: left; }
   .graph-shell .graph-command-deck { align-items: stretch; }
   .graph-shell .graph-command-deck fieldset { width: 100%; }
   .graph-shell .graph-table-link { width: 100%; margin-left: 0; text-align: center; }
