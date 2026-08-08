@@ -8,6 +8,20 @@ class Migration(migrations.Migration):
     dependencies = [("campaigns", "0013_archive_relationship_graph")]
 
     operations = [
+        migrations.AlterField(
+            model_name="campaigndocument",
+            name="document_type",
+            field=models.CharField(
+                choices=[
+                    ("campaign", "Campaign"),
+                    ("archive_item", "Archive item"),
+                    ("template", "Template"),
+                    ("publication_entry", "Publication entry"),
+                    ("archive_view", "Archive view"),
+                ],
+                max_length=32,
+            ),
+        ),
         migrations.CreateModel(
             name="ArchiveView",
             fields=[
@@ -47,7 +61,7 @@ class Migration(migrations.Migration):
             options={
                 "ordering": ["title", "id"],
                 "indexes": [
-                    models.Index(fields=["campaign", "view_type", "status"], name="campaigns_arc_campai_8e4a8d_idx")
+                    models.Index(fields=["campaign", "view_type", "status"], name="campaigns_a_campaig_19eeca_idx")
                 ],
             },
         ),
