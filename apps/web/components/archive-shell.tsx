@@ -33,7 +33,9 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
     ...(firstRelationship ? [{ label: "Relationships", href: `/campaigns/${campaignId}/archive/relationships/${firstRelationship.id}`, active: pathname.includes("/archive/relationships/") }] : []),
   ];
 
-  return <main className="archive-shell">
+  const graphWorkspace = pathname.includes("/archive/graph") && !pathname.includes("/archive/graph/table");
+
+  return <main className={`archive-shell${graphWorkspace ? " graph-shell" : ""}`}>
     <header className="archive-topbar">
       <div><Link className="back-link" href="/">← Campaigns</Link><div className="eyebrow">Private Archive</div><h1>{campaign?.name ?? "Campaign Archive"}</h1></div>
       <div className="archive-utilities" aria-label="Archive utilities">

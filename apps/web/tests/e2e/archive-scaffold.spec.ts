@@ -35,5 +35,9 @@ test("an owner can create a campaign and use its Archive workspace", async ({ pa
   await expect(page.getByRole("link", { name: "Mara Venn" }).first()).toBeVisible();
   await page.getByRole("link", { name: "Graph" }).click();
   await expect(page.getByRole("heading", { name: "Knowledge graph" })).toBeVisible();
-  await expect(page.getByText("Accessible graph table")).toBeVisible();
+  const graphTableLink = page.getByRole("link", { name: /Accessible graph table/ });
+  await expect(graphTableLink).toBeVisible();
+  await graphTableLink.click();
+  await expect(page).toHaveURL(/\/archive\/graph\/table/);
+  await expect(page.getByRole("heading", { name: "Graph table" })).toBeVisible();
 });

@@ -138,7 +138,8 @@ These routes describe stable navigation outcomes. They do not prescribe the curr
 | --- | --- |
 | `/campaigns/{campaign_id}/archive` | Open the `campaign.md` Wiki home or its unsaved generated starting state. |
 | `/campaigns/{campaign_id}/archive/items/{item_id}` | Open one canonical Archive item as a wiki page. |
-| `/campaigns/{campaign_id}/archive/graph` | Open the built-in Graph. |
+| `/campaigns/{campaign_id}/archive/graph` | Open the immersive built-in Graph workspace. |
+| `/campaigns/{campaign_id}/archive/graph/table` | Open the keyboard-friendly accessible Graph table. |
 | `/campaigns/{campaign_id}/archive/maps` | Open Maps with the current or first named map selected. |
 | `/campaigns/{campaign_id}/archive/maps/{view_id}` | Deep-link to one named map. |
 | `/campaigns/{campaign_id}/archive/relationships` | Open Relationships with the current or first named board selected. |

@@ -166,3 +166,97 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
 
 @media (max-width: 1040px) { .archive-layout { grid-template-columns: 200px minmax(0, 1fr); } .archive-tools { position: static; grid-column: 1 / -1; grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .archive-shell { padding: 20px 14px 58px; } .archive-topbar, .archive-page-heading { display: block; } .archive-utilities { margin-top: 16px; } .archive-tabs { overflow-x: auto; } .archive-layout, .connections-layout { grid-template-columns: 1fr; } .archive-sidebar { position: static; } .archive-tools { grid-template-columns: 1fr; } .map-list article { grid-template-columns: 1fr 1fr; } }
+
+/* The graph route is an atlas workspace: the relationship field stays behind the controls. */
+.graph-shell {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  padding: 16px 24px 48px;
+  color: #eaf3f1;
+  background: #07151c;
+}
+.graph-shell .archive-topbar,
+.graph-shell .archive-tabs { position: relative; z-index: 10; }
+.graph-shell .archive-topbar { background: rgb(7 25 31 / 82%); backdrop-filter: blur(16px); }
+.graph-shell .archive-tabs { background: rgb(8 25 31 / 84%); backdrop-filter: blur(14px); }
+.graph-shell .graph-page { position: relative; min-height: calc(100vh - 32px); margin: 0; padding: 28px 0 64px; }
+.graph-shell .graph-canvas {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 18% 20%, rgb(20 126 119 / 22%), transparent 28%),
+    radial-gradient(circle at 82% 72%, rgb(170 111 42 / 14%), transparent 30%),
+    radial-gradient(circle, rgb(118 166 163 / 18%) 1px, transparent 1px) 0 0 / 26px 26px,
+    linear-gradient(145deg, #102d35, #06131a 72%);
+  box-shadow: none;
+  pointer-events: none;
+}
+.graph-shell .graph-canvas svg { width: 100%; min-width: 0; height: 100%; min-height: 100vh; opacity: .84; }
+.graph-shell .graph-edge { stroke: #88b7b0; stroke-opacity: .55; }
+.graph-shell .graph-edge.relationship { stroke: #e5b56c; stroke-opacity: .84; }
+.graph-shell .graph-edge.reference { stroke: #c9a5d9; }
+.graph-shell .graph-label { fill: #c9ddda; stroke: #07151c; }
+.graph-shell .graph-node rect { fill: rgb(10 34 42 / 90%); stroke: #639c91; }
+.graph-shell .graph-node.focus rect { fill: rgb(20 89 82 / 92%); stroke: #f1c77d; }
+.graph-shell .graph-node text { fill: #edf5f3; }
+.graph-shell .graph-node .graph-node-kind { fill: #a8c1be; }
+.graph-interface { position: relative; z-index: 1; display: grid; gap: 14px; max-width: 1180px; margin: 0 auto; }
+.graph-page-heading,
+.graph-command-deck,
+.graph-status-line,
+.graph-shell .graph-page .error,
+.graph-truncation-notice,
+.graph-loading-card {
+  border: 1px solid rgb(157 197 190 / 24%);
+  border-radius: var(--radius-md);
+  background: rgb(7 25 31 / 76%);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 22%);
+  backdrop-filter: blur(14px);
+}
+.graph-page-heading { margin: 0; padding: 22px 24px; }
+.graph-page-heading h2 { color: #fffdf8; }
+.graph-page-description { max-width: 650px; color: #b5ceca; }
+.graph-vitals { display: flex; gap: 22px; align-items: flex-end; color: #9dbab6; font: .7rem/1.2 var(--font-ui); text-align: right; }
+.graph-vitals strong { display: block; color: #fff3d1; font: 700 1.55rem/1 Georgia, serif; }
+.graph-command-deck { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px; }
+.graph-command-deck fieldset { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; padding: 6px; border: 1px solid rgb(157 197 190 / 18%); border-radius: 11px; background: rgb(18 51 57 / 62%); }
+.graph-command-deck legend { width: auto; padding: 0 5px; color: #9dbab6; font: 700 .62rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; }
+.graph-command-deck button { min-height: 34px; padding: 7px 10px; color: #c7dcda; background: transparent; box-shadow: none; }
+.graph-command-deck button.active { border-color: #d7aa62; color: #10262a; background: #e4bb78; }
+.graph-filter-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 5px 8px; color: #bfd3d0; font: .72rem var(--font-ui); }
+.graph-filter-chip input { width: auto; min-height: auto; accent-color: #d7aa62; }
+.edge-swatch { display: inline-block; width: 18px; height: 2px; background: #88b7b0; }
+.edge-swatch.reference { background: #c9a5d9; }
+.edge-swatch.relationship { height: 3px; background: #e5b56c; }
+.graph-table-link { margin-left: auto; color: #f1cb88; background: rgb(255 255 255 / 6%); }
+.graph-status-line { min-height: 0; padding: 9px 13px; color: #b5ceca; font: .75rem/1.3 var(--font-ui); }
+.graph-shell .graph-page .error,
+.graph-truncation-notice,
+.graph-loading-card { margin: 0; padding: 12px 14px; color: #f2d6a4; }
+.graph-loading-card { color: #b5ceca; text-align: center; }
+.graph-table-page { max-width: 1100px; margin: 0 auto; }
+.graph-table-toolbar { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.graph-table-toolbar fieldset { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.graph-table-toolbar legend { width: auto; padding: 0 4px; font: 700 .65rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; }
+.graph-table-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgb(255 255 255 / 72%); box-shadow: var(--shadow-sm); }
+.graph-table-summary { display: flex; gap: 20px; margin-bottom: 8px; color: var(--muted); font: 700 .72rem var(--font-ui); }
+
+@media (max-width: 720px) {
+  .graph-shell { padding: 10px 14px 42px; }
+  .graph-shell .graph-page { padding-top: 18px; }
+  .graph-page-heading { display: block; padding: 18px; }
+  .graph-vitals { justify-content: flex-start; margin-top: 18px; text-align: left; }
+  .graph-command-deck { align-items: stretch; }
+  .graph-command-deck fieldset { width: 100%; }
+  .graph-table-link { width: 100%; margin-left: 0; text-align: center; }
+  .graph-table-summary { flex-wrap: wrap; gap: 8px 16px; }
+}
