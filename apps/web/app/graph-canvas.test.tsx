@@ -37,8 +37,8 @@ test("keeps the semantic graph usable while presenting node summaries", () => {
 test("offers an explicit non-WebGL list presentation", () => {
   render(<GraphCanvas campaignId="campaign" nodes={nodes} edges={edges} />);
 
-  fireEvent.click(screen.getByRole("button", { name: "List" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "List" })[0]);
   expect(screen.getByText(/All graph navigation remains available without WebGL/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Captain Vey/ }));
+  fireEvent.click(screen.getAllByRole("button", { name: /Captain Vey/ })[0]);
   expect(screen.getByRole("dialog", { name: "Captain Vey" })).toBeInTheDocument();
 });
