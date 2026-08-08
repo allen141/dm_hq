@@ -1,8 +1,8 @@
 # Archive roadmap
 
-This roadmap keeps the first Archive release narrow while preserving a path to the broader product vision. Release 1 is the current planning target, not authorization to begin implementation before Phase 0 exits. Later releases are directional and should be revisited using research and evidence from real campaigns.
+This roadmap keeps the active first Archive release narrow while preserving a path to the broader product vision. Release 1 foundation implementation is in progress. Later releases remain directional and should be revisited using research and evidence from real campaigns.
 
-The [Archive implementation plan](archive-implementation-plan.md) translates Release 1 into technical increments. Its proposed architecture must be accepted before application scaffolding begins.
+The [Archive implementation plan](archive-implementation-plan.md) tracks Release 1 against the architecture accepted in [ADR 0002](../decisions/0002-archive-application-architecture.md). The Archive exploration PoC implements the boundary accepted in [ADR 0006](../decisions/0006-archive-exploration-view-model.md) while leaving production hardening and advanced visual interaction as follow-up work.
 
 ## Delivery rules
 
@@ -13,6 +13,14 @@ The [Archive implementation plan](archive-implementation-plan.md) translates Rel
 - Visualizations derive from canonical Archive data rather than creating parallel records.
 - Revision history, fictional chronology, planning state, and knowledge state remain distinct.
 - Export must preserve canonical Markdown documents and their derived indexes.
+
+## Discovery validation track
+
+The [Archive exploration views plan](archive-exploration-views.md) defines the Wiki, Graph, Map, and Relationship PoC slices. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) supplies their decision boundary.
+
+This remains an evidence track rather than a production-scale visualization increment. The current implementation uses bounded read models, canonical view Markdown, simple SVG rendering, and direct external HTTPS map images. It does not add a graph database, GIS, attachment pipeline, or advanced canvas framework. Validation must measure retrieval value, accessibility, privacy, portability, and the risk of duplicating campaign facts.
+
+After validation, each capability is promoted, revised, deferred, or rejected independently. Moving a production capability earlier than Release 3 requires an explicit roadmap change and any necessary accepted architecture decision.
 
 ## Release 1 — Archive foundation
 
@@ -151,8 +159,9 @@ Release 3 makes large campaigns easier to understand and allows proven structure
 - Timeline visualization.
 - World, regional, city, district, building, and dungeon maps.
 - Nested map levels, points, regions, routes, travel metadata, entity placement, and location history.
-- Historical, DM-only, and player-visible map layers.
+- Historical and DM-only map layers, plus separately published player-safe visual artifacts.
 - Faction territory, travel history, and event-history views.
+- Player-visible graphs, maps, or boards only through a deliberate publication representation, never by hiding private source nodes in the browser.
 
 ### Libraries and integrations
 

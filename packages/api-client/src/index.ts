@@ -2,6 +2,37 @@ export type User = { id: number; username: string };
 export type AgentToken = { id: string; name: string; created_at: string; last_used_at?: string | null; expires_at?: string | null; revoked_at?: string | null };
 export type AgentTokenCreated = AgentToken & { token: string };
 export type Campaign = { id: string; name: string; owner_id: number; created_at: string; updated_at: string };
+export type PageIdentity = { id: string; title: string; kind: string; status: string };
+export type DocumentLink = { id: string; source_id: string; source_type?: string; target_id: string; label: string; context?: string };
+export type RelationshipProjection = {
+  id: string; source_id: string; target_id: string; kind: string; label: string; inverse_label: string; notes: string;
+  authored_position: number; source_version: number; source?: PageIdentity; target?: PageIdentity;
+};
+export type GraphNode = { id: string; node_type: "campaign" | "item"; title: string; kind: string; status: string };
+export type GraphEdge = { id: string; edge_class: "document_link" | "reference" | "relationship"; source_id: string; target_id: string; kind: string; label: string; inverse_label: string };
+export type GraphResponse = {
+  focus_id: string; depth: number; nodes: GraphNode[]; edges: GraphEdge[];
+  limits: { max_nodes: number; max_edges: number }; truncated: { nodes: boolean; edges: boolean };
+};
+export type ArchiveHome = { markdown: string; html: string; version: number; metadata: Record<string, unknown>; backlinks: DocumentLink[] };
+export type MapPlacement = { id: string; item_id: string; x: number; y: number; caption: string; item?: PageIdentity };
+export type RelationshipMember = { id: string; item_id: string; position?: { x: number; y: number } | null; item?: PageIdentity };
+export type ArchiveViewSummary = { id: string; campaign_id: string; view_type: "map" | "relationship"; title: string; slug: string; status: "active" | "archived"; version: number; updated_at: string };
+export type ArchiveViewDocument = ArchiveViewSummary & {
+  markdown: string; html: string; description?: string;
+  background?: { url: string; alt: string };
+  placements: MapPlacement[];
+  members: RelationshipMember[];
+  settings?: { orientation?: "top_to_bottom" | "left_to_right"; root_item_id?: string | null; relationship_kinds?: string[] };
+  edges?: GraphEdge[];
+};
+export type ArchiveViewPayload = {
+  version?: number; view_type: "map" | "relationship"; title: string; description?: string;
+  background?: { url: string; alt: string };
+  placements?: Array<Omit<MapPlacement, "item">>;
+  members?: Array<Omit<RelationshipMember, "item">>;
+  settings?: ArchiveViewDocument["settings"];
+};
 export type ItemKind = "note" | "entity" | "session";
 export type ItemStatus = "draft" | "canon" | "archived";
 export type TemplateField = { key: string; label: string; type: string; required?: boolean; options?: string[] };
@@ -9,9 +40,9 @@ export type ArchiveItem = {
   id: string; campaign_id: string; kind: ItemKind; markdown: string; storage_key?: string | null; html: string; metadata: Record<string, unknown>;
   title: string; status: ItemStatus; version: number; created_at: string; updated_at: string;
   aliases: string[]; tags: string[]; references: Array<{ id: number; target_id: string; label: string }>;
-  backlinks: Array<{ id: number; source_id: string; label: string }>;
-  relationships: Array<{ id: number; target_id: string; kind: string; label: string; notes: string }>;
-  incoming_relationships: Array<{ id: number; source_id: string; kind: string; label: string; notes: string }>;
+  backlinks: Array<{ id: string | number; source_id: string; source_type?: string; label: string; context?: string }>;
+  relationships: RelationshipProjection[];
+  incoming_relationships: RelationshipProjection[];
 };
 export type ItemSummary = Pick<ArchiveItem, "id" | "campaign_id" | "kind" | "title" | "status" | "version" | "created_at" | "updated_at">;
 export type Template = { id: string; name: string; applies_to: string; versions: Array<{ number: number; markdown: string; fields: TemplateField[] }> };
@@ -56,7 +87,19 @@ export function createApiClient(fetcher: typeof fetch = (...args) => fetch(...ar
     updateItem: (itemId: string, payload: { version: number; markdown: string; reason?: string }) => request<ArchiveItem>(`/api/v1/items/${itemId}`, { method: "PATCH", body: JSON.stringify(payload) }),
     promote: (itemId: string, payload: { version: number; subject_type?: string; template_id?: string }) => request<ArchiveItem>(`/api/v1/items/${itemId}/promote`, { method: "POST", body: JSON.stringify(payload) }),
     search: (campaignId: string, query: string, params: { cursor?: string; limit?: number } = {}) => { const searchParams = new URLSearchParams({ q: query }); Object.entries(params).forEach(([key, value]) => { if (value !== undefined) searchParams.set(key, String(value)); }); return request<{ items: ItemSummary[]; next_cursor: string | null }>(`/api/v1/campaigns/${campaignId}/search?${searchParams.toString()}`); },
+    createRelationship: (itemId: string, payload: { version: number; target_id: string; kind: string; label?: string; inverse_label?: string; notes?: string }) => request<{ relationship: RelationshipProjection; item: ArchiveItem }>(`/api/v1/items/${itemId}/relationships`, { method: "POST", body: JSON.stringify(payload) }),
+    updateRelationship: (itemId: string, edgeId: string, payload: { version: number; target_id: string; kind: string; label?: string; inverse_label?: string; notes?: string }) => request<{ relationship: RelationshipProjection; item: ArchiveItem }>(`/api/v1/items/${itemId}/relationships/${edgeId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    deleteRelationship: (itemId: string, edgeId: string, version: number) => request<{ item: ArchiveItem }>(`/api/v1/items/${itemId}/relationships/${edgeId}`, { method: "DELETE", body: JSON.stringify({ version }) }),
     relationship: (itemId: string, payload: Record<string, unknown>) => request<Record<string, unknown>>(`/api/v1/items/${itemId}/relationships`, { method: "POST", body: JSON.stringify(payload) }),
+    archiveHome: (campaignId: string) => request<ArchiveHome>(`/api/v1/campaigns/${campaignId}/archive/home`),
+    updateArchiveHome: (campaignId: string, payload: { version: number; markdown: string }) => request<ArchiveHome>(`/api/v1/campaigns/${campaignId}/archive/home`, { method: "PATCH", body: JSON.stringify(payload) }),
+    archiveGraph: (campaignId: string, params: { focus_id?: string; depth?: 1 | 2; edge_classes?: string[]; relationship_kinds?: string[] } = {}) => { const query = new URLSearchParams(); if (params.focus_id) query.set("focus_id", params.focus_id); if (params.depth) query.set("depth", String(params.depth)); if (params.edge_classes?.length) query.set("edge_classes", params.edge_classes.join(",")); if (params.relationship_kinds?.length) query.set("relationship_kinds", params.relationship_kinds.join(",")); return request<GraphResponse>(`/api/v1/campaigns/${campaignId}/archive/graph${query.size ? `?${query}` : ""}`); },
+    archiveViews: (campaignId: string, includeArchived = false) => request<{ views: ArchiveViewSummary[] }>(`/api/v1/campaigns/${campaignId}/archive/views${includeArchived ? "?include_archived=true" : ""}`),
+    archiveView: (campaignId: string, viewId: string) => request<ArchiveViewDocument>(`/api/v1/campaigns/${campaignId}/archive/views/${viewId}`),
+    createArchiveView: (campaignId: string, payload: ArchiveViewPayload) => request<ArchiveViewDocument>(`/api/v1/campaigns/${campaignId}/archive/views`, { method: "POST", body: JSON.stringify(payload) }),
+    updateArchiveView: (campaignId: string, viewId: string, payload: ArchiveViewPayload) => request<ArchiveViewDocument>(`/api/v1/campaigns/${campaignId}/archive/views/${viewId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    archiveArchiveView: (campaignId: string, viewId: string, version: number) => request<ArchiveViewDocument>(`/api/v1/campaigns/${campaignId}/archive/views/${viewId}/archive`, { method: "POST", body: JSON.stringify({ version }) }),
+    restoreArchiveView: (campaignId: string, viewId: string, version: number) => request<ArchiveViewDocument>(`/api/v1/campaigns/${campaignId}/archive/views/${viewId}/restore`, { method: "POST", body: JSON.stringify({ version }) }),
     sessionLink: (itemId: string, targetId: string) => request<Record<string, unknown>>(`/api/v1/items/${itemId}/session-links`, { method: "POST", body: JSON.stringify({ item_id: targetId }) }),
     revisions: (itemId: string) => request<{ revisions: Array<{ number: number; reason: string; created_at: string; markdown: string; content_hash: string }> }>(`/api/v1/items/${itemId}/revisions`),
     revisionCompare: (itemId: string, revision: number, against?: number) => request<{ revision: number; against: number | null; markdown: string; previous_markdown: string | null }>(`/api/v1/items/${itemId}/revisions/${revision}${against ? `?against=${against}` : ""}`),

@@ -105,9 +105,6 @@ def forwards(apps, schema_editor):
         if relation is None or version is None:
             errors.append(f"{doc.id}: missing relation or current version")
             continue
-        if not (root / doc.storage_key).exists():
-            errors.append(f"{doc.id}: current file is missing ({doc.storage_key})")
-            continue
         try:
             metadata, body = parse(version.markdown)
             source = (

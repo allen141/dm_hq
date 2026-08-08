@@ -4,6 +4,7 @@ import uuid
 import zipfile
 from pathlib import Path
 
+from django.apps import apps
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 
@@ -121,7 +122,7 @@ class ArchiveApiTests(TestCase):
         person = self.create_item(kind="entity", title="Mara", body="Keeps the salt road")
         relation = self.post(
             f"/api/v1/items/{person['id']}/relationships",
-            {"target_id": place["id"], "kind": "works_at", "notes": "Harbor records"},
+            {"version": person["version"], "target_id": place["id"], "kind": "works_at", "notes": "Harbor records"},
         )
         self.assertEqual(relation.status_code, 200)
         detail = self.client.get(f"/api/v1/items/{person['id']}").json()
@@ -162,6 +163,96 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(rejected.status_code, 422)
         self.assertIn("Frontmatter id does not match", rejected.content.decode())
+
+    def test_relationship_crud_is_markdown_owned_and_versioned(self):
+        first = self.create_item(title="First")
+        second = self.create_item(title="Second")
+        third = self.create_item(title="Third")
+        created = self.post(
+            f"/api/v1/items/{first['id']}/relationships",
+            {
+                "version": first["version"],
+                "target_id": second["id"],
+                "kind": "member_of",
+                "label": "member of",
+                "inverse_label": "has member",
+                "notes": "Canonical note",
+            },
+        )
+        self.assertEqual(created.status_code, 200)
+        payload = created.json()
+        edge_id = payload["relationship"]["id"]
+        self.assertEqual(payload["item"]["metadata"]["relationships"][0]["id"], edge_id)
+        self.assertEqual(payload["relationship"]["source_version"], 2)
+
+        stale = self.post(
+            f"/api/v1/items/{first['id']}/relationships",
+            {"version": first["version"], "target_id": third["id"], "kind": "rival_of"},
+        )
+        self.assertEqual(stale.status_code, 409)
+
+        updated = self.client.patch(
+            f"/api/v1/items/{first['id']}/relationships/{edge_id}",
+            data=json.dumps(
+                {
+                    "version": payload["item"]["version"],
+                    "target_id": third["id"],
+                    "kind": "allied_with",
+                    "label": "trusts",
+                    "inverse_label": "trusted by",
+                    "notes": "Changed",
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["relationship"]["target_id"], third["id"])
+        incoming = self.client.get(f"/api/v1/items/{third['id']}").json()["incoming_relationships"]
+        self.assertEqual(incoming[0]["inverse_label"], "trusted by")
+
+        deleted = self.client.delete(
+            f"/api/v1/items/{first['id']}/relationships/{edge_id}",
+            data=json.dumps({"version": updated.json()["item"]["version"]}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(deleted.json()["item"]["metadata"]["relationships"], [])
+
+    def test_graph_combines_document_links_references_and_relationships(self):
+        target = self.create_item(title="Target")
+        source = self.create_item(
+            title="Source",
+            body=f"Follow [Target](dmhq://item/{target['id']}).",
+        )
+        reference = self.post(
+            f"/api/v1/items/{source['id']}/references",
+            {"target_id": target["id"], "label": "mentions"},
+        )
+        self.assertEqual(reference.status_code, 200)
+        relation = self.post(
+            f"/api/v1/items/{source['id']}/relationships",
+            {
+                "version": reference.json()["item"]["version"],
+                "target_id": target["id"],
+                "kind": "allied_with",
+                "label": "ally",
+                "inverse_label": "ally",
+            },
+        )
+        self.assertEqual(relation.status_code, 200)
+        graph = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1")
+        self.assertEqual(graph.status_code, 200)
+        graph_payload = graph.json()
+        self.assertEqual({node["id"] for node in graph_payload["nodes"]}, {source["id"], target["id"]})
+        self.assertEqual(
+            {edge["edge_class"] for edge in graph_payload["edges"]},
+            {"document_link", "reference", "relationship"},
+        )
+
+        bad_link = self.create_item(body=f"[Missing](dmhq://item/{uuid.uuid4()})")
+        self.assertIn("detail", bad_link)
 
     def test_default_templates_validate_typed_fields_and_canon_requirements(self):
         templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]
@@ -380,6 +471,170 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())
+
+    def test_archive_export_restore_remaps_links_navigation_relationships_and_views(self):
+        target = self.create_item(kind="entity", title="Harbor", subject_type="place", fields={})
+        source = self.create_item(
+            kind="entity",
+            title="Keeper",
+            body=f"Visit [Harbor](dmhq://item/{target['id']}).",
+            subject_type="person",
+            fields={},
+        )
+        reference = self.post(
+            f"/api/v1/items/{source['id']}/references",
+            {"target_id": target["id"], "label": "works near"},
+        ).json()
+        related = self.post(
+            f"/api/v1/items/{source['id']}/relationships",
+            {
+                "version": reference["item"]["version"],
+                "target_id": target["id"],
+                "kind": "member_of",
+                "label": "serves",
+                "inverse_label": "has keeper",
+            },
+        )
+        self.assertEqual(related.status_code, 200)
+        session = self.create_item(kind="session", title="Arrival", fields={})
+        linked = self.post(f"/api/v1/items/{session['id']}/session-links", {"item_id": source["id"]})
+        self.assertEqual(linked.status_code, 200)
+
+        map_view = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "map",
+                "title": "Harbor map",
+                "background": {"url": "https://example.test/map.png", "alt": "Harbor"},
+                "placements": [{"id": str(uuid.uuid4()), "item_id": target["id"], "x": 0.25, "y": 0.75}],
+            },
+        ).json()
+        board = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Harbor ties",
+                "members": [
+                    {"id": str(uuid.uuid4()), "item_id": source["id"]},
+                    {"id": str(uuid.uuid4()), "item_id": target["id"]},
+                ],
+                "settings": {
+                    "orientation": "top_to_bottom",
+                    "root_item_id": source["id"],
+                    "relationship_kinds": [],
+                },
+            },
+        ).json()
+
+        home = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/home").json()
+        home_meta, home_body = parse_document(home["markdown"])
+        home_meta.setdefault(
+            "archive",
+            {
+                "schema_version": 1,
+                "tab_order": ["wiki", "graph", "maps", "relationships"],
+                "view_order": {"maps": [], "relationships": []},
+                "navigation": [],
+            },
+        )
+        home_meta["archive"]["navigation"] = [
+            {
+                "id": str(uuid.uuid4()),
+                "type": "page",
+                "label": "Keeper",
+                "target": {"type": "item", "id": source["id"]},
+            }
+        ]
+        home_meta["archive"]["view_order"] = {
+            "maps": [map_view["id"]],
+            "relationships": [board["id"]],
+        }
+        home_body += f"\n[Keeper](dmhq://item/{source['id']})"
+        updated_home = self.client.patch(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/home",
+            data=json.dumps(
+                {
+                    "version": home["version"],
+                    "markdown": f"---\n{json.dumps(home_meta, indent=2)}\n---\n\n{home_body}\n",
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(updated_home.status_code, 200)
+
+        exported = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/exports")
+        with zipfile.ZipFile(io.BytesIO(exported.content)) as archive:
+            manifest = json.loads(archive.read("manifest.json"))
+            source_path = manifest["documents"][source["id"]]
+            source_markdown = archive.read(source_path).decode()
+            self.assertNotIn("dmhq://item/", source_markdown)
+            self.assertIn(".md)", source_markdown)
+
+        restored_response = self.client.post(
+            "/api/v1/exports/restore",
+            {
+                "archive": __import__("django").core.files.uploadedfile.SimpleUploadedFile(
+                    "archive.zip", exported.content, content_type="application/zip"
+                )
+            },
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(restored_response.status_code, 200, restored_response.content)
+        restored_campaign = Campaign.objects.get(id=restored_response.json()["id"])
+        restored_source = ArchiveItem.objects.get(campaign=restored_campaign, title="Keeper")
+        restored_target = ArchiveItem.objects.get(campaign=restored_campaign, title="Harbor")
+        restored_session = ArchiveItem.objects.get(campaign=restored_campaign, title="Arrival")
+        restored_meta, restored_body = parse_document(
+            restored_source.document.versions.get(number=restored_source.document.current_version).markdown
+        )
+        self.assertIn(f"dmhq://item/{restored_target.id}", restored_body)
+        self.assertEqual(str(restored_meta["references"][0]["target_id"]), str(restored_target.id))
+        self.assertEqual(str(restored_meta["relationships"][0]["target_id"]), str(restored_target.id))
+        self.assertNotEqual(restored_meta["relationships"][0]["id"], related.json()["relationship"]["id"])
+        self.assertEqual(list(restored_session.session_links.values_list("item_id", flat=True)), [restored_source.id])
+
+        restored_home, _ = parse_document(
+            restored_campaign.document.versions.get(number=restored_campaign.document.current_version).markdown
+        )
+        self.assertEqual(restored_home["archive"]["navigation"][0]["target"]["id"], str(restored_source.id))
+        restored_views = {view.title: view for view in restored_campaign.archive_views.all()}
+        self.assertEqual(set(restored_views), {"Harbor map", "Harbor ties"})
+        map_meta, _ = parse_document(
+            restored_views["Harbor map"]
+            .document.versions.get(number=restored_views["Harbor map"].document.current_version)
+            .markdown
+        )
+        board_meta, _ = parse_document(
+            restored_views["Harbor ties"]
+            .document.versions.get(number=restored_views["Harbor ties"].document.current_version)
+            .markdown
+        )
+        self.assertEqual(map_meta["placements"][0]["item_id"], str(restored_target.id))
+        self.assertEqual(board_meta["settings"]["root_item_id"], str(restored_source.id))
+        self.assertEqual(
+            {member["item_id"] for member in board_meta["members"]},
+            {str(restored_source.id), str(restored_target.id)},
+        )
+        self.assertEqual(restored_home["archive"]["view_order"]["maps"], [str(restored_views["Harbor map"].id)])
+
+    def test_slug_migration_rebuilds_a_missing_materialized_file_from_revision(self):
+        item = self.create_item(title="Missing materialization")
+        document = CampaignDocument.objects.get(archive_item__id=item["id"])
+        path = Path("/tmp/dm-hq-test-documents") / document.storage_key
+        path.unlink()
+        self.assertFalse(path.exists())
+
+        import importlib
+
+        migration = importlib.import_module("campaigns.migrations.0012_slug_based_paths")
+        migration.forwards(apps, None)
+
+        document.refresh_from_db()
+        rebuilt = Path("/tmp/dm-hq-test-documents") / document.storage_key
+        self.assertTrue(rebuilt.exists())
+        metadata, _ = parse_document(rebuilt.read_text(encoding="utf-8"))
+        self.assertEqual(metadata["id"], item["id"])
 
     def test_workspace_pages_include_markdown_and_hash_conflicts(self):
         item = self.create_item(title="Local item", body="Initial")

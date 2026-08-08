@@ -61,11 +61,18 @@ These terms describe product behavior, not a finalized storage schema.
 | Entity | A durable campaign subject such as a person, place, faction, thing, event, or piece of lore. |
 | Note | Primarily unstructured content that may stand alone or link to other Archive records. |
 | Template | A reusable starting structure for a kind of entity or planning record. |
+| Reference | A navigational connection from one Archive item to another that produces a backlink without asserting a fictional fact. |
 | Relationship | A meaningful connection between durable subjects, such as a person belonging to a faction. |
 | Claim | An assertion that may carry a source, confidence, effective time, and knowledge scope. |
 | Session record | A plan for, and later a record of, a period of play. |
 | Revision | A recoverable change to Archive content. |
 | Publication | A deliberate, player-safe representation of private source content. |
+
+### Reference, relationship, and placement
+
+A reference means that one Archive item points to another. It supports navigation and backlinks but does not state that the subjects are related in the fictional world. A relationship is a typed semantic connection, such as a person belonging to a faction. Each relationship is authored once in the source item's Markdown frontmatter; incoming connections, inverse wording, per-page panels, and graphs are derived from that canonical entry rather than copied into the target document.
+
+Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) adds a generic document-link projection so the campaign home and item bodies can link through stable logical campaign or item identities. It also defines view placement for presentation-only choices such as putting an item at a map coordinate or adding it to a relationship board. A placement must not become a location fact or relationship merely because it appears in a view.
 
 ### Relationship and claim
 
@@ -78,6 +85,25 @@ Revision history answers what the user edited and when. Fictional chronology ans
 ### Source content and publication
 
 A publication has its own safe Markdown document, revision, and lifecycle. Editing a private Archive record does not silently publish the change. Revocation prevents future player access without erasing the publication history.
+
+## Archive exploration experience
+
+**Status:** Accepted architecture with an integrated DM-only proof of concept.
+
+The Archive shell keeps search and quick capture available across several lenses over the same campaign knowledge:
+
+- **Wiki** is a fixed core tab. The canonical `campaign.md` body is its home page, and notes, entities, and sessions are its other pages.
+- **Graph** is a fixed core tab. It derives a bounded, read-only network from the campaign home, item links, existing references, and semantic relationships.
+- **Maps** appears after a campaign creates its first map.
+- **Relationships** appears after a campaign creates its first relationship board.
+
+The accepted model allows several named maps and relationship boards. The current shell links to the first active view of each type; a multiple-view selector or view manager is follow-up work.
+
+The document-link projection uses logical campaign and item UUIDs; the internal `CampaignDocument.id` is never a page identity or canonical link target. Each map or relationship board has a canonical `archive_view` Markdown document and an `ArchiveView` SQL summary row. The Markdown stores curation, layout, captions, and references to existing items; the current PoC reads membership and placements directly from that Markdown rather than materializing separate projection tables. Relationship boards read canonical relationship entries from item Markdown rather than creating canvas-only edges.
+
+Maps accept a direct external HTTPS image URL and required alt text. The browser loads that URL with a no-referrer policy; the UI warns that the image host still receives the request and that the exported campaign contains the URL, not a self-contained image. All exploration views remain DM-private. A player-visible wiki, graph, map, or relationship board would require a separate, versioned safe publication artifact instead of hiding private nodes in the browser.
+
+See the [Archive exploration views plan](../planning/archive-exploration-views.md) and accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) for the PoC scope, alternatives, and follow-up validation. Advanced canvas interaction, Dagre layout, persisted manual relationship positions, dedicated membership and placement projections, and multiple-view selection remain follow-up work.
 
 ## Core workflows
 
@@ -95,9 +121,9 @@ A publication has its own safe Markdown document, revision, and lifecycle. Editi
 
 ## Release direction
 
-[The Archive roadmap](../planning/archive-roadmap.md) defines the current first-release candidate and preserves later capabilities without authorizing implementation before the project exits discovery.
+[The Archive roadmap](../planning/archive-roadmap.md) defines release boundaries, while the [Archive implementation plan](../planning/archive-implementation-plan.md) tracks the active Release 1 foundation. The accepted exploration boundary supports the integrated PoC; remaining production hardening and richer visual interaction stay explicit follow-up work.
 
 
 ## Canonical campaign documents
 
-Every DM-authored item, template version, and publication entry is one Markdown file with YAML frontmatter and a Markdown body. Typed controls edit frontmatter; source mode edits the complete document. The API returns Markdown, rendered HTML, parsed metadata, projections, version, and hash. PostgreSQL indexes and relationship tables are derived for fast navigation and search, while the persistent document volume provides a local-file working set for authorized agent workspaces.
+Every DM-authored campaign document, item, template version, and publication entry is one Markdown file with YAML frontmatter and a Markdown body. Typed controls edit frontmatter; source mode edits the complete document. The API returns Markdown, rendered HTML, parsed metadata, projections, version, and hash. PostgreSQL indexes and relationship tables are derived for fast navigation and search, while the persistent document volume provides a local-file working set for authorized agent workspaces.

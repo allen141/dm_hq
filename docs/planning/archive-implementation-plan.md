@@ -21,7 +21,7 @@ Release 1 is complete when a DM can perform the documented vertical workflow thr
 
 Development proceeds in vertical increments. Each increment includes persistence, domain rules, API behavior, interface behavior, authorization, and automated tests before the next increment begins.
 
-## Proposed technical foundation
+## Technical foundation
 
 ```text
 Browser
@@ -36,7 +36,7 @@ Same-origin reverse proxy
 - Next.js and React own layouts, interaction, keyboard behavior, and client-side view state.
 - Django owns campaign rules, authorization, validation, revisions, publication safety, search, and exports.
 - REST and OpenAPI form the boundary. The generated TypeScript client is the only routine frontend access path to the API.
-- PostgreSQL is the canonical store and initial search engine.
+- The complete Markdown document is canonical authored campaign content. PostgreSQL stores document identity, authorization data, complete versions, rebuildable projections, and the initial full-text search index; the durable document volume materializes the current files.
 - Docker Compose starts the web, API, and database services locally.
 
 Release 1 does not require PostGIS, object storage, a worker queue, Redis, WebSockets, a rich-text document tree, or visualization libraries.
@@ -75,7 +75,7 @@ The first schema should use a common Archive identity so notes, entities, and se
 | Template and version | Immutable Markdown field definitions, defaults, and validation rules for the primary DM entry interface. |
 | Alias and tag | Searchable labels attached to an Archive item. |
 | Reference | Stable link between Archive items that produces a backlink. |
-| Relationship | Typed, directional connection between entity items with reciprocal wording and notes. |
+| Relationship | Stable, typed, directional edge stored once in source-item Markdown, with optional forward and inverse wording and notes. |
 | Document version | Complete immutable Markdown snapshot used for history, workspace sync, and restore. |
 | Publication | Revocable snapshot containing only deliberately selected player-safe data. |
 
@@ -129,7 +129,7 @@ The initial Person template includes optional core 2014 D&D 5e reference fields 
 - Every successful item mutation creates a revision in the same database transaction.
 - A revision captures the complete canonical Markdown document and its derived projections.
 - Restoring a revision creates a new current revision; it never deletes later history.
-- Relationship changes are audited but are not included in item restore until relationship revision behavior is designed.
+- Relationship changes are source-document edits. Restoring an item revision restores that document's outgoing relationship set and rebuilds incoming and graph projections.
 - Revision timestamps record when DM HQ stored the change. Fictional effective time is deferred.
 
 ### Publication rules
@@ -304,12 +304,14 @@ Release 1 preserves these seams without implementing them:
 | Rich templates | Stable field keys and immutable template versions. |
 | Claims and fictional history | Revisions record storage time without pretending it is world-effective time. |
 | Knowledge scopes | Publications are separate from private source content. |
-| Graphs and maps | Stable Archive item IDs and canonical relationships. |
+| Graphs and maps | Stable logical campaign and item IDs, references, and canonical relationships. |
 | Attachments | Export format is versioned and can add binary manifests later. |
 | Character providers | 5e fields are namespaced and user-entered. |
 | Offline use | Mutations have stable IDs and explicit revision semantics, but no offline conflict protocol yet. |
 | Co-DM collaboration | Campaign membership exists, but only the owner role is granted. |
 | Additional rulesets | Shared Archive concepts do not contain mandatory 5e fields. |
+
+The [Archive exploration views plan](archive-exploration-views.md) validates Wiki, Graph, Map, and Relationship interactions against these seams under accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md). The integrated PoC adds its documented endpoints and canonical `archive_view` type without making production-scale visualization part of the Release 1 foundation. Promotion still requires evidence and an explicit roadmap update.
 
 ## Definition of Release 1 complete
 

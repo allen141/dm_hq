@@ -59,6 +59,7 @@ nav:
       - Roadmap: planning/roadmap.md
       - Archive roadmap: planning/archive-roadmap.md
       - Archive implementation: planning/archive-implementation-plan.md
+      - Archive exploration views: planning/archive-exploration-views.md
       - AI agent integration: planning/ai-agent-integration-plan.md
       - Open questions: planning/open-questions.md
   - Decisions:
@@ -66,6 +67,7 @@ nav:
       - Container delivery: decisions/0003-single-node-container-delivery.md
       - Structured template fields (superseded): decisions/0004-structured-template-fields.md
       - Markdown campaign documents: decisions/0005-markdown-canonical-campaign-documents.md
+      - Archive exploration views: decisions/0006-archive-exploration-view-model.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md

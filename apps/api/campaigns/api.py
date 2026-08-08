@@ -2,6 +2,8 @@ import base64
 import hashlib
 import io
 import json
+import posixpath
+import re
 import secrets
 import zipfile
 from typing import Any, Literal
@@ -32,18 +34,21 @@ from .documents import (
     safe_publication_markdown,
     save_document,
     serialize_document,
-    storage_root,
 )
 from .models import (
     AgentToken,
     ArchiveItem,
+    ArchiveView,
     Campaign,
     CampaignDocument,
     CampaignMembership,
+    DocumentLink,
     EntityDetail,
     Publication,
     PublicationEntry,
     PublicationVersion,
+    Reference,
+    Relationship,
     SessionDetail,
     Template,
     TemplateVersion,
@@ -103,10 +108,27 @@ class ReferencePayload(Schema):
 
 
 class RelationshipPayload(Schema):
+    version: int
     target_id: UUID
     kind: str
-    reciprocal_label: str = ""
+    label: str = ""
+    inverse_label: str = ""
     notes: str = ""
+
+
+class RelationshipDeletePayload(Schema):
+    version: int
+
+
+class ArchiveViewPayload(Schema):
+    version: int | None = None
+    view_type: str
+    title: str
+    description: str = ""
+    background: dict[str, Any] | None = None
+    placements: list[dict[str, Any]] | None = None
+    members: list[dict[str, Any]] | None = None
+    settings: dict[str, Any] | None = None
 
 
 class SessionLinkPayload(Schema):
@@ -663,6 +685,397 @@ def item_detail(request: HttpRequest, item_id: UUID):
     return item_document_output(get_member_item(request, item_id))
 
 
+@api.get("campaigns/{campaign_id}/archive/graph", auth=django_auth)
+def archive_graph(
+    request: HttpRequest,
+    campaign_id: UUID,
+    focus_id: UUID | None = None,
+    depth: int = 1,
+    edge_classes: str = "document_link,reference,relationship",
+    relationship_kinds: str = "",
+):
+    campaign = get_member_campaign(request, campaign_id)
+    if depth not in {1, 2}:
+        raise error(422, "validation", "Graph depth must be one or two")
+    selected_classes = {value.strip() for value in edge_classes.split(",") if value.strip()}
+    allowed_classes = {"document_link", "reference", "relationship"}
+    if not selected_classes or not selected_classes <= allowed_classes:
+        raise error(422, "validation", "Unknown graph edge class")
+    selected_kinds = {value.strip() for value in relationship_kinds.split(",") if value.strip()}
+
+    root_id = campaign.id
+    items = list(campaign.archive_items.all().order_by("id"))
+    node_map: dict[UUID, dict[str, Any]] = {
+        root_id: {
+            "id": root_id,
+            "node_type": "campaign",
+            "title": campaign.name,
+            "kind": "campaign",
+            "status": "active",
+        }
+    }
+    for item in items:
+        node_map[item.id] = {
+            "id": item.id,
+            "node_type": "item",
+            "title": item.title,
+            "kind": item.kind,
+            "status": item.status,
+        }
+    selected_focus = focus_id or root_id
+    if selected_focus not in node_map:
+        raise error(404, "not_found", "Graph focus item not found")
+
+    graph_edges: list[dict[str, Any]] = []
+    if "document_link" in selected_classes:
+        for link in DocumentLink.objects.filter(campaign=campaign).order_by("id"):
+            if link.source_identifier in node_map and link.target_identifier in node_map:
+                graph_edges.append(
+                    {
+                        "id": str(link.id),
+                        "edge_class": "document_link",
+                        "source_id": link.source_identifier,
+                        "target_id": link.target_identifier,
+                        "kind": "links_to",
+                        "label": link.label,
+                        "inverse_label": "linked from",
+                    }
+                )
+    if "reference" in selected_classes:
+        references = Reference.objects.filter(source__campaign=campaign).order_by("id")
+        for reference in references:
+            graph_edges.append(
+                {
+                    "id": f"reference:{reference.id}",
+                    "edge_class": "reference",
+                    "source_id": reference.source_id,
+                    "target_id": reference.target_id,
+                    "kind": "references",
+                    "label": reference.label,
+                    "inverse_label": "referenced by",
+                }
+            )
+    if "relationship" in selected_classes:
+        relationships = Relationship.objects.filter(source__campaign=campaign).order_by("edge_id")
+        if selected_kinds:
+            relationships = relationships.filter(kind__in=selected_kinds)
+        for relationship in relationships:
+            graph_edges.append(
+                {
+                    "id": str(relationship.edge_id),
+                    "edge_class": "relationship",
+                    "source_id": relationship.source_id,
+                    "target_id": relationship.target_id,
+                    "kind": relationship.kind,
+                    "label": relationship.label,
+                    "inverse_label": relationship.inverse_label,
+                }
+            )
+    graph_edges.sort(key=lambda value: (value["edge_class"], str(value["id"])))
+
+    max_nodes, max_edges = 100, 250
+    visited = {selected_focus}
+    frontier = {selected_focus}
+    included_edge_ids: set[str] = set()
+    included_edges: list[dict[str, Any]] = []
+    nodes_truncated = False
+    edges_truncated = False
+    for _ in range(depth):
+        next_frontier: set[UUID] = set()
+        for edge in graph_edges:
+            if edge["source_id"] not in frontier and edge["target_id"] not in frontier:
+                continue
+            new_nodes = {edge["source_id"], edge["target_id"]} - visited
+            if len(visited) + len(new_nodes) > max_nodes:
+                nodes_truncated = True
+                continue
+            edge_id = f"{edge['edge_class']}:{edge['id']}"
+            if edge_id not in included_edge_ids:
+                if len(included_edges) >= max_edges:
+                    edges_truncated = True
+                    continue
+                included_edge_ids.add(edge_id)
+                included_edges.append(edge)
+            for node_id in new_nodes:
+                visited.add(node_id)
+                next_frontier.add(node_id)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    return {
+        "focus_id": selected_focus,
+        "depth": depth,
+        "nodes": [node_map[node_id] for node_id in sorted(visited, key=str)],
+        "edges": included_edges,
+        "limits": {"max_nodes": max_nodes, "max_edges": max_edges},
+        "truncated": {"nodes": nodes_truncated, "edges": edges_truncated},
+    }
+
+
+def page_identity(item: ArchiveItem) -> dict[str, Any]:
+    return {"id": item.id, "title": item.title, "kind": item.kind, "status": item.status}
+
+
+def archive_home_output(campaign: Campaign) -> dict[str, Any]:
+    document = campaign.document
+    markdown = read_current(document)
+    metadata, body = parse_document(markdown)
+    return {
+        "id": campaign.id,
+        "markdown": markdown,
+        "html": markdown_html(body, campaign.id),
+        "version": document.current_version,
+        "hash": document.content_hash,
+        "metadata": metadata,
+        "backlinks": [
+            {"id": str(link.id), "source_id": link.source_identifier, "label": link.label, "context": link.context}
+            for link in DocumentLink.objects.filter(
+                campaign=campaign, target_type="campaign", target_identifier=campaign.id
+            )
+        ],
+    }
+
+
+def archive_view_output(view: ArchiveView) -> dict[str, Any]:
+    markdown = read_current(view.document)
+    metadata, body = parse_document(markdown)
+    item_ids = []
+    if view.view_type == "map":
+        item_ids = [entry.get("item_id") for entry in metadata.get("placements", []) if entry.get("item_id")]
+    else:
+        item_ids = [entry.get("item_id") for entry in metadata.get("members", []) if entry.get("item_id")]
+    items = {str(item.id): item for item in view.campaign.archive_items.filter(id__in=item_ids)}
+    placements = [
+        {**entry, "item": page_identity(items[str(entry["item_id"])])}
+        for entry in metadata.get("placements", [])
+        if str(entry.get("item_id")) in items
+    ]
+    members = [
+        {**entry, "item": page_identity(items[str(entry["item_id"])])}
+        for entry in metadata.get("members", [])
+        if str(entry.get("item_id")) in items
+    ]
+    edges = []
+    if view.view_type == "relationship":
+        member_set = set(items)
+        for rel in Relationship.objects.filter(source__campaign=view.campaign).order_by("authored_position", "edge_id"):
+            if str(rel.source_id) in member_set and str(rel.target_id) in member_set:
+                edges.append(
+                    {
+                        "id": str(rel.edge_id),
+                        "edge_class": "relationship",
+                        "source_id": rel.source_id,
+                        "target_id": rel.target_id,
+                        "kind": rel.kind,
+                        "label": rel.label,
+                        "inverse_label": rel.inverse_label,
+                    }
+                )
+    return {
+        "id": view.id,
+        "campaign_id": view.campaign_id,
+        "view_type": view.view_type,
+        "title": view.title,
+        "slug": metadata.get("slug", ""),
+        "status": view.status,
+        "version": view.document.current_version,
+        "markdown": markdown,
+        "html": markdown_html(body, view.campaign_id),
+        "description": body,
+        "background": metadata.get("background"),
+        "placements": placements,
+        "members": members,
+        "settings": metadata.get("settings", {}),
+        "edges": edges,
+    }
+
+
+def archive_view_metadata(
+    view_id: UUID, campaign_id: UUID, payload: ArchiveViewPayload, status: str = "active"
+) -> dict[str, Any]:
+    metadata = {
+        "document_type": "archive_view",
+        "schema_version": 1,
+        "id": str(view_id),
+        "campaign_id": str(campaign_id),
+        "view_type": payload.view_type,
+        "title": payload.title.strip(),
+        "status": status,
+    }
+    if payload.view_type == "map":
+        metadata["background"] = payload.background or {}
+        metadata["placements"] = payload.placements or []
+    else:
+        metadata["members"] = payload.members or []
+        metadata["settings"] = payload.settings or {"orientation": "top_to_bottom", "relationship_kinds": []}
+    return metadata
+
+
+@api.get("campaigns/{campaign_id}/archive/home", auth=django_auth)
+def archive_home(request: HttpRequest, campaign_id: UUID):
+    campaign = get_member_campaign(request, campaign_id)
+    ensure_campaign_document(campaign, request.auth)
+    return archive_home_output(campaign)
+
+
+@api.patch("campaigns/{campaign_id}/archive/home", auth=django_auth)
+@transaction.atomic
+def archive_home_update(request: HttpRequest, campaign_id: UUID, payload: ItemUpdate):
+    enforce_csrf(request)
+    campaign = get_member_campaign(request, campaign_id)
+    document = ensure_campaign_document(campaign, request.auth)
+    try:
+        metadata, body = parse_document(payload.markdown)
+        if metadata.get("document_type") != "campaign":
+            raise DocumentError("Campaign home requires campaign frontmatter")
+        save_document(
+            campaign,
+            "campaign",
+            document.storage_key,
+            payload.markdown,
+            request.auth,
+            payload.reason,
+            payload.version,
+            document,
+        )
+        campaign.name = str(metadata.get("title") or campaign.name)
+        campaign.save(update_fields=["name", "updated_at"])
+        return archive_home_output(campaign)
+    except DocumentError as exc:
+        code = "stale_version" if str(exc) == "stale_version" else "invalid_markdown"
+        raise error(409 if code == "stale_version" else 422, code, str(exc)) from exc
+
+
+@api.get("campaigns/{campaign_id}/archive/views", auth=django_auth)
+def archive_view_list(request: HttpRequest, campaign_id: UUID, include_archived: bool = False):
+    campaign = get_member_campaign(request, campaign_id)
+    views = campaign.archive_views.all() if include_archived else campaign.archive_views.filter(status="active")
+    return {
+        "views": [
+            {
+                "id": view.id,
+                "campaign_id": view.campaign_id,
+                "view_type": view.view_type,
+                "title": view.title,
+                "slug": parse_document(read_current(view.document))[0].get("slug", ""),
+                "status": view.status,
+                "version": view.document.current_version,
+                "updated_at": view.updated_at.isoformat(),
+            }
+            for view in views
+        ]
+    }
+
+
+@api.post("campaigns/{campaign_id}/archive/views", auth=django_auth)
+@transaction.atomic
+def archive_view_create(request: HttpRequest, campaign_id: UUID, payload: ArchiveViewPayload):
+    enforce_csrf(request)
+    campaign = get_member_campaign(request, campaign_id)
+    if payload.view_type not in {"map", "relationship"} or not payload.title.strip():
+        raise error(422, "validation", "View type and title are required")
+    view_id = uuid4()
+    metadata = archive_view_metadata(view_id, campaign.id, payload)
+    try:
+        document = save_document(
+            campaign,
+            "archive_view",
+            None,
+            serialize_document(metadata, payload.description),
+            request.auth,
+            "Created view",
+        )
+    except DocumentError as exc:
+        raise error(422, "invalid_view", str(exc)) from exc
+    view = ArchiveView.objects.create(
+        id=view_id,
+        campaign=campaign,
+        document=document,
+        view_type=payload.view_type,
+        title=payload.title.strip(),
+    )
+    return archive_view_output(view)
+
+
+@api.get("campaigns/{campaign_id}/archive/views/{view_id}", auth=django_auth)
+def archive_view_detail(request: HttpRequest, campaign_id: UUID, view_id: UUID):
+    campaign = get_member_campaign(request, campaign_id)
+    view = ArchiveView.objects.filter(id=view_id, campaign=campaign).first()
+    if not view:
+        raise error(404, "not_found", "Archive view not found")
+    return archive_view_output(view)
+
+
+@api.patch("campaigns/{campaign_id}/archive/views/{view_id}", auth=django_auth)
+@transaction.atomic
+def archive_view_update(request: HttpRequest, campaign_id: UUID, view_id: UUID, payload: ArchiveViewPayload):
+    enforce_csrf(request)
+    campaign = get_member_campaign(request, campaign_id)
+    view = ArchiveView.objects.filter(id=view_id, campaign=campaign).select_related("document").first()
+    if not view:
+        raise error(404, "not_found", "Archive view not found")
+    metadata, _ = parse_document(read_current(view.document))
+    if payload.version != view.document.current_version:
+        raise error(409, "stale_version", "The view changed elsewhere")
+    metadata.update(archive_view_metadata(view.id, campaign.id, payload, view.status))
+    try:
+        save_document(
+            campaign,
+            "archive_view",
+            view.document.storage_key,
+            serialize_document(metadata, payload.description),
+            request.auth,
+            "Updated view",
+            payload.version,
+            view.document,
+        )
+    except DocumentError as exc:
+        raise error(422, "invalid_view", str(exc)) from exc
+    view.title = payload.title.strip()
+    view.view_type = payload.view_type
+    view.save(update_fields=["title", "view_type", "updated_at"])
+    return archive_view_output(view)
+
+
+def _archive_view_status(request: HttpRequest, campaign_id: UUID, view_id: UUID, payload: VersionPayload, status: str):
+    campaign = get_member_campaign(request, campaign_id)
+    view = ArchiveView.objects.filter(id=view_id, campaign=campaign).select_related("document").first()
+    if not view:
+        raise error(404, "not_found", "Archive view not found")
+    if view.document.current_version != payload.version:
+        raise error(409, "stale_version", "The view changed elsewhere")
+    metadata, body = parse_document(read_current(view.document))
+    metadata["status"] = status
+    save_document(
+        campaign,
+        "archive_view",
+        view.document.storage_key,
+        serialize_document(metadata, body),
+        request.auth,
+        "Changed view status",
+        payload.version,
+        view.document,
+    )
+    view.status = status
+    view.save(update_fields=["status", "updated_at"])
+    return archive_view_output(view)
+
+
+@api.post("campaigns/{campaign_id}/archive/views/{view_id}/archive", auth=django_auth)
+@transaction.atomic
+def archive_view_archive(request: HttpRequest, campaign_id: UUID, view_id: UUID, payload: VersionPayload):
+    enforce_csrf(request)
+    return _archive_view_status(request, campaign_id, view_id, payload, "archived")
+
+
+@api.post("campaigns/{campaign_id}/archive/views/{view_id}/restore", auth=django_auth)
+@transaction.atomic
+def archive_view_restore(request: HttpRequest, campaign_id: UUID, view_id: UUID, payload: VersionPayload):
+    enforce_csrf(request)
+    return _archive_view_status(request, campaign_id, view_id, payload, "active")
+
+
 @api.patch("items/{item_id}", auth=django_auth)
 @transaction.atomic
 def item_update(request: HttpRequest, item_id: UUID, payload: ItemUpdate):
@@ -845,33 +1258,93 @@ def add_reference(request: HttpRequest, item_id: UUID, payload: ReferencePayload
     return {"item": result, "target_id": target.id, "label": payload.label.strip()}
 
 
+def relationship_output(relationship: Relationship) -> dict[str, Any]:
+    return {
+        "id": relationship.edge_id,
+        "source_id": relationship.source_id,
+        "target_id": relationship.target_id,
+        "source": page_identity(relationship.source),
+        "target": page_identity(relationship.target),
+        "kind": relationship.kind,
+        "label": relationship.label,
+        "inverse_label": relationship.inverse_label,
+        "notes": relationship.notes,
+        "authored_position": relationship.authored_position,
+        "source_version": relationship.source_version,
+    }
+
+
+def save_relationship_metadata(request, source: ArchiveItem, metadata, body, version: int, reason: str):
+    result = save_item_markdown(source, serialize_document(metadata, body), request.auth, version, reason)
+    return result
+
+
 @api.post("items/{item_id}/relationships", auth=django_auth)
 @transaction.atomic
 def add_relationship(request: HttpRequest, item_id: UUID, payload: RelationshipPayload):
     enforce_csrf(request)
-    target = get_member_item(request, payload.target_id)
     source = get_member_item(request, item_id)
+    target = get_member_item(request, payload.target_id)
     if source.campaign_id != target.campaign_id:
         raise error(404, "not_found", "Target item not found")
-    result = mutate_frontmatter(
-        request,
-        item_id,
-        lambda m: m.setdefault("relationships", []).append(
-            {
-                "target_id": str(target.id),
-                "kind": payload.kind,
-                "reciprocal_label": payload.reciprocal_label,
-                "notes": payload.notes,
-            }
-        ),
-        "Added relationship",
+    metadata, body = parse_document(current_markdown_for_item(source))
+    edge_id = uuid4()
+    metadata.setdefault("relationships", []).append(
+        {
+            "id": str(edge_id),
+            "target_id": str(target.id),
+            "kind": payload.kind.strip(),
+            "label": payload.label.strip(),
+            "inverse_label": payload.inverse_label.strip(),
+            "notes": payload.notes,
+        }
     )
+    item = save_relationship_metadata(request, source, metadata, body, payload.version, "Added relationship")
+    relationship = Relationship.objects.get(edge_id=edge_id, source=source)
+    return {"relationship": relationship_output(relationship), "item": item}
+
+
+@api.patch("items/{item_id}/relationships/{edge_id}", auth=django_auth)
+@transaction.atomic
+def update_relationship(request: HttpRequest, item_id: UUID, edge_id: UUID, payload: RelationshipPayload):
+    enforce_csrf(request)
+    source = get_member_item(request, item_id)
+    target = get_member_item(request, payload.target_id)
+    if source.campaign_id != target.campaign_id:
+        raise error(404, "not_found", "Target item not found")
+    metadata, body = parse_document(current_markdown_for_item(source))
+    entry = next((value for value in metadata.get("relationships", []) if str(value.get("id")) == str(edge_id)), None)
+    if entry is None:
+        raise error(404, "not_found", "Relationship not found")
+    entry.update(
+        {
+            "target_id": str(target.id),
+            "kind": payload.kind.strip(),
+            "label": payload.label.strip(),
+            "inverse_label": payload.inverse_label.strip(),
+            "notes": payload.notes,
+        }
+    )
+    item = save_relationship_metadata(request, source, metadata, body, payload.version, "Updated relationship")
+    relationship = Relationship.objects.get(edge_id=edge_id, source=source)
+    return {"relationship": relationship_output(relationship), "item": item}
+
+
+@api.delete("items/{item_id}/relationships/{edge_id}", auth=django_auth)
+@transaction.atomic
+def delete_relationship(request: HttpRequest, item_id: UUID, edge_id: UUID, payload: RelationshipDeletePayload):
+    enforce_csrf(request)
+    source = get_member_item(request, item_id)
+    metadata, body = parse_document(current_markdown_for_item(source))
+    relationships = metadata.get("relationships", [])
+    retained = [value for value in relationships if str(value.get("id")) != str(edge_id)]
+    if len(retained) == len(relationships):
+        raise error(404, "not_found", "Relationship not found")
+    metadata["relationships"] = retained
+    item = save_relationship_metadata(request, source, metadata, body, payload.version, "Deleted relationship")
     return {
-        "item": result,
-        "target_id": target.id,
-        "kind": payload.kind,
-        "label": payload.reciprocal_label,
-        "notes": payload.notes,
+        "deleted_id": edge_id,
+        "item": item,
     }
 
 
@@ -1055,9 +1528,111 @@ def public_publication(request: HttpRequest, token: str):
     return response
 
 
+RELATIVE_MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+\.md)\)")
+
+
+def _export_relative_links(body: str, source_path: str, logical_paths: dict[str, str]) -> str:
+    """Rewrite canonical links to portable paths while retaining labels."""
+    canonical = re.compile(r"\[([^\]]+)\]\(dmhq://(item|campaign)/([0-9a-fA-F-]{36})\)")
+
+    def replace(match):
+        target_path = logical_paths.get(match.group(3))
+        if not target_path:
+            return match.group(0)
+        relative = posixpath.relpath(target_path, posixpath.dirname(source_path))
+        return f"[{match.group(1)}]({relative})"
+
+    return canonical.sub(replace, body)
+
+
+def _restore_canonical_links(
+    body: str, source_path: str, archive_paths: dict[str, str], id_maps: dict[str, dict[str, str]]
+) -> str:
+    """Resolve exported relative Markdown links back to remapped canonical IDs."""
+    path_to_id = {posixpath.normpath(path): logical_id for logical_id, path in archive_paths.items()}
+
+    def replace(match):
+        target_path = posixpath.normpath(posixpath.join(posixpath.dirname(source_path), match.group(2)))
+        old_id = path_to_id.get(target_path)
+        if not old_id:
+            return match.group(0)
+        if old_id in id_maps["items"]:
+            return f"[{match.group(1)}](dmhq://item/{id_maps['items'][old_id]})"
+        if old_id in id_maps["campaigns"]:
+            return f"[{match.group(1)}](dmhq://campaign/{id_maps['campaigns'][old_id]})"
+        return match.group(0)
+
+    body = RELATIVE_MARKDOWN_LINK_PATTERN.sub(replace, body)
+
+    def remap_canonical(match):
+        mapping = id_maps["items"] if match.group(2) == "item" else id_maps["campaigns"]
+        target_id = mapping.get(match.group(3), match.group(3))
+        return f"[{match.group(1)}](dmhq://{match.group(2)}/{target_id})"
+
+    canonical = re.compile(r"\[([^\]]+)\]\(dmhq://(item|campaign)/([0-9a-fA-F-]{36})\)")
+    return canonical.sub(remap_canonical, body)
+
+
+def _remap_navigation(nodes: list[Any], item_ids: dict[str, str], campaign_ids: dict[str, str]) -> None:
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        node["id"] = str(uuid4())
+        if node.get("type") == "group":
+            _remap_navigation(node.get("children", []), item_ids, campaign_ids)
+        target = node.get("target")
+        if isinstance(target, dict) and target.get("id"):
+            mapping = item_ids if target.get("type") == "item" else campaign_ids
+            target["id"] = mapping.get(str(target["id"]), str(target["id"]))
+
+
+def _remap_archive_metadata(meta: dict[str, Any], id_maps: dict[str, dict[str, str]]) -> None:
+    """Rewrite every logical reference stored in canonical frontmatter."""
+    item_ids = id_maps["items"]
+    if meta.get("document_type") == "campaign":
+        archive = meta.get("archive") or {}
+        _remap_navigation(archive.get("navigation", []), item_ids, id_maps["campaigns"])
+        view_order = archive.get("view_order") or {}
+        for key in ("maps", "relationships"):
+            view_order[key] = [id_maps["views"].get(str(value), str(value)) for value in view_order.get(key, [])]
+    elif meta.get("document_type") == "archive_item":
+        for key in ("references", "relationships"):
+            for entry in meta.get(key, []):
+                if isinstance(entry, dict) and entry.get("target_id"):
+                    entry["target_id"] = item_ids.get(str(entry["target_id"]), str(entry["target_id"]))
+                if key == "relationships" and isinstance(entry, dict) and entry.get("id"):
+                    entry["id"] = id_maps["edges"].get(str(entry["id"]), str(entry["id"]))
+        if isinstance(meta.get("session_links"), list):
+            meta["session_links"] = [item_ids.get(str(value), str(value)) for value in meta["session_links"]]
+        template = meta.get("template")
+        if isinstance(template, dict) and template.get("id"):
+            template["id"] = id_maps["templates"].get(str(template["id"]), str(template["id"]))
+    elif meta.get("document_type") == "archive_view":
+        if meta.get("view_type") == "map":
+            for placement in meta.get("placements", []):
+                placement["id"] = id_maps["placements"].get(str(placement["id"]), str(placement["id"]))
+                placement["item_id"] = item_ids.get(str(placement["item_id"]), str(placement["item_id"]))
+        else:
+            for member in meta.get("members", []):
+                member["id"] = id_maps["members"].get(str(member["id"]), str(member["id"]))
+                member["item_id"] = item_ids.get(str(member["item_id"]), str(member["item_id"]))
+            settings = meta.get("settings") or {}
+            if settings.get("root_item_id"):
+                settings["root_item_id"] = item_ids.get(str(settings["root_item_id"]), str(settings["root_item_id"]))
+
+
 def export_campaign(campaign, user=None) -> bytes:
     if not campaign.document_id and user is not None:
         ensure_campaign_document(campaign, user)
+    documents = list(campaign.documents.all())
+    logical_paths: dict[str, str] = {}
+    for document in documents:
+        if document.document_type == "publication_entry":
+            continue
+        metadata, _ = parse_document(read_current(document))
+        if metadata.get("id"):
+            logical_paths[str(metadata["id"])] = document.storage_key
+
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(
@@ -1066,6 +1641,7 @@ def export_campaign(campaign, user=None) -> bytes:
                 {
                     "format": "dm-hq-markdown-archive",
                     "version": 2,
+                    "documents": logical_paths,
                     "publications": [
                         {
                             "id": str(publication.id),
@@ -1079,12 +1655,13 @@ def export_campaign(campaign, user=None) -> bytes:
                 indent=2,
             ),
         )
-        for doc in campaign.documents.all():
+        for doc in documents:
             if doc.document_type == "publication_entry" and not doc.storage_key.startswith(f"campaigns/{campaign.id}/"):
                 continue
-            path = storage_root() / doc.storage_key
-            if path.exists():
-                archive.write(path, doc.storage_key)
+            markdown = read_current(doc)
+            metadata, body = parse_document(markdown)
+            portable = serialize_document(metadata, _export_relative_links(body, doc.storage_key, logical_paths))
+            archive.writestr(doc.storage_key, portable)
             for version in doc.versions.all():
                 archive.writestr(f"revisions/{doc.id}/v{version.number}.md", version.markdown)
     return output.getvalue()
@@ -1258,87 +1835,62 @@ def campaign_restore(request: HttpRequest):
             manifest = json.loads(archive.read("manifest.json"))
             if manifest.get("format") != "dm-hq-markdown-archive" or manifest.get("version") != 2:
                 raise ValueError
-            campaign_file = next(
-                name for name in archive.namelist() if name.endswith("/campaign.md") or name == "campaign.md"
-            )
-            campaign_metadata, campaign_body = parse_document(archive.read(campaign_file).decode("utf-8"))
+
+            names = [
+                name
+                for name in archive.namelist()
+                if name.startswith("campaigns/") and name.endswith(".md") and "/publications/" not in name
+            ]
+            parsed: dict[str, tuple[dict[str, Any], str]] = {
+                name: parse_document(archive.read(name).decode("utf-8")) for name in names
+            }
+            campaign_file = next(name for name, (meta, _) in parsed.items() if meta.get("document_type") == "campaign")
+            campaign_metadata, campaign_body = parsed[campaign_file]
+            old_campaign_id = str(campaign_metadata.get("id") or campaign_metadata.get("campaign_id"))
             campaign = Campaign.objects.create(
                 name=str(campaign_metadata.get("title") or "Restored campaign"), owner=request.auth
             )
             CampaignMembership.objects.create(campaign=campaign, user=request.auth, role=CampaignMembership.Role.OWNER)
-            campaign_metadata["id"] = str(campaign.id)
-            campaign_metadata["campaign_id"] = str(campaign.id)
-            doc = save_document(
-                campaign,
-                "campaign",
-                None,
-                serialize_document(campaign_metadata, campaign_body),
-                request.auth,
-                "Restored campaign",
-            )
-            campaign.document = doc
-            campaign.save(update_fields=["document"])
-            item_id_map = {}
-            template_id_map = {}
-            for archive_name in archive.namelist():
-                if not archive_name.startswith("campaigns/") or not archive_name.endswith(".md"):
-                    continue
-                candidate_metadata, _ = parse_document(archive.read(archive_name).decode("utf-8"))
-                if candidate_metadata.get("document_type") == "archive_item" and candidate_metadata.get("id"):
-                    item_id_map[str(candidate_metadata["id"])] = str(uuid4())
-                if candidate_metadata.get("document_type") == "template" and candidate_metadata.get("template_id"):
-                    template_id_map[str(candidate_metadata["template_id"])] = str(uuid4())
-            template_names = [name for name in archive.namelist() if "/templates/" in name and name.endswith(".md")]
-            restore_names = sorted(archive.namelist(), key=lambda value: ("/templates/" not in value, value))
-            for name in restore_names:
-                if not name.startswith("campaigns/") or not name.endswith(".md") or name.endswith("/campaign.md"):
-                    continue
-                raw = archive.read(name).decode("utf-8")
-                meta, body = parse_document(raw)
-                if meta.get("document_type") == "template":
-                    original_template_id = str(meta.get("template_id") or "")
-                    template_id = UUID(template_id_map.get(original_template_id, str(uuid4())))
-                    meta["template_id"] = str(template_id)
-                    template, _ = Template.objects.get_or_create(
-                        id=template_id,
-                        campaign=campaign,
-                        defaults={
-                            "name": str(meta.get("name") or "Template"),
-                            "applies_to": str(meta.get("applies_to") or "entity"),
-                        },
-                    )
-                    number = int(meta.get("version") or 1)
-                    version, _ = TemplateVersion.objects.get_or_create(template=template, number=number)
-                    meta["campaign_id"] = str(campaign.id)
-                    document = save_document(
-                        campaign,
-                        "template",
-                        None,
-                        serialize_document(meta, body),
-                        request.auth,
-                        "Restored template",
-                    )
-                    version.document = document
-                    version.save(update_fields=["document"])
-                    continue
+
+            id_maps: dict[str, dict[str, str]] = {
+                "campaigns": {old_campaign_id: str(campaign.id)},
+                "items": {},
+                "templates": {},
+                "views": {},
+                "edges": {},
+                "placements": {},
+                "members": {},
+            }
+            for meta, _ in parsed.values():
+                document_type = meta.get("document_type")
+                if document_type == "archive_item" and meta.get("id"):
+                    id_maps["items"][str(meta["id"])] = str(uuid4())
+                    for relationship in meta.get("relationships", []):
+                        if isinstance(relationship, dict) and relationship.get("id"):
+                            id_maps["edges"][str(relationship["id"])] = str(uuid4())
+                elif document_type == "template" and meta.get("template_id"):
+                    id_maps["templates"][str(meta["template_id"])] = str(uuid4())
+                elif document_type == "archive_view" and meta.get("id"):
+                    id_maps["views"][str(meta["id"])] = str(uuid4())
+                    for placement in meta.get("placements", []):
+                        if isinstance(placement, dict) and placement.get("id"):
+                            id_maps["placements"][str(placement["id"])] = str(uuid4())
+                    for member in meta.get("members", []):
+                        if isinstance(member, dict) and member.get("id"):
+                            id_maps["members"][str(member["id"])] = str(uuid4())
+
+            archive_paths = {
+                str(logical_id): str(path) for logical_id, path in (manifest.get("documents") or {}).items()
+            }
+            if not archive_paths:
+                archive_paths = {str(meta["id"]): name for name, (meta, _) in parsed.items() if meta.get("id")}
+
+            # Allocate item shells before validating any cross-document references.
+            for _name, (meta, _) in parsed.items():
                 if meta.get("document_type") != "archive_item":
                     continue
-                meta["campaign_id"] = str(campaign.id)
-                original_item_id = str(meta.get("id") or "")
-                item_id = UUID(item_id_map.get(original_item_id, str(uuid4())))
-                for link_key in ("references", "relationships"):
-                    for link in meta.get(link_key, []):
-                        if isinstance(link, dict) and link.get("target_id"):
-                            link["target_id"] = item_id_map.get(str(link["target_id"]), str(link["target_id"]))
-                if isinstance(meta.get("session_links"), list):
-                    meta["session_links"] = [item_id_map.get(str(value), str(value)) for value in meta["session_links"]]
-                if isinstance(meta.get("template"), dict) and meta["template"].get("id"):
-                    meta["template"]["id"] = template_id_map.get(
-                        str(meta["template"]["id"]), str(meta["template"]["id"])
-                    )
-                meta["id"] = str(item_id)
                 item = ArchiveItem.objects.create(
-                    id=item_id,
+                    id=UUID(id_maps["items"][str(meta["id"])]),
                     campaign=campaign,
                     kind=str(meta.get("kind") or "note"),
                     title=str(meta.get("title") or "Untitled"),
@@ -1348,15 +1900,94 @@ def campaign_restore(request: HttpRequest):
                     EntityDetail.objects.create(item=item)
                 if item.kind == "session":
                     SessionDetail.objects.create(item=item)
+
+            template_names = [name for name, (meta, _) in parsed.items() if meta.get("document_type") == "template"]
+            for name in sorted(template_names):
+                meta, body = parsed[name]
+                template_id = UUID(id_maps["templates"][str(meta["template_id"])])
+                meta["template_id"] = str(template_id)
+                meta["campaign_id"] = str(campaign.id)
+                meta["id"] = str(uuid4())
+                template = Template.objects.create(
+                    id=template_id,
+                    campaign=campaign,
+                    name=str(meta.get("name") or "Template"),
+                    applies_to=str(meta.get("applies_to") or "entity"),
+                )
+                number = int(meta.get("version") or 1)
+                version = TemplateVersion.objects.create(template=template, number=number)
+                document = save_document(
+                    campaign,
+                    "template",
+                    None,
+                    serialize_document(meta, body),
+                    request.auth,
+                    "Restored template",
+                )
+                version.document = document
+                version.save(update_fields=["document"])
+
+            for name, (meta, body) in sorted(parsed.items()):
+                if meta.get("document_type") != "archive_item":
+                    continue
+                old_item_id = str(meta["id"])
+                meta["campaign_id"] = str(campaign.id)
+                _remap_archive_metadata(meta, id_maps)
+                meta["id"] = id_maps["items"][old_item_id]
+                fields = meta.get("fields")
+                if isinstance(fields, dict):
+                    for key, value in fields.items():
+                        fields[key] = id_maps["items"].get(str(value), value)
+                body = _restore_canonical_links(body, name, archive_paths, id_maps)
+                item = ArchiveItem.objects.get(id=meta["id"], campaign=campaign)
                 save_item_markdown(item, serialize_document(meta, body), request.auth, 0, "Restored item")
+
+            for name, (meta, body) in sorted(parsed.items()):
+                if meta.get("document_type") != "archive_view":
+                    continue
+                old_view_id = str(meta["id"])
+                meta["campaign_id"] = str(campaign.id)
+                _remap_archive_metadata(meta, id_maps)
+                meta["id"] = id_maps["views"][old_view_id]
+                body = _restore_canonical_links(body, name, archive_paths, id_maps)
+                document = save_document(
+                    campaign,
+                    "archive_view",
+                    None,
+                    serialize_document(meta, body),
+                    request.auth,
+                    "Restored view",
+                )
+                ArchiveView.objects.create(
+                    id=UUID(meta["id"]),
+                    campaign=campaign,
+                    document=document,
+                    view_type=str(meta["view_type"]),
+                    title=str(meta.get("title") or "Untitled"),
+                    status=str(meta.get("status") or "active"),
+                )
+
+            campaign_metadata["campaign_id"] = str(campaign.id)
+            campaign_metadata["id"] = str(campaign.id)
+            _remap_archive_metadata(campaign_metadata, id_maps)
+            campaign_body = _restore_canonical_links(campaign_body, campaign_file, archive_paths, id_maps)
+            document = save_document(
+                campaign,
+                "campaign",
+                None,
+                serialize_document(campaign_metadata, campaign_body),
+                request.auth,
+                "Restored campaign",
+            )
+            campaign.document = document
+            campaign.save(update_fields=["document"])
+
             restored_publications = {
                 str(value["id"]): value for value in manifest.get("publications", []) if value.get("id")
             }
             for publication_id, publication_meta in restored_publications.items():
-                restored_id = uuid4()
                 token, token_hash = random_token()
                 publication = Publication.objects.create(
-                    id=restored_id,
                     campaign=campaign,
                     token_hash=token_hash,
                     token_value=token,
@@ -1368,33 +1999,31 @@ def campaign_restore(request: HttpRequest):
                     parts = name.split("/")
                     if len(parts) < 6 or parts[2] != "publications" or not name.endswith(".md"):
                         continue
-                    raw = archive.read(name).decode("utf-8")
-                    meta, body = parse_document(raw)
+                    meta, body = parse_document(archive.read(name).decode("utf-8"))
                     archived_publication_id = str(meta.get("publication_id") or parts[3])
                     if archived_publication_id != publication_id:
                         continue
-                    meta["campaign_id"] = str(campaign.id)
-                    meta["document_type"] = "publication_entry"
-                    meta["publication_id"] = str(publication.id)
-                    try:
-                        source_item_id = UUID(
-                            item_id_map.get(
-                                str(meta.get("source_item_id") or parts[-1][:-3].rsplit("--", 1)[0]),
-                                str(meta.get("source_item_id") or parts[-1][:-3].rsplit("--", 1)[0]),
-                            )
-                        )
-                    except ValueError:
+                    source_id = str(meta.get("source_item_id") or "")
+                    source_item_id = id_maps["items"].get(source_id)
+                    if not source_item_id:
                         continue
-                    item = ArchiveItem.objects.filter(id=source_item_id, campaign=campaign).first()
-                    if not item:
-                        continue
+                    item = ArchiveItem.objects.get(id=source_item_id, campaign=campaign)
                     number = int(parts[-2].lstrip("v") or 1)
-                    meta["version"] = number
+                    meta.update(
+                        {
+                            "id": str(uuid4()),
+                            "campaign_id": str(campaign.id),
+                            "document_type": "publication_entry",
+                            "publication_id": str(publication.id),
+                            "source_item_id": source_item_id,
+                            "version": number,
+                        }
+                    )
                     version, _ = PublicationVersion.objects.get_or_create(
                         publication=publication, number=number, defaults={"created_by": request.auth}
                     )
                     entry, _ = PublicationEntry.objects.get_or_create(version=version, item=item)
-                    document = save_document(
+                    entry.document = save_document(
                         campaign,
                         "publication_entry",
                         None,
@@ -1402,10 +2031,9 @@ def campaign_restore(request: HttpRequest):
                         request.auth,
                         "Restored publication",
                     )
-                    entry.document = document
                     entry.save(update_fields=["document"])
             if not template_names:
                 ensure_default_templates(campaign, request.auth)
-    except (zipfile.BadZipFile, KeyError, ValueError, DocumentError) as exc:
+    except (zipfile.BadZipFile, KeyError, StopIteration, ValueError, DocumentError) as exc:
         raise error(422, "invalid_archive", "The Markdown archive could not be validated") from exc
     return campaign_output(campaign)

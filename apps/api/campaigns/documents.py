@@ -19,6 +19,7 @@ from .models import (
     ArchiveItem,
     CampaignDocument,
     CampaignDocumentVersion,
+    DocumentLink,
     ItemTag,
     Reference,
     Relationship,
@@ -28,6 +29,17 @@ from .models import (
     WorkspaceChange,
 )
 
+try:
+    import yaml
+except ImportError:  # pragma: no cover - dependency is installed in deployed environments
+    yaml = None
+
+YAMLError = yaml.YAMLError if yaml is not None else ValueError
+try:
+    from markdown_it import MarkdownIt
+except ImportError:  # pragma: no cover - dependency is installed in deployed environments
+    MarkdownIt = None
+
 
 class DocumentError(ValueError):
     pass
@@ -35,6 +47,8 @@ class DocumentError(ValueError):
 
 SLUG_MAX_LENGTH = 80
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+RELATIONSHIP_KIND_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
+CANONICAL_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(dmhq://(item|campaign)/([0-9a-fA-F-]{36})\)")
 
 
 def normalize_slug(value: Any, fallback: str = "untitled", reject_separators: bool = False) -> str:
@@ -94,6 +108,9 @@ def storage_key_for(campaign, document_type: str, metadata: dict[str, Any]) -> s
             f"campaigns/{campaign_segment}/templates/{template_slug}--{_short_id(template_id)}"
             f"/v{int(metadata.get('version') or 1)}.md"
         )
+    if document_type == CampaignDocument.DocumentType.ARCHIVE_VIEW:
+        view_slug = normalize_slug(metadata.get("slug") or metadata.get("title"))
+        return f"campaigns/{campaign_segment}/views/{view_slug}--{_short_id(metadata['id'])}.md"
     if document_type == CampaignDocument.DocumentType.PUBLICATION_ENTRY:
         publication_id = metadata.get("publication_id") or "publication"
         publication_slug = normalize_slug(metadata.get("publication_slug") or "publication")
@@ -210,10 +227,10 @@ def parse_document(markdown: str) -> tuple[dict[str, Any], str]:
         raise DocumentError("Markdown document has no closing frontmatter delimiter")
     raw = text[4:end]
     try:
-        metadata = json.loads(raw)
+        metadata = yaml.safe_load(raw) if yaml is not None else json.loads(raw)
         if not isinstance(metadata, dict):
             raise ValueError
-    except (json.JSONDecodeError, ValueError):
+    except (json.JSONDecodeError, ValueError, YAMLError):
         metadata = _fallback_frontmatter(raw)
     body = text[end + 6 :].strip()
     return metadata, body
@@ -262,7 +279,38 @@ def safe_publication_markdown(
     }
     if safe_metadata["publication_id"] is None:
         safe_metadata.pop("publication_id")
+    body = CANONICAL_LINK_PATTERN.sub(lambda match: match.group(1), body)
     return serialize_document(safe_metadata, body)
+
+
+def canonical_document_links(body: str) -> list[dict[str, Any]]:
+    links = []
+    for position, match in enumerate(CANONICAL_LINK_PATTERN.finditer(body or "")):
+        links.append(
+            {
+                "label": match.group(1).strip(),
+                "target_type": match.group(2),
+                "target_identifier": uuid.UUID(match.group(3)),
+                "context": body[max(0, match.start() - 80) : match.end() + 80].strip(),
+                "authored_position": position,
+            }
+        )
+    return links
+
+
+def project_document_links(document: CampaignDocument, metadata: dict[str, Any], body: str) -> None:
+    document.outgoing_links.all().delete()
+    DocumentLink.objects.bulk_create(
+        [
+            DocumentLink(
+                campaign_id=document.campaign_id,
+                source_document=document,
+                source_identifier=metadata["id"],
+                **link,
+            )
+            for link in canonical_document_links(body)
+        ]
+    )
 
 
 def write_current(doc: CampaignDocument, markdown: str) -> None:
@@ -320,8 +368,15 @@ def metadata_for_item(item: ArchiveItem) -> dict[str, Any]:
     refs = list(item.outgoing_references.values("target_id", "label"))
     metadata["references"] = [{"target_id": str(row["target_id"]), "label": row["label"]} for row in refs]
     metadata["relationships"] = [
-        {"target_id": str(r.target_id), "kind": r.kind, "reciprocal_label": r.reciprocal_label, "notes": r.notes}
-        for r in item.outgoing_relationships.all()
+        {
+            "id": str(r.edge_id),
+            "target_id": str(r.target_id),
+            "kind": r.kind,
+            "label": r.label,
+            "inverse_label": r.inverse_label,
+            "notes": r.notes,
+        }
+        for r in item.outgoing_relationships.order_by("authored_position", "id")
     ]
     if item.kind == ArchiveItem.Kind.SESSION:
         metadata["session_links"] = [str(value) for value in item.session_links.values_list("item_id", flat=True)]
@@ -367,15 +422,20 @@ def project_item(item: ArchiveItem, metadata: dict[str, Any]) -> None:
         if target:
             Reference.objects.get_or_create(source=item, target=target, label=str(ref.get("label") or ""))
     item.outgoing_relationships.all().delete()
-    for rel in metadata.get("relationships", []):
+    source_version = item.document.current_version if item.document_id else item.version
+    for position, rel in enumerate(metadata.get("relationships", [])):
         target = ArchiveItem.objects.filter(id=rel.get("target_id"), campaign=item.campaign).first()
         if target:
             Relationship.objects.create(
+                edge_id=rel["id"],
                 source=item,
                 target=target,
-                kind=str(rel.get("kind") or "related_to"),
-                reciprocal_label=str(rel.get("reciprocal_label") or ""),
+                kind=str(rel["kind"]),
+                label=str(rel.get("label") or ""),
+                inverse_label=str(rel.get("inverse_label") or ""),
                 notes=str(rel.get("notes") or ""),
+                authored_position=position,
+                source_version=source_version,
             )
     if item.kind == ArchiveItem.Kind.SESSION:
         item.session_links.all().delete()
@@ -386,7 +446,7 @@ def project_item(item: ArchiveItem, metadata: dict[str, Any]) -> None:
 
 
 @transaction.atomic
-def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id: Any) -> None:
+def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id: Any, body: str = "") -> None:
     ensure_slug(metadata)
     required = {"document_type", "id", "campaign_id", "slug"}
     missing = sorted(required - metadata.keys())
@@ -400,6 +460,80 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
         uuid.UUID(str(metadata["id"]))
     except (ValueError, TypeError, AttributeError) as exc:
         raise DocumentError("Frontmatter id must be a UUID") from exc
+    for link in canonical_document_links(body):
+        target_id = link["target_identifier"]
+        if link["target_type"] == "campaign" and str(target_id) != str(campaign_id):
+            raise DocumentError("Campaign links must target this campaign")
+        if (
+            link["target_type"] == "item"
+            and not ArchiveItem.objects.filter(id=target_id, campaign_id=campaign_id).exists()
+        ):
+            raise DocumentError("Document link target does not exist in this campaign")
+
+    if document_type == CampaignDocument.DocumentType.CAMPAIGN:
+        archive = metadata.get("archive") or {}
+        if not isinstance(archive, dict):
+            raise DocumentError("archive configuration must be an object")
+        tab_order = archive.get("tab_order", ["wiki", "graph", "maps", "relationships"])
+        if (
+            not isinstance(tab_order, list)
+            or set(tab_order) != {"wiki", "graph", "maps", "relationships"}
+            or len(tab_order) != 4
+        ):
+            raise DocumentError("archive.tab_order must contain each fixed tab exactly once")
+        view_order = archive.get("view_order", {})
+        if not isinstance(view_order, dict):
+            raise DocumentError("archive.view_order must be an object")
+        for view_type in ("maps", "relationships"):
+            values = view_order.get(view_type, [])
+            if not isinstance(values, list) or any(not _valid_uuid(value) for value in values):
+                raise DocumentError(f"archive.view_order.{view_type} must contain view UUIDs")
+        navigation = archive.get("navigation", [])
+        if not isinstance(navigation, list):
+            raise DocumentError("archive.navigation must be a list")
+        seen_nodes: set[str] = set()
+        node_count = 0
+
+        def validate_navigation(nodes: list[Any], level: int) -> None:
+            nonlocal node_count
+            if level > 8:
+                raise DocumentError("archive.navigation may not exceed eight levels")
+            for node in nodes:
+                node_count += 1
+                if node_count > 500 or not isinstance(node, dict) or not _valid_uuid(node.get("id")):
+                    raise DocumentError("archive navigation nodes require unique UUID ids and a 500-node limit")
+                node_id = str(node["id"])
+                if node_id in seen_nodes:
+                    raise DocumentError("archive navigation node ids must be unique")
+                seen_nodes.add(node_id)
+                node_type = node.get("type")
+                if node_type == "group":
+                    children = node.get("children", [])
+                    if not isinstance(children, list):
+                        raise DocumentError("archive navigation groups require children")
+                    validate_navigation(children, level + 1)
+                elif node_type == "page":
+                    if node.get("children") not in (None, []):
+                        raise DocumentError("archive navigation page nodes cannot have children")
+                    target = node.get("target") or {}
+                    if (
+                        not isinstance(target, dict)
+                        or target.get("type") not in {"item", "campaign"}
+                        or not _valid_uuid(target.get("id"))
+                    ):
+                        raise DocumentError("archive navigation pages require an item or campaign target")
+                    target_id = target["id"]
+                    if target["type"] == "campaign":
+                        valid_target = str(target_id) == str(campaign_id)
+                    else:
+                        valid_target = ArchiveItem.objects.filter(id=target_id, campaign_id=campaign_id).exists()
+                    if not valid_target:
+                        raise DocumentError("archive navigation target does not exist in this campaign")
+                else:
+                    raise DocumentError("archive navigation node type must be group or page")
+
+        validate_navigation(navigation, 1)
+
     if document_type == "template":
         template_id = metadata.get("template_id")
         version = metadata.get("version")
@@ -425,6 +559,60 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
                 raise DocumentError("Template field type is invalid")
             if field.get("type") == "choice" and not isinstance(field.get("options"), list):
                 raise DocumentError("Choice fields require options")
+    if document_type == CampaignDocument.DocumentType.ARCHIVE_VIEW:
+        if metadata.get("view_type") not in {"map", "relationship"}:
+            raise DocumentError("Archive view type is invalid")
+        if metadata.get("status") not in {"active", "archived"}:
+            raise DocumentError("Archive view status is invalid")
+        if not str(metadata.get("title") or "").strip():
+            raise DocumentError("Archive view title is required")
+        if metadata["view_type"] == "map":
+            background = metadata.get("background") or {}
+            if background:
+                if not isinstance(background, dict) or not str(background.get("url") or "").startswith("https://"):
+                    raise DocumentError("Map backgrounds must use HTTPS URLs")
+                if not str(background.get("alt") or "").strip():
+                    raise DocumentError("Map backgrounds require alt text")
+            placements = metadata.get("placements", [])
+            if not isinstance(placements, list):
+                raise DocumentError("Map placements must be a list")
+            placement_ids = set()
+            for placement in placements:
+                if (
+                    not isinstance(placement, dict)
+                    or not _valid_uuid(placement.get("id"))
+                    or not _valid_uuid(placement.get("item_id"))
+                ):
+                    raise DocumentError("Map placements require stable id and item_id")
+                if str(placement["id"]) in placement_ids:
+                    raise DocumentError("Map placement ids must be unique")
+                placement_ids.add(str(placement["id"]))
+                if not ArchiveItem.objects.filter(id=placement["item_id"], campaign_id=campaign_id).exists():
+                    raise DocumentError("Map placement item does not exist in this campaign")
+                try:
+                    x, y = float(placement.get("x")), float(placement.get("y"))
+                except (TypeError, ValueError) as exc:
+                    raise DocumentError("Map placement coordinates must be numbers") from exc
+                if not 0 <= x <= 1 or not 0 <= y <= 1:
+                    raise DocumentError("Map placement coordinates must be between 0 and 1")
+        else:
+            members = metadata.get("members", [])
+            if not isinstance(members, list):
+                raise DocumentError("Relationship view members must be a list")
+            member_ids = set()
+            for member in members:
+                if (
+                    not isinstance(member, dict)
+                    or not _valid_uuid(member.get("id"))
+                    or not _valid_uuid(member.get("item_id"))
+                ):
+                    raise DocumentError("Relationship members require stable id and item_id")
+                if str(member["item_id"]) in member_ids:
+                    raise DocumentError("Relationship view members must be unique")
+                member_ids.add(str(member["item_id"]))
+                if not ArchiveItem.objects.filter(id=member["item_id"], campaign_id=campaign_id).exists():
+                    raise DocumentError("Relationship member does not exist in this campaign")
+        return
     if document_type != "archive_item":
         return
     if metadata.get("kind") not in {choice.value for choice in ArchiveItem.Kind}:
@@ -453,6 +641,33 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
                 uuid.UUID(str(value["target_id"]))
             except (ValueError, TypeError, AttributeError) as exc:
                 raise DocumentError(f"{key} target_id must be a UUID") from exc
+    relationship_ids: set[str] = set()
+    relationship_targets: set[tuple[str, str]] = set()
+    source_id = str(metadata["id"])
+    for relationship in metadata.get("relationships", []):
+        relationship_id = relationship.get("id")
+        kind = str(relationship.get("kind") or "")
+        target_id = str(relationship.get("target_id"))
+        if not relationship_id or not _valid_uuid(relationship_id):
+            raise DocumentError("Relationship entries require a stable UUID id")
+        if str(relationship_id) in relationship_ids:
+            raise DocumentError("Relationship ids must be unique within a document")
+        relationship_ids.add(str(relationship_id))
+        if not RELATIONSHIP_KIND_PATTERN.fullmatch(kind):
+            raise DocumentError("Relationship kind must use lower_snake_case")
+        if target_id == source_id:
+            raise DocumentError("Relationships cannot target their source item")
+        if not ArchiveItem.objects.filter(id=target_id, campaign_id=campaign_id).exists():
+            raise DocumentError("Relationship target does not exist in this campaign")
+        target_kind = (target_id, kind)
+        if target_kind in relationship_targets:
+            raise DocumentError("Relationship target and kind must be unique within a document")
+        relationship_targets.add(target_kind)
+        if "reciprocal_label" in relationship:
+            raise DocumentError("Use inverse_label instead of reciprocal_label")
+        for field in ("label", "inverse_label"):
+            if len(str(relationship.get(field) or "")) > 160:
+                raise DocumentError(f"Relationship {field} must be at most 160 characters")
     fields = metadata.get("fields", {})
     if not isinstance(fields, dict):
         raise DocumentError("fields must be an object")
@@ -549,7 +764,7 @@ def prepare_archive_item_markdown(item: ArchiveItem, markdown: str) -> str:
             getattr(getattr(item, "entity_detail", None), "subject_type", "person"),
         )
     ensure_slug(metadata)
-    validate_metadata(metadata, "archive_item", item.campaign_id)
+    validate_metadata(metadata, "archive_item", item.campaign_id, body)
     if metadata.get("kind") != item.kind:
         raise DocumentError("Document kind does not match item")
     return serialize_document(metadata, clean_body(body))
@@ -570,7 +785,7 @@ def save_document(
         current_metadata, _ = parse_document(read_current(document))
         metadata["slug"] = current_metadata.get("slug")
     ensure_slug(metadata)
-    validate_metadata(metadata, document_type, campaign.id)
+    validate_metadata(metadata, document_type, campaign.id, body)
     derived_storage_key = storage_key_for(campaign, document_type, metadata)
     if document is None:
         document = CampaignDocument.objects.create(
@@ -607,6 +822,7 @@ def save_document(
             markdown=normalized,
         )
     write_current(document, normalized)
+    project_document_links(document, metadata, body)
     if previous_storage_key and previous_storage_key != document.storage_key:
         old_path = storage_root() / previous_storage_key
         if old_path != storage_root() / document.storage_key:
@@ -634,13 +850,22 @@ def ensure_item_document(item: ArchiveItem, user, reason: str = "Created") -> Ca
 def item_document_output(item: ArchiveItem) -> dict[str, Any]:
     markdown = current_markdown_for_item(item)
     metadata, body = parse_document(markdown)
+    document_backlinks = DocumentLink.objects.filter(
+        campaign_id=item.campaign_id, target_type="item", target_identifier=item.id
+    ).select_related("source_document")
+    outgoing_relationships = item.outgoing_relationships.select_related("target").order_by("authored_position", "id")
+    incoming_relationships = item.incoming_relationships.select_related("source").order_by("authored_position", "id")
+
+    def summary(record: ArchiveItem) -> dict[str, Any]:
+        return {"id": record.id, "title": record.title, "kind": record.kind, "status": record.status}
+
     return {
         "id": item.id,
         "campaign_id": item.campaign_id,
         "kind": item.kind,
         "markdown": markdown,
         "storage_key": item.document.storage_key if item.document_id else None,
-        "html": markdown_html(body),
+        "html": markdown_html(body, item.campaign_id),
         "metadata": metadata,
         "title": metadata.get("title", item.title),
         "status": metadata.get("status", item.status),
@@ -652,20 +877,70 @@ def item_document_output(item: ArchiveItem) -> dict[str, Any]:
         "references": [
             {"id": r.id, "target_id": r.target_id, "label": r.label} for r in item.outgoing_references.all()
         ],
-        "backlinks": [{"id": r.id, "source_id": r.source_id, "label": r.label} for r in item.incoming_references.all()],
+        "backlinks": [
+            *[{"id": r.id, "source_id": r.source_id, "label": r.label} for r in item.incoming_references.all()],
+            *[
+                {
+                    "id": link.id,
+                    "source_id": link.source_identifier,
+                    "source_type": link.source_document.document_type,
+                    "label": link.label,
+                    "context": link.context,
+                }
+                for link in document_backlinks
+            ],
+        ],
         "relationships": [
-            {"id": r.id, "target_id": r.target_id, "kind": r.kind, "label": r.reciprocal_label, "notes": r.notes}
-            for r in item.outgoing_relationships.all()
+            {
+                "id": r.edge_id,
+                "source_id": r.source_id,
+                "target_id": r.target_id,
+                "target": summary(r.target),
+                "kind": r.kind,
+                "label": r.label,
+                "inverse_label": r.inverse_label,
+                "notes": r.notes,
+                "authored_position": r.authored_position,
+                "source_version": r.source_version,
+            }
+            for r in outgoing_relationships
         ],
         "incoming_relationships": [
-            {"id": r.id, "source_id": r.source_id, "kind": r.kind, "label": r.reciprocal_label, "notes": r.notes}
-            for r in item.incoming_relationships.all()
+            {
+                "id": r.edge_id,
+                "source_id": r.source_id,
+                "target_id": r.target_id,
+                "source": summary(r.source),
+                "kind": r.kind,
+                "label": r.label,
+                "inverse_label": r.inverse_label,
+                "notes": r.notes,
+                "authored_position": r.authored_position,
+                "source_version": r.source_version,
+            }
+            for r in incoming_relationships
         ],
     }
 
 
-def markdown_html(value: str) -> str:
+def markdown_html(value: str, campaign_id: Any | None = None) -> str:
     import html
+
+    if MarkdownIt is not None:
+        source = clean_body(value)
+        if campaign_id is not None:
+
+            def local_link(match: re.Match[str]) -> str:
+                target_type, target_id = match.group(2), match.group(3)
+                href = (
+                    f"/campaigns/{campaign_id}/archive/items/{target_id}"
+                    if target_type == "item"
+                    else f"/campaigns/{campaign_id}/archive"
+                )
+                return f"[{match.group(1)}]({href})"
+
+            source = CANONICAL_LINK_PATTERN.sub(local_link, source)
+        return MarkdownIt("commonmark", {"html": False, "linkify": False}).render(source)
 
     blocks = []
     for block in clean_body(value).split("\n\n"):
@@ -680,5 +955,17 @@ def markdown_html(value: str) -> str:
         text = re.sub(r"^### (.+)$", r"<h3>\1</h3>", text)
         text = re.sub(r"^## (.+)$", r"<h2>\1</h2>", text)
         text = re.sub(r"^# (.+)$", r"<h1>\1</h1>", text)
+        if campaign_id is not None:
+
+            def render_link(match):
+                target_type, target_id = match.group(2), match.group(3)
+                href = (
+                    f"/campaigns/{campaign_id}/archive/items/{target_id}"
+                    if target_type == "item"
+                    else f"/campaigns/{campaign_id}/archive"
+                )
+                return f'<a href="{href}">{match.group(1)}</a>'
+
+            text = CANONICAL_LINK_PATTERN.sub(render_link, text)
         blocks.append(text if text.startswith("<h") else f"<p>{text}</p>")
     return "".join(blocks)

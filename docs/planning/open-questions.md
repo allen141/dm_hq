@@ -24,6 +24,20 @@ Resolve these through user research, prototypes, or architecture decisions. When
 
 [ADR 0002](../decisions/0002-archive-application-architecture.md) establishes a single campaign owner and unlisted publication links for Release 1. Player accounts, co-DM roles, and contribution workflows remain open for later releases.
 
+## Archive exploration
+
+Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) settles canonical UUID links, `campaign.md` navigation, durable `archive_view` documents, DM-only visual views, and the direct external HTTPS map-image exception for the PoC. The remaining questions are follow-up validation rather than blockers for that boundary:
+
+- When do measured query or rebuild costs justify dedicated membership and placement projection tables?
+- Does an advanced canvas adapter and Dagre layout materially improve retrieval and accessibility over the PoC SVG?
+- Is automatic relationship layout sufficient, or should campaign-owned manual positions persist?
+- What multiple-view selector or view manager remains usable with many maps or relationship boards?
+- When should uploaded or self-contained map assets replace or supplement external URLs?
+- What separate publication representation could make a graph, map, or relationship board player-safe?
+- Which list and keyboard alternatives provide equivalent access to every advanced visual interaction?
+
+The [Archive exploration views plan](archive-exploration-views.md) records the PoC slices and evidence required before production-scale visualization work changes the roadmap.
+
 ## Technology
 
 - Is reliable offline or local-network use a requirement?

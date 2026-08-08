@@ -11,6 +11,8 @@ dependencies = [
   "django-ninja>=1.4,<2",
   "gunicorn>=23,<24",
   "psycopg[binary]>=3.2,<4",
+  "PyYAML>=6.0,<7",
+  "markdown-it-py>=4.2,<5",
 ]
 
 [project.optional-dependencies]
