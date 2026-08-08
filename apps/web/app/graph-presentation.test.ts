@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   GRAPH_EDGE_STYLES,
   GRAPH_NODE_STYLES,
+  buildGraphClouds,
   buildGraphPresentation,
   graphNodeVisualKind,
   summarizeSelectedNode,
@@ -61,6 +62,30 @@ describe("buildGraphPresentation", () => {
       const { color, size, type } = GRAPH_EDGE_STYLES[edge.edge_class];
       expect(edge).toMatchObject({ color, size, type });
     }
+  });
+});
+
+describe("buildGraphClouds", () => {
+  test("keeps direct neighbors in separate clouds until they connect directly", () => {
+    const cloudNodes: GraphNode[] = [...nodes,
+      { id: "a", node_type: "item", title: "A", kind: "entity", status: "canon" },
+      { id: "b", node_type: "item", title: "B", kind: "entity", status: "canon" },
+      { id: "c", node_type: "item", title: "C", kind: "entity", status: "canon" },
+    ];
+    const cloudEdges: GraphEdge[] = [
+      { id: "root-a", edge_class: "document_link", source_id: "campaign", target_id: "a", kind: "link", label: "", inverse_label: "" },
+      { id: "root-b", edge_class: "document_link", source_id: "campaign", target_id: "b", kind: "link", label: "", inverse_label: "" },
+      { id: "root-c", edge_class: "document_link", source_id: "campaign", target_id: "c", kind: "link", label: "", inverse_label: "" },
+      { id: "a-b", edge_class: "relationship", source_id: "a", target_id: "b", kind: "ally", label: "", inverse_label: "" },
+    ];
+
+    expect(buildGraphClouds(cloudNodes, cloudEdges, "campaign")).toEqual([
+      { id: "cloud:a,b", node_ids: ["a", "b"] },
+      { id: "cloud:c", node_ids: ["c"] },
+      { id: "cloud:entity", node_ids: ["entity"] },
+      { id: "cloud:note", node_ids: ["note"] },
+      { id: "cloud:session", node_ids: ["session"] },
+    ]);
   });
 });
 

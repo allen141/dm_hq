@@ -46,7 +46,7 @@ export default function ArchiveGraphPage() {
 
   return (
     <section className="archive-view-page graph-page" aria-labelledby="graph-page-title">
-      {graph && <GraphCanvas campaignId={campaignId} nodes={graph.nodes} edges={graph.edges} focusId={focusId} />}
+      {graph && <GraphCanvas campaignId={campaignId} nodes={graph.nodes} edges={graph.edges} focusId={focusId} cloudFocusId={graph.focus_id} />}
       <div className="graph-interface">
         <h2 id="graph-page-title" className="sr-only">Knowledge graph</h2>
 

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type Sigma from "sigma";
 import { createEdgeArrowProgram } from "sigma/rendering";
 import type { Settings } from "sigma/settings";
-import { buildGraphPresentation } from "@/lib/graph-presentation";
+import { buildGraphClouds, buildGraphPresentation } from "@/lib/graph-presentation";
 
 type AnchorPosition = { x: number; y: number };
 
@@ -20,6 +20,7 @@ type GraphWebglProps = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   focusId?: string;
+  cloudFocusId?: string;
   selectedId: string | null;
   reducedMotion: boolean;
   onAnchorChange: (position: AnchorPosition | null) => void;
@@ -117,6 +118,10 @@ export default function GraphWebgl(props: GraphWebglProps) {
 }
 
 function GraphController({
+  nodes,
+  edges,
+  cloudFocusId,
+  focusId,
   selectedId,
   reducedMotion,
   onAnchorChange,
@@ -139,6 +144,10 @@ function GraphController({
   });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const coarsePointer = useSyncExternalStore(subscribeCoarsePointer, coarsePointerSnapshot, () => false);
+  const clouds = useMemo(
+    () => buildGraphClouds(nodes, edges, cloudFocusId ?? focusId),
+    [cloudFocusId, edges, focusId, nodes],
+  );
 
   useEffect(() => {
     registerEvents({
@@ -274,6 +283,35 @@ function GraphController({
   }, [coarsePointer, graph, reducedMotion, selectedId, sigma]);
 
   useEffect(() => {
+    if (reducedMotion || coarsePointer || clouds.length === 0) return;
+    const cleanups = clouds.map((cloud, index) => {
+      try {
+        return bindWebGLLayer(
+          "graph-cloud-" + index,
+          sigma as unknown as Sigma,
+          createContoursProgram(cloud.node_ids, {
+            radius: cloud.node_ids.length === 1 ? 38 : 58 + Math.min(28, cloud.node_ids.length * 4),
+            feather: 1.35,
+            levels: [
+              { color: cloudColor(index, 0.2), threshold: 0.28 },
+              { color: cloudColor(index, 0), threshold: 0.76 },
+            ],
+            border: { color: cloudColor(index, 0.44), thickness: 1.15 },
+          }),
+        );
+      } catch {
+        return () => undefined;
+      }
+    });
+    sigma.refresh();
+    return () => {
+      cleanups.forEach((cleanup) => {
+        try { cleanup(); } catch { // The renderer may already be disposed. }
+      });
+    };
+  }, [clouds, coarsePointer, reducedMotion, sigma]);
+
+  useEffect(() => {
     const contextLoss = (event: Event) => {
       event.preventDefault();
       onRenderError("The graphics context was lost. The page index remains fully available.");
@@ -341,6 +379,14 @@ function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId?: string) {
   }
 
   return graph;
+}
+
+const CLOUD_COLORS = ["#56c9bd", "#8f7bd0", "#e4ae64", "#6ba8d8", "#dc7f9e"];
+
+function cloudColor(index: number, alpha: number) {
+  const hex = CLOUD_COLORS[index % CLOUD_COLORS.length] ?? CLOUD_COLORS[0];
+  const opacity = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  return hex + opacity;
 }
 
 function subscribeCoarsePointer(callback: () => void) {

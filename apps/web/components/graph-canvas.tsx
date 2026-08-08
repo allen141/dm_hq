@@ -21,6 +21,7 @@ type GraphCanvasProps = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   focusId?: string;
+  cloudFocusId?: string;
 };
 
 type AnchorPosition = { x: number; y: number };
@@ -62,7 +63,7 @@ class GraphRenderBoundary extends Component<
   }
 }
 
-export default function GraphCanvas({ campaignId, nodes, edges, focusId }: GraphCanvasProps) {
+export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFocusId }: GraphCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(() => focusId ?? null);
   const [anchor, setAnchor] = useState<AnchorPosition | null>(null);
   const [query, setQuery] = useState("");
@@ -217,6 +218,7 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId }: Graph
               nodes={nodes}
               edges={edges}
               focusId={focusId}
+              cloudFocusId={cloudFocusId}
               selectedId={selectedId}
               reducedMotion={reducedMotion}
               onAnchorChange={setAnchor}

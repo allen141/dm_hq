@@ -28,6 +28,11 @@ export type GraphPresentation = {
   edges: GraphEdgeVisual[];
 };
 
+export type GraphCloud = {
+  id: string;
+  node_ids: string[];
+};
+
 export type SelectedConnectionDirection = "incoming" | "outgoing" | "self";
 
 export type SelectedConnectionSummary = {
@@ -89,6 +94,50 @@ export function buildGraphPresentation(nodes: readonly GraphNode[], edges: reado
     nodes: nodes.map(toVisualNode),
     edges: toVisualEdges(edges),
   };
+}
+
+// Groups the visible neighborhood into connected clouds while keeping the focused node out of the grouping.
+export function buildGraphClouds(
+  nodes: readonly GraphNode[],
+  edges: readonly GraphEdge[],
+  focusId?: string,
+): GraphCloud[] {
+  const ids = nodes.map((node) => node.id).filter((id) => id !== focusId).sort(compareStrings);
+  const parent = new Map(ids.map((id) => [id, id]));
+
+  function find(id: string): string {
+    let root = parent.get(id) ?? id;
+    while (parent.has(root) && parent.get(root) !== root) root = parent.get(root) ?? root;
+    let current = id;
+    while (parent.has(current) && parent.get(current) !== current) {
+      const next = parent.get(current) ?? current;
+      parent.set(current, root);
+      current = next;
+    }
+    return root;
+  }
+
+  function union(left: string, right: string) {
+    if (!parent.has(left) || !parent.has(right)) return;
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot < rightRoot ? leftRoot : rightRoot);
+  }
+
+  for (const edge of edges) {
+    if (edge.source_id !== focusId && edge.target_id !== focusId) union(edge.source_id, edge.target_id);
+  }
+
+  const grouped = new Map<string, string[]>();
+  for (const id of ids) {
+    const root = find(id);
+    grouped.set(root, [...(grouped.get(root) ?? []), id]);
+  }
+
+  return Array.from(grouped.values())
+    .map((nodeIds) => nodeIds.sort(compareStrings))
+    .sort((left, right) => compareStrings(left[0] ?? "", right[0] ?? ""))
+    .map((nodeIds) => ({ id: "cloud:" + nodeIds.join(","), node_ids: nodeIds }));
 }
 
 export function summarizeSelectedNode(
