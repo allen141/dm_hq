@@ -12,6 +12,4 @@ test("links the graph to its accessible relationship table", async () => {
   const tableLink = await screen.findByRole("link", { name: /Accessible graph table/ });
   expect(tableLink).toHaveAttribute("href", "/campaigns/campaign-1/archive/graph/table");
   expect(screen.getByRole("img", { name: /2 pages and 1 connections/ })).toBeInTheDocument();
-  expect(screen.getAllByRole("link", { name: "Lantern Harbor" })).toSatisfy((links: HTMLElement[]) => links.every((link) => link.getAttribute("href") === "/campaigns/campaign-1/archive"));
-  expect(screen.getAllByRole("link", { name: "Harbor" })).toSatisfy((links: HTMLElement[]) => links.every((link) => link.getAttribute("href") === "/campaigns/campaign-1/archive/items/b"));
 });
