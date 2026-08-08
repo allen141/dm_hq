@@ -306,7 +306,7 @@ function GraphController({
     sigma.refresh();
     return () => {
       cleanups.forEach((cleanup) => {
-        try { cleanup(); } catch { // The renderer may already be disposed. }
+        try { cleanup(); } catch { /* The renderer may already be disposed. */ }
       });
     };
   }, [clouds, coarsePointer, reducedMotion, sigma]);
