@@ -940,7 +940,7 @@ def markdown_html(value: str, campaign_id: Any | None = None) -> str:
                 return f"[{match.group(1)}]({href})"
 
             source = CANONICAL_LINK_PATTERN.sub(local_link, source)
-        return MarkdownIt("commonmark", {"html": False, "linkify": False}).disable("html").render(source)
+        return MarkdownIt("commonmark", {"html": False, "linkify": False}).render(source)
 
     blocks = []
     for block in clean_body(value).split("\n\n"):
