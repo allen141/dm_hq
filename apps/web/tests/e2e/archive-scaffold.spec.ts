@@ -36,4 +36,7 @@ test("an owner can create a campaign and use its Archive workspace", async ({ pa
   await page.getByRole("link", { name: "Graph" }).click();
   await expect(page.getByRole("heading", { name: "Knowledge graph" })).toBeVisible();
   await expect(page.getByText("Accessible graph table")).toBeVisible();
+  await page.getByRole("button", { name: "Two hops" }).click();
+  await expect(page.getByRole("button", { name: "Two hops" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Campaign graph explorer")).toBeVisible();
 });

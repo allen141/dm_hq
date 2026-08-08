@@ -90,6 +90,13 @@ export default function GraphWebgl(props: GraphWebglProps) {
     () => createGraph(props.nodes, props.edges, props.focusId),
     [props.edges, props.focusId, props.nodes],
   );
+  // Sigma owns its graph instance for the lifetime of the container. Remount it
+  // when the API returns a different neighborhood so depth/filter changes cannot
+  // leave the layout worker attached to the previous graph.
+  const graphKey = useMemo(
+    () => [props.focusId ?? "", ...props.nodes.map((node) => node.id), ...props.edges.map((edge) => edge.edge_class + ":" + edge.id + ":" + edge.source_id + ":" + edge.target_id)].join("|"),
+    [props.edges, props.focusId, props.nodes],
+  );
 
   useEffect(() => {
     if (!available) onRenderError("WebGL is unavailable in this browser. The page index remains fully available.");
@@ -99,6 +106,7 @@ export default function GraphWebgl(props: GraphWebglProps) {
 
   return (
     <SigmaContainer<NodeAttributes, EdgeAttributes>
+      key={graphKey}
       className="graph-sigma"
       graph={graph}
       settings={SIGMA_SETTINGS}
