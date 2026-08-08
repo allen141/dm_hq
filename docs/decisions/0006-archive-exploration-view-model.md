@@ -24,7 +24,7 @@ The implementation PoC adopts the boundary below. It is intentionally limited to
 - Make the same Archive item open from every view without copying its content.
 - Keep navigational links, semantic relationships, and view layout distinguishable.
 - Make campaign-owned configuration versioned, conflict-checked, exportable, and restorable.
-- Keep the first prototypes useful without requiring a graph database, PostGIS, an asset pipeline, or a visualization framework.
+- Keep the first prototypes useful without requiring a graph database, PostGIS, or an asset pipeline; adopt visualization infrastructure only through a focused follow-up decision.
 - Preserve a separate, deliberate publication boundary for anything players can see.
 
 ## Decision
@@ -86,6 +86,10 @@ It must not copy item prose or own semantic relationship edges. A relationship b
 
 As an explicit PoC portability exception, a map may use a direct external HTTPS image URL with required alt text. The server never fetches or proxies it. The browser requests it with `referrerPolicy="no-referrer"`; the interface warns that the host still receives the request and that exports retain the URL rather than the image, so they are not self-contained. Uploaded media, geographic coordinates, nested maps, regions, routes, and historical layers remain outside this decision until asset storage and portability are designed.
 
+[ADR 0007](0007-webgl-map-renderer-and-visual-system.md) supersedes the simple map renderer as the primary presentation. Maps use one Three.js and React Three Fiber scene with orthographic 2D and constrained perspective 3D modes over the same image plane and normalized placements. The existing DOM 2D map remains the automatic functional fallback and accessible editing surface. Camera, renderer, and selection state remain transient; the `archive_view` schema does not change.
+
+For a background to become a WebGL texture, its external host must permit anonymous cross-origin use. The custom browser image uses both `crossOrigin="anonymous"` and `referrerPolicy="no-referrer"`. Failure to load or upload that texture activates the DOM renderer without losing placement editing.
+
 ### Publications remain separate
 
 All Archive exploration views and their read models are DM-private and campaign-authorized. Hiding private nodes or fields in the browser is not a publication mechanism.
@@ -118,9 +122,9 @@ This requires fewer document types, but unrelated edits to multiple maps and boa
 
 This is quick for a prototype but would make campaign-authored maps and boards incomplete in workspace sync, export, restore, and revision history. Temporary browser state is acceptable for disposable interaction tests, not as the durable product model.
 
-### Add graph, GIS, or visualization infrastructure now
+### Add graph, GIS, or visualization infrastructure in the initial PoC
 
-The PoC uses bounded neighborhood queries, simple SVG, and normalized image coordinates. Advanced canvas interaction and Dagre layout remain follow-up work until campaign size and interaction evidence justify them.
+The initial PoC used bounded neighborhood queries, simple DOM or SVG presentation, and normalized image coordinates. It deliberately deferred a renderer choice. ADR 0007 now accepts Three.js and React Three Fiber for maps after reviewing the interaction requirement and alternatives; it does not add a graph database, GIS, tile renderer, or change to Relationship-board rendering.
 
 ## Consequences
 
@@ -129,6 +133,7 @@ The PoC uses bounded neighborhood queries, simple SVG, and normalized image coor
 - A new `archive_view` document type requires validation, materialization, versions, workspace sync, export, restore, reconciliation, API schemas, and authorization before optional views become durable.
 - Relationship boards require clearer relationship create, update, and delete behavior; view layout must not bypass it.
 - Map upload remains blocked on a separate asset-storage and portability decision. Direct external HTTPS backgrounds are accepted only as the documented PoC exception.
+- WebGL use adds an anonymous-CORS requirement for external map backgrounds. Unsupported images fall back to the functional DOM 2D view.
 - The Graph endpoint must be bounded and accessible through an equivalent list or table representation.
 - Canonical links use the selected `dmhq:` UUID syntax; validation must still confirm that users understand the distinction between links, relationships, and placements.
 
@@ -138,7 +143,7 @@ The PoC uses bounded neighborhood queries, simple SVG, and normalized image coor
 - Measure graph readability, keyboard/table fallbacks, map failure states, and revision conflicts.
 - Revisit scale limits and asset portability before productionizing visual views.
 - Add dedicated membership and placement projections if measured query or rebuild needs justify them.
-- Evaluate an advanced canvas adapter and Dagre layout, then add persisted manual relationship-board positions if interaction testing supports them.
+- Apply ADR 0007's renderer, fallback, accessibility, and performance acceptance to maps. Advanced Relationship-board canvas and layout work remains a separate decision.
 - Add a multiple-view selector or view manager for campaigns with several maps or relationship boards.
 
 ## References

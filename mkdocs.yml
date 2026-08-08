@@ -68,6 +68,7 @@ nav:
       - Structured template fields (superseded): decisions/0004-structured-template-fields.md
       - Markdown campaign documents: decisions/0005-markdown-canonical-campaign-documents.md
       - Archive exploration views: decisions/0006-archive-exploration-view-model.md
+      - WebGL map renderer and visual system: decisions/0007-webgl-map-renderer-and-visual-system.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md
