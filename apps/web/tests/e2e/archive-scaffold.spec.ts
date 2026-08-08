@@ -16,7 +16,7 @@ test("an owner can create a campaign and use its Archive workspace", async ({ pa
   await page.getByRole("link", { name: `Open ${campaignName}` }).click();
   await expect(page).toHaveURL(/\/campaigns\/[^/]+\/archive$/);
   await expect(page.getByRole("heading", { name: campaignName })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Wiki" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Wiki", exact: true })).toBeVisible();
   await page.getByLabel("Title").fill("Mara Venn");
   await page.getByLabel("Kind").selectOption("entity");
   await page.getByLabel("Markdown", { exact: true }).fill("A ferrymaster with a secret.");
