@@ -121,7 +121,7 @@ class ArchiveApiTests(TestCase):
         person = self.create_item(kind="entity", title="Mara", body="Keeps the salt road")
         relation = self.post(
             f"/api/v1/items/{person['id']}/relationships",
-            {"target_id": place["id"], "kind": "works_at", "notes": "Harbor records"},
+            {"version": person["version"], "target_id": place["id"], "kind": "works_at", "notes": "Harbor records"},
         )
         self.assertEqual(relation.status_code, 200)
         detail = self.client.get(f"/api/v1/items/{person['id']}").json()
@@ -162,6 +162,98 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(rejected.status_code, 422)
         self.assertIn("Frontmatter id does not match", rejected.content.decode())
+
+    def test_relationship_crud_is_markdown_owned_and_versioned(self):
+        first = self.create_item(title="First")
+        second = self.create_item(title="Second")
+        third = self.create_item(title="Third")
+        created = self.post(
+            f"/api/v1/items/{first['id']}/relationships",
+            {
+                "version": first["version"],
+                "target_id": second["id"],
+                "kind": "member_of",
+                "label": "member of",
+                "inverse_label": "has member",
+                "notes": "Canonical note",
+            },
+        )
+        self.assertEqual(created.status_code, 200)
+        payload = created.json()
+        edge_id = payload["relationship"]["id"]
+        self.assertEqual(payload["item"]["metadata"]["relationships"][0]["id"], edge_id)
+        self.assertEqual(payload["relationship"]["source_version"], 2)
+
+        stale = self.post(
+            f"/api/v1/items/{first['id']}/relationships",
+            {"version": first["version"], "target_id": third["id"], "kind": "rival_of"},
+        )
+        self.assertEqual(stale.status_code, 409)
+
+        updated = self.client.patch(
+            f"/api/v1/items/{first['id']}/relationships/{edge_id}",
+            data=json.dumps(
+                {
+                    "version": payload["item"]["version"],
+                    "target_id": third["id"],
+                    "kind": "allied_with",
+                    "label": "trusts",
+                    "inverse_label": "trusted by",
+                    "notes": "Changed",
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["relationship"]["target_id"], third["id"])
+        incoming = self.client.get(f"/api/v1/items/{third['id']}").json()["incoming_relationships"]
+        self.assertEqual(incoming[0]["inverse_label"], "trusted by")
+
+        deleted = self.client.delete(
+            f"/api/v1/items/{first['id']}/relationships/{edge_id}",
+            data=json.dumps({"version": updated.json()["item"]["version"]}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(deleted.json()["item"]["metadata"]["relationships"], [])
+
+    def test_graph_combines_document_links_references_and_relationships(self):
+        target = self.create_item(title="Target")
+        source = self.create_item(
+            title="Source",
+            body=f"Follow [Target](dmhq://item/{target['id']}).",
+        )
+        reference = self.post(
+            f"/api/v1/items/{source['id']}/references",
+            {"target_id": target["id"], "label": "mentions"},
+        )
+        self.assertEqual(reference.status_code, 200)
+        relation = self.post(
+            f"/api/v1/items/{source['id']}/relationships",
+            {
+                "version": reference.json()["item"]["version"],
+                "target_id": target["id"],
+                "kind": "allied_with",
+                "label": "ally",
+                "inverse_label": "ally",
+            },
+        )
+        self.assertEqual(relation.status_code, 200)
+        graph = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1"
+        )
+        self.assertEqual(graph.status_code, 200)
+        graph_payload = graph.json()
+        self.assertEqual({node["id"] for node in graph_payload["nodes"]}, {source["id"], target["id"]})
+        self.assertEqual(
+            {edge["edge_class"] for edge in graph_payload["edges"]},
+            {"document_link", "reference", "relationship"},
+        )
+
+        bad_link = self.create_item(body=f"[Missing](dmhq://item/{uuid.uuid4()})")
+        self.assertIn("detail", bad_link)
 
     def test_default_templates_validate_typed_fields_and_canon_requirements(self):
         templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]

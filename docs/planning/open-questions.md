@@ -24,6 +24,21 @@ Resolve these through user research, prototypes, or architecture decisions. When
 
 [ADR 0002](../decisions/0002-archive-application-architecture.md) establishes a single campaign owner and unlisted publication links for Release 1. Player accounts, co-DM roles, and contribution workflows remain open for later releases.
 
+## Archive exploration
+
+- Which readable Markdown syntax should encode a stable inline link to a logical campaign or item UUID?
+- How should portable export represent those links, and how should existing frontmatter references coexist with the proposed `DocumentLink` projection?
+- How should `campaign.md` store shared Wiki navigation without making ordinary home-page edits difficult to review?
+- Which tab names and order are campaign-owned, and which focus, filter, selection, pan, and zoom state remains personal?
+- Does durable map and relationship-board curation provide enough value to add canonical `archive_view` documents?
+- Which edge classes and bounded query limits make the Graph useful without becoming cluttered?
+- What stable asset identity can maps use before attachment storage, export, and restore are designed?
+- Is automatic relationship layout sufficient, or should campaign-owned manual placement persist?
+- What separate publication representation could make a graph, map, or relationship board player-safe?
+- Which list and keyboard alternatives provide equivalent access to every visual exploration task?
+
+Proposed [ADR 0006](../decisions/0006-archive-exploration-view-model.md) defines the boundary to test. The [Archive exploration views plan](archive-exploration-views.md) records the four proofs of concept and the evidence required before that proposal can be accepted or the roadmap changed.
+
 ## Technology
 
 - Is reliable offline or local-network use a requirement?

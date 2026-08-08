@@ -141,15 +141,59 @@ class Reference(models.Model):
 
 
 class Relationship(models.Model):
+    edge_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     source = models.ForeignKey(ArchiveItem, on_delete=models.CASCADE, related_name="outgoing_relationships")
     target = models.ForeignKey(ArchiveItem, on_delete=models.CASCADE, related_name="incoming_relationships")
     kind = models.CharField(max_length=80)
-    reciprocal_label = models.CharField(max_length=80, blank=True)
+    label = models.CharField(max_length=160, blank=True)
+    inverse_label = models.CharField(max_length=160, blank=True)
     notes = models.TextField(blank=True)
+    authored_position = models.PositiveIntegerField(default=0)
+    source_version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["source", "target", "kind"], name="unique_item_relationship")]
+
+
+class DocumentLink(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="document_links")
+    source_document = models.ForeignKey("CampaignDocument", on_delete=models.CASCADE, related_name="outgoing_links")
+    source_identifier = models.UUIDField()
+    target_type = models.CharField(max_length=16)
+    target_identifier = models.UUIDField()
+    label = models.CharField(max_length=240)
+    context = models.TextField(blank=True)
+    authored_position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["authored_position", "id"]
+
+
+class ArchiveView(models.Model):
+    class ViewType(models.TextChoices):
+        MAP = "map", "Map"
+        RELATIONSHIP = "relationship", "Relationship"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ARCHIVED = "archived", "Archived"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="archive_views")
+    document = models.OneToOneField(
+        "CampaignDocument", null=True, blank=True, on_delete=models.SET_NULL, related_name="archive_view"
+    )
+    view_type = models.CharField(max_length=20, choices=ViewType.choices)
+    title = models.CharField(max_length=200)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["title", "id"]
+        indexes = [models.Index(fields=["campaign", "view_type", "status"])]
 
 
 class SessionLink(models.Model):
@@ -200,6 +244,7 @@ class CampaignDocument(models.Model):
         ARCHIVE_ITEM = "archive_item", "Archive item"
         TEMPLATE = "template", "Template"
         PUBLICATION_ENTRY = "publication_entry", "Publication entry"
+        ARCHIVE_VIEW = "archive_view", "Archive view"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="documents")
