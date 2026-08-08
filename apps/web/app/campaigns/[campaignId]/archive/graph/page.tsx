@@ -57,7 +57,7 @@ export default function ArchiveGraphPage() {
           <Link className="button secondary graph-table-link" href={`/campaigns/${campaignId}/archive/graph/table${focusId ? `?focus_id=${encodeURIComponent(focusId)}` : ""}`}>Accessible graph table <span aria-hidden="true">↗</span></Link>
         </div>
 
-        <div className="graph-status-line" aria-live="polite">{busy && <span role="status"><span className="status-orbit" aria-hidden="true" /> Rebuilding the atlas…</span>}{!busy && graph && <span>Focused on {graph.nodes.find((node) => node.id === graph.focus_id)?.title ?? "campaign home"}</span>}</div>
+        {busy && <div className="graph-status-line" aria-live="polite"><span role="status"><span className="status-orbit" aria-hidden="true" /> Rebuilding the atlas…</span></div>}
         {error && <p className="error" role="alert">{error}</p>}
         {graph && (graph.truncated.nodes || graph.truncated.edges) && <p className="notice graph-truncation-notice">This view reached its safety limit. Narrow the connection types or return to a one-hop view.</p>}
         {!graph && busy && <div className="graph-loading-card" role="status">Charting the campaign atlas…</div>}
