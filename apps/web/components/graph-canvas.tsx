@@ -316,14 +316,14 @@ function connectionDirectionLabel(direction: "incoming" | "outgoing" | "bidirect
 }
 
 function subscribeReducedMotion(callback: () => void) {
-  if (typeof window.matchMedia !== "function") return () => undefined;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
   const media = window.matchMedia("(prefers-reduced-motion: reduce)");
   media.addEventListener("change", callback);
   return () => media.removeEventListener("change", callback);
 }
 
 function reducedMotionSnapshot() {
-  if (typeof window.matchMedia !== "function") return false;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 

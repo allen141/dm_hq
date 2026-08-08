@@ -6,6 +6,7 @@ import posixpath
 import re
 import secrets
 import zipfile
+from html import unescape
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -24,6 +25,7 @@ from ninja.security import HttpBearer, django_auth
 
 from .documents import (
     DocumentError,
+    clean_body,
     current_markdown_for_item,
     item_document_output,
     markdown_html,
@@ -129,6 +131,10 @@ class ArchiveViewPayload(Schema):
     placements: list[dict[str, Any]] | None = None
     members: list[dict[str, Any]] | None = None
     settings: dict[str, Any] | None = None
+
+
+GRAPH_NODE_SUMMARY_MAX_LENGTH = 240
+GRAPH_NODE_SUMMARY_SOURCE_MAX_LENGTH = 4096
 
 
 class SessionLinkPayload(Schema):
@@ -680,6 +686,20 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
     return result
 
 
+def graph_node_summary(markdown: str, campaign_id: UUID) -> str:
+    if not markdown:
+        return ""
+    try:
+        _, body = parse_document(markdown)
+    except DocumentError:
+        return ""
+    rendered = markdown_html(body[:GRAPH_NODE_SUMMARY_SOURCE_MAX_LENGTH], campaign_id)
+    plain_text = re.sub(r"\s+", " ", unescape(clean_body(rendered))).strip()
+    if len(plain_text) <= GRAPH_NODE_SUMMARY_MAX_LENGTH:
+        return plain_text
+    return f"{plain_text[: GRAPH_NODE_SUMMARY_MAX_LENGTH - 1].rstrip()}…"
+
+
 @api.get("items/{item_id}", auth=django_auth)
 def item_detail(request: HttpRequest, item_id: UUID):
     return item_document_output(get_member_item(request, item_id))
@@ -705,6 +725,7 @@ def archive_graph(
 
     root_id = campaign.id
     items = list(campaign.archive_items.all().order_by("id"))
+    items_by_id = {item.id: item for item in items}
     node_map: dict[UUID, dict[str, Any]] = {
         root_id: {
             "id": root_id,
@@ -802,6 +823,16 @@ def archive_graph(
         frontier = next_frontier
         if not frontier:
             break
+
+    for node_id in visited:
+        if node_id == root_id:
+            markdown = read_current(campaign.document) if campaign.document_id else ""
+        else:
+            item = items_by_id.get(node_id)
+            if item is None:
+                continue
+            markdown = current_markdown_for_item(item)
+        node_map[node_id]["summary"] = graph_node_summary(markdown, campaign.id)
 
     return {
         "focus_id": selected_focus,

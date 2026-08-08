@@ -84,6 +84,7 @@ const SIGMA_SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
 };
 
 export default function GraphWebgl(props: GraphWebglProps) {
+  const onRenderError = props.onRenderError;
   const [available] = useState(supportsWebgl);
   const graph = useMemo(
     () => createGraph(props.nodes, props.edges, props.focusId),
@@ -91,8 +92,8 @@ export default function GraphWebgl(props: GraphWebglProps) {
   );
 
   useEffect(() => {
-    if (!available) props.onRenderError("WebGL is unavailable in this browser. The page index remains fully available.");
-  }, [available, props]);
+    if (!available) onRenderError("WebGL is unavailable in this browser. The page index remains fully available.");
+  }, [available, onRenderError]);
 
   if (!available) return null;
 
@@ -119,7 +120,7 @@ function GraphController({
   const registerEvents = useRegisterEvents<NodeAttributes, EdgeAttributes>();
   const setSettings = useSetSettings<NodeAttributes, EdgeAttributes>();
   const { gotoNode, reset, zoomIn, zoomOut } = useCamera({ duration: reducedMotion ? 0 : 190, factor: 1.45 });
-  const layout = useWorkerLayoutForceAtlas2({
+  const { start: startLayout, stop: stopLayout } = useWorkerLayoutForceAtlas2({
     settings: {
       barnesHutOptimize: graph.order > 40,
       gravity: 1.8,
@@ -226,16 +227,16 @@ function GraphController({
       reset({ duration: 0 });
       return;
     }
-    layout.start();
+    startLayout();
     const timer = window.setTimeout(() => {
-      layout.stop();
+      stopLayout();
       reset({ duration: 220 });
     }, 900);
     return () => {
       window.clearTimeout(timer);
-      layout.stop();
+      stopLayout();
     };
-  }, [graph, layout, reducedMotion, reset]);
+  }, [graph, reducedMotion, reset, startLayout, stopLayout]);
 
   useEffect(() => {
     if (!selectedId || !graph.hasNode(selectedId) || reducedMotion) return;
@@ -278,12 +279,12 @@ function GraphController({
       reset({ duration: 0 });
       return;
     }
-    layout.start();
+    startLayout();
     window.setTimeout(() => {
-      layout.stop();
+      stopLayout();
       reset({ duration: 180 });
     }, 700);
-  }, [graph.order, layout, reducedMotion, reset]);
+  }, [graph.order, reducedMotion, reset, startLayout, stopLayout]);
 
   return (
     <div className="graph-camera-controls" aria-label="Graph camera controls">
