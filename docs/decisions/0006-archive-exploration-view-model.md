@@ -38,7 +38,7 @@ The Archive will have one route-backed shell that keeps search and quick capture
 - **Maps** appears when the campaign creates its first map.
 - **Relationships** appears when the campaign creates its first relationship board.
 
-A campaign may have several maps or relationship boards. The top-level tab represents the view type; a selector inside that tab chooses a named view. This prevents the tab row from growing with every map or board.
+A campaign may have several maps or relationship boards. The top-level tab represents the view type; the accepted interaction uses a selector or view manager inside that tab rather than growing the tab row with every board. The current PoC links each optional tab to its first active view; multiple-view selection is follow-up work.
 
 Tab availability, names, order, and shared navigation are campaign-owned. The last open tab, graph focus, filters, selection, pan, and zoom are personal interface state and are not campaign canon.
 
@@ -72,7 +72,7 @@ The first query starts from a focus page and returns a limited one-hop neighborh
 
 ### Optional views store curation and layout only
 
-Each durable map or relationship board will be a campaign-owned `archive_view` Markdown document with its own stable UUID, type, title, revision, and optimistic-concurrency version. Its SQL row and membership or placement rows are rebuildable projections.
+Each durable map or relationship board is a campaign-owned `archive_view` Markdown document with its own stable UUID, type, title, revision, and optimistic-concurrency version. The current PoC materializes an `ArchiveView` SQL summary row. Membership and placement remain canonical frontmatter read directly from the document; dedicated rebuildable membership and placement rows are a follow-up optimization rather than an implemented projection.
 
 An `archive_view` document may store:
 
@@ -84,15 +84,15 @@ An `archive_view` document may store:
 
 It must not copy item prose or own semantic relationship edges. A relationship board reads edges projected from canonical relationship entries in Archive-item Markdown. Adding, editing, or deleting a fact from the board updates the owning source document through the shared versioned document mutation. A map pin does not by itself mean that a subject is canonically located at that place.
 
-The initial map interaction prototype uses a bundled sample image or abstract canvas. Uploaded map media, geographic coordinates, nested maps, regions, routes, and historical layers remain outside this decision until asset storage and portability are designed.
+As an explicit PoC portability exception, a map may use a direct external HTTPS image URL with required alt text. The server never fetches or proxies it. The browser requests it with `referrerPolicy="no-referrer"`; the interface warns that the host still receives the request and that exports retain the URL rather than the image, so they are not self-contained. Uploaded media, geographic coordinates, nested maps, regions, routes, and historical layers remain outside this decision until asset storage and portability are designed.
 
 ### Publications remain separate
 
 All Archive exploration views and their read models are DM-private and campaign-authorized. Hiding private nodes or fields in the browser is not a publication mechanism.
 
-A future player-visible wiki, graph, map, or relationship board requires its own versioned publication representation containing only deliberately selected safe content. Internal links become plain text unless the target has a deliberately published player URL. This proposal does not add visual publications.
+A future player-visible wiki, graph, map, or relationship board requires its own versioned publication representation containing only deliberately selected safe content. Internal links become plain text unless the target has a deliberately published player URL. This decision does not add visual publications.
 
-## Proposed document and projection boundary
+## Document and projection boundary
 
 | Concern | Canonical campaign source | Rebuildable or transient form |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ A future player-visible wiki, graph, map, or relationship board requires its own
 | Wiki page content | Archive item Markdown | Search, link, backlink, and item projections |
 | Page-to-page link | Stable logical target encoded in Markdown | `DocumentLink` |
 | Fictional or semantic connection | One stable relationship entry in source item frontmatter | `Relationship`, incoming, and graph projections |
-| Map or relationship-board curation | `archive_view` Markdown | View, membership, and placement projections |
+| Map or relationship-board curation | `archive_view` Markdown | `ArchiveView` summary row; membership and placement rows follow after the PoC |
 | Automatic graph | None | Bounded API read model |
 | Personal focus, filters, pan, and zoom | None | URL or local interface state |
 
@@ -120,7 +120,7 @@ This is quick for a prototype but would make campaign-authored maps and boards i
 
 ### Add graph, GIS, or visualization infrastructure now
 
-The proof of concepts need bounded neighborhood queries, simple SVG, and normalized image coordinates. Specialized stores and libraries would add commitments before campaign size and interactions justify them.
+The PoC uses bounded neighborhood queries, simple SVG, and normalized image coordinates. Advanced canvas interaction and Dagre layout remain follow-up work until campaign size and interaction evidence justify them.
 
 ## Consequences
 
@@ -128,15 +128,18 @@ The proof of concepts need bounded neighborhood queries, simple SVG, and normali
 - Link parsing, backlink generation, and broken-link reporting must cover both the campaign home and item documents.
 - A new `archive_view` document type requires validation, materialization, versions, workspace sync, export, restore, reconciliation, API schemas, and authorization before optional views become durable.
 - Relationship boards require clearer relationship create, update, and delete behavior; view layout must not bypass it.
-- Map upload remains blocked on a separate asset-storage and portability decision. A fixture-based interaction prototype can proceed without it.
+- Map upload remains blocked on a separate asset-storage and portability decision. Direct external HTTPS backgrounds are accepted only as the documented PoC exception.
 - The Graph endpoint must be bounded and accessible through an equivalent list or table representation.
-- Accepting this ADR will require selecting the internal-link syntax and validating that users understand the distinction between links, relationships, and placements.
+- Canonical links use the selected `dmhq:` UUID syntax; validation must still confirm that users understand the distinction between links, relationships, and placements.
 
 ## Follow-up validation
 
 - Exercise the four PoC slices with a representative synthetic campaign.
 - Measure graph readability, keyboard/table fallbacks, map failure states, and revision conflicts.
 - Revisit scale limits and asset portability before productionizing visual views.
+- Add dedicated membership and placement projections if measured query or rebuild needs justify them.
+- Evaluate an advanced canvas adapter and Dagre layout, then add persisted manual relationship-board positions if interaction testing supports them.
+- Add a multiple-view selector or view manager for campaigns with several maps or relationship boards.
 
 ## References
 

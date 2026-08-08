@@ -39,11 +39,12 @@ Current files live below `DM_HQ_DOCUMENT_ROOT`:
 ```text
 campaigns/{campaign-slug}--{campaign-short-id}/campaign.md
 campaigns/{campaign-slug}--{campaign-short-id}/items/{item-slug}--{item-short-id}.md
+campaigns/{campaign-slug}--{campaign-short-id}/views/{view-slug}--{view-short-id}.md
 campaigns/{campaign-slug}--{campaign-short-id}/templates/{template-slug}--{template-short-id}/v{version}.md
 campaigns/{campaign-slug}--{campaign-short-id}/publications/publication--{publication-short-id}/v{version}/{item-slug}--{item-short-id}.md
 ```
 
-`CampaignDocument` stores the owner, type, storage key, current version, hash, and derived search text containing body prose plus deliberately searchable metadata (title, aliases, tags, subject type, and field values), never raw frontmatter syntax. `CampaignDocumentVersion` stores complete immutable Markdown snapshots. Campaign, archive-item, template-version, and publication-entry rows point to their documents. Alias, tag, reference, relationship, session-link, title, status, and template projections are rebuilt from frontmatter; they are never independent sources of truth.
+`CampaignDocument` stores the owner, type, storage key, current version, hash, and derived search text containing body prose plus deliberately searchable metadata (title, aliases, tags, subject type, and field values), never raw frontmatter syntax. `CampaignDocumentVersion` stores complete immutable Markdown snapshots. Campaign, archive-item, Archive-view, template-version, and publication-entry rows point to their documents. An `ArchiveView` row provides the campaign-owned view identity, type, title, status, and link to its canonical document. Alias, tag, reference, relationship, session-link, title, status, and template projections are rebuilt from frontmatter; they are never independent sources of truth.
 
 Writes validate the document type, UUIDs, campaign ownership, required values, template references, typed fields, canon requirements, and link shapes. Archive item writes also bind frontmatter identity to the server record: on first save the service rewrites `id` and `campaign_id` to match the created item, and on later saves it rejects markdown whose frontmatter `id` does not match the bound archive item. They normalize frontmatter, sanitize only the body for HTML rendering, create a version, update projections, fsync a temporary file, and atomically rename it. `reconcile_documents` compares the current file and SQL hash and repairs missing or stale files from SQL.
 
@@ -76,17 +77,17 @@ Existing documents that use `reciprocal_label` require a migration to `inverse_l
 
 Every document keeps its authoritative UUID in PostgreSQL and the `id` key in frontmatter. The `slug` key is canonical path metadata: it is normalized to lowercase ASCII kebab-case, bounded to 80 characters, and cannot contain path separators. Display-name edits do not change a path. An explicit slug edit changes the storage key, atomically moves the current file, creates a new version, and emits one workspace `move` event containing both paths. The short UUID suffix prevents collisions between equal names while keeping paths readable.
 
-## Proposed exploration extension
+## Archive exploration documents
 
-[ADR 0006](../decisions/0006-archive-exploration-view-model.md) proposes, but does not yet accept, an extension to this document model. The existing `campaign.md` body would become the Wiki home and its frontmatter could carry shared Archive navigation. Inline links from that campaign document or an Archive item would produce a generic rebuildable `DocumentLink` projection.
+Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) makes the existing `campaign.md` body the Wiki home and stores shared Archive navigation in its frontmatter. Inline links from that campaign document or an Archive item use `dmhq://campaign/<uuid>` or `dmhq://item/<uuid>` targets and produce rebuildable `DocumentLink` rows. Logical campaign or item UUIDs are canonical page identities; internal `CampaignDocument.id` values never appear in canonical link targets or page routes.
 
-Proposed canonical links identify a logical campaign page or Archive item by its campaign or item UUID. `CampaignDocument.id` remains an internal persistence identity and would not appear in Markdown link targets, public page routes, or link API payloads. The exact Markdown syntax and export representation remain open until the [Archive exploration proofs of concept](../planning/archive-exploration-views.md) validate them.
+The automatic Graph is a bounded transient read model, not a canonical document. Each durable named map or relationship board is a separate `archive_view` Markdown document. An `ArchiveView` SQL row projects its identity, campaign, type, title, status, and document association. Map placements and relationship-board members currently remain structured frontmatter read from the canonical document; separate membership and placement projection tables are not part of the PoC and remain follow-up work.
 
-The automatic Graph would remain a transient read model rather than a document. Durable named maps and relationship boards may later use a separate `archive_view` Markdown document whose projections store curation and layout only. No `archive_view` schema, storage path, workspace behavior, or export contract is accepted yet, so the current storage and export lists above and below remain unchanged.
+Map frontmatter may reference a direct external HTTPS background URL and must include alt text. The server never fetches that image. The browser uses `referrerPolicy="no-referrer"`, while the UI warns that the external host still receives the image request and that the URL does not make the export self-contained. Uploaded or bundled campaign map assets require a later storage and portability decision.
 
 ## Export and restore
 
-A Markdown archive contains `manifest.json` for technical format metadata, current `campaign.md`, `items/**/*.md`, `templates/**/*.md`, `publications/**/*.md`, and `revisions/<document-id>/v<n>.md`. No campaign content is stored in `campaign.json`, and bearer publication tokens are excluded. Restore validates every document and reference before rebuilding projections and version history.
+A Markdown archive contains `manifest.json` for technical format and logical-ID/path mappings, current `campaign.md`, `items/**/*.md`, `views/**/*.md`, `templates/**/*.md`, `publications/**/*.md`, and `revisions/<document-id>/v<n>.md`. Internal `dmhq:` links are rewritten to relative Markdown paths for export. The current PoC restore parses current documents before creation, allocates remapped campaign, item, view, edge, member, and placement identities, then rewrites links, navigation, relationships, view membership, and map placements before rebuilding current projections. Each restored document starts a new baseline revision. Although revision files are exported, restore does not yet import those files or reconstruct their original revision numbers, timestamps, reasons, or history; complete historical revision restoration remains follow-up work. External map backgrounds remain URLs and are marked as non-self-contained. No campaign content is stored in `campaign.json`, and bearer publication tokens are excluded.
 
 ## Agent workspace protocol
 

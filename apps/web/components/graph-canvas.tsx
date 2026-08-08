@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
+import { archiveDocumentHref } from "@/lib/archive-routes";
 
 export default function GraphCanvas({ campaignId, nodes, edges, focusId }: { campaignId: string; nodes: GraphNode[]; edges: GraphEdge[]; focusId?: string }) {
   if (!nodes.length) return <div className="graph-empty">No connected pages in this view.</div>;
@@ -14,6 +15,6 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId }: { cam
       {edges.map((edge) => { const source = positions.get(edge.source_id); const target = positions.get(edge.target_id); if (!source || !target) return null; return <g key={`${edge.edge_class}-${edge.id}`}><line className={`graph-edge ${edge.edge_class}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} markerEnd="url(#arrow)" /><text className="graph-label" x={(source.x + target.x) / 2} y={(source.y + target.y) / 2 - 6}>{edge.label || edge.kind}</text></g>; })}
       {positioned.map((node) => <g key={node.id} className={`graph-node ${node.id === focusId ? "focus" : ""}`}><rect x={node.x - 78} y={node.y - 30} width="156" height="60" rx="12" /><text x={node.x} y={node.y - 3} textAnchor="middle">{node.title.slice(0, 22)}</text><text className="graph-node-kind" x={node.x} y={node.y + 15} textAnchor="middle">{node.kind}</text></g>)}
     </svg>
-    <div className="sr-only">{nodes.map((node) => <Link key={node.id} href={`/campaigns/${campaignId}/archive/items/${node.id}`}>{node.title}</Link>)}</div>
+    <div className="sr-only">{nodes.map((node) => <Link key={node.id} href={archiveDocumentHref(campaignId, node.id, node.node_type)}>{node.title}</Link>)}</div>
   </div>;
 }

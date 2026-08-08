@@ -1,10 +1,10 @@
 # Archive exploration views
 
-**Status:** Proposed discovery and proof-of-concept plan.
+**Status:** Accepted PoC plan; implementation validation in progress.
 
-This plan explores how the Archive can work as a campaign wiki with several ways to navigate the same knowledge. It defines lightweight proofs of concept for a Wiki, a Graph, a Map, and a Relationship view. It does not authorize production implementation or move interactive maps and graphs into Release 1.
+This plan records how the Archive PoC works as a campaign wiki with Wiki, Graph, Map, and Relationship lenses. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) authorizes its canonical document and read-model boundary. It does not move production-scale visualization, uploaded map assets, or player-visible visual views into Release 1.
 
-The proposal builds on the [Archive product](../product/archive.md), the [Archive roadmap](archive-roadmap.md), the [domain model](../architecture/domain-model.md), and the [Markdown document architecture](../architecture/markdown-documents.md). [ADR 0006](../decisions/0006-archive-exploration-view-model.md) records the proposed boundary that these prototypes must validate. It remains Proposed, and any consequential persistence decision must be accepted before production implementation.
+The plan builds on the [Archive product](../product/archive.md), the [Archive roadmap](archive-roadmap.md), the [domain model](../architecture/domain-model.md), and the [Markdown document architecture](../architecture/markdown-documents.md). Sections below preserve the validation rationale; where the current PoC is narrower, the follow-up boundary is stated explicitly.
 
 ## Outcome
 
@@ -49,13 +49,13 @@ The following are existing product or architecture decisions:
 - The interface must work on desktop and tablet, support keyboard use, and protect authorization boundaries in the backend.
 - The current roadmap places production interactive maps and graphs in Release 3. [ADR 0002](../decisions/0002-archive-application-architecture.md) defers visualization libraries, PostGIS, and graph databases until an active capability and measured need justify them.
 
-### Proposals to test
+### Accepted PoC boundary
 
-The following are proposals, not accepted decisions:
+The following choices are accepted for the PoC by ADR 0006:
 
 - Every note, entity, and session can be rendered as a wiki page. `Page` is a presentation role, not a new Archive item kind.
 - Wiki and Graph are fixed core Archive tabs for every campaign.
-- Maps and Relationships are optional top-level tabs. Each appears after the campaign creates its first view of that type and contains a selector for its named view instances.
+- Maps and Relationships are optional top-level tabs. Each appears after the campaign creates its first view of that type. The accepted design contains a selector for named instances; the current PoC links to the first active instance.
 - The canonical `campaign.md` body is the wiki home page. Until it has authored content, the interface may show a generated starting state without saving generated prose.
 - The Graph is derived automatically and does not persist its own nodes or semantic edges.
 - Map and Relationship view instances persist only configuration, membership, placement, and explanatory text. They do not copy titles, prose, or relationship facts from Archive items.
@@ -67,14 +67,14 @@ The following are proposals, not accepted decisions:
 
 ### Tabs and view instances
 
-The proposed Archive tab strip contains:
+The Archive tab strip contains:
 
 1. **Wiki** — the primary writing and reading surface.
 2. **Graph** — an automatic view of links and relationships.
 3. **Maps** — an optional tab that selects among named maps such as “Sword Coast” or “Castle Level 2.”
 4. **Relationships** — an optional tab that selects among named boards such as “Royal Family” or “Harbor Factions.”
 
-Wiki and Graph remain present as the fixed core views. Maps or Relationships appears only after the first instance of that type exists. A selector inside either optional tab changes the named instance without adding more top-level tabs. An “Add map” or “Add relationship board” action creates a view instance; it does not create an Archive item.
+Wiki and Graph remain present as the fixed core views. Maps or Relationships appears only after the first instance of that type exists. The accepted design changes named instances inside the optional tab without adding more top-level tabs. The current PoC opens the first active view, so the selector or view manager remains follow-up work. An “Add map” or “Add relationship board” action creates a view instance; it does not create an Archive item.
 
 Each optional view has a stable ID, title, type, and deep link. Renaming a view changes its label, not its identity. Archiving the last view of one type removes that type's top-level tab while preserving view history and every item shown in it.
 
@@ -84,11 +84,11 @@ The Wiki tab renders the canonical `campaign.md` body as the campaign home page.
 
 Campaign-owned shared navigation also belongs to `campaign.md`. Further organization comes from stable links among the campaign home and Archive items. A DM can make the campaign home link to an index, a place page link to its residents, a faction page link to its rivals, or a session page link to relevant clues without placing those records in separate folder-owned copies.
 
-The editor should insert links through search or autocomplete so the stored link uses a stable logical target ID. The displayed label may remain human-readable. The exact Markdown link syntax, how exports rewrite links, and whether a link may target a not-yet-created page require a decision before production work.
+The editor inserts links through search so the stored link uses a stable logical target ID and the displayed label remains human-readable. Canonical links use `dmhq://campaign/<uuid>` or `dmhq://item/<uuid>`; exports rewrite them to relative Markdown paths and record logical ID/path mappings. Missing targets are invalid.
 
-### Proposed shared navigation configuration
+### Shared navigation configuration
 
-The `campaign.md` frontmatter should carry campaign-owned Archive navigation separately from the Wiki home body. The provisional configuration needs:
+The `campaign.md` frontmatter carries campaign-owned Archive navigation separately from the Wiki home body. The configuration supports:
 
 - A schema version so the structure can migrate deliberately.
 - Ordered navigation groups with stable group keys and human-readable titles.
@@ -257,15 +257,15 @@ Add a campaign-owned document type for each Map or Relationship view. Its frontm
 campaigns/{campaign-slug}--{campaign-short-id}/views/{view-slug}--{view-short-id}.md
 ```
 
-View documents would use the same validation, optimistic concurrency, revision, workspace, export, restore, and reconciliation services as other canonical campaign documents.
+View documents use the same validation, optimistic concurrency, revision, workspace, current-document export/restore, and reconciliation services as other canonical campaign documents. The current restore creates a fresh baseline revision for each imported document; importing exported historical revision files and their metadata remains follow-up work.
 
 ### Recommended proposal
 
 Use Alternative C for campaign-owned view instances and Alternative A only for clearly personal, ephemeral interaction preferences.
 
-This model best matches campaign portability and lets an authorized agent understand how a campaign is organized without scraping UI state. It also keeps presentation configuration separate from Archive item facts. It requires an accepted ADR that extends the canonical document model, plus defined migration, export, restore, and workspace behavior, before production implementation.
+This model best matches campaign portability and lets an authorized agent understand how a campaign is organized without scraping UI state. It also keeps presentation configuration separate from Archive item facts. ADR 0006 accepts the model, and the PoC implements canonical current view documents with migration, export, restore, and workspace behavior.
 
-The proof of concept may begin with a checked-in synthetic view fixture or an in-memory adapter. Persistence is proven only when a view document can round-trip, reload, revise, export, and restore without copying Archive content.
+The current-document round trip proves that a view can reload, revise, export, and restore without copying Archive content. Full portability acceptance additionally requires restoring exported historical revisions with their original numbers, timestamps, reasons, and content; that is a future completion goal, not current PoC behavior.
 
 ## Cross-cutting requirements
 
@@ -327,7 +327,7 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 
 **Out of scope**
 
-- Transclusion, embedded blocks, rich-text editing, folders, live collaboration, and final link syntax.
+- Transclusion, embedded blocks, rich-text editing, folders, and live collaboration.
 - Automatic creation of missing pages from free text.
 - Player publication of linked page networks.
 
@@ -361,11 +361,11 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 
 **Scope**
 
-- Create one named Map view from a synthetic raster image fixture.
+- Create one named Map view from a direct external HTTPS raster image URL with required alt text and an explicit privacy and portability warning.
 - Add an existing Archive item as a point marker using normalized coordinates.
 - Move and remove the marker without editing or deleting the item.
-- Pan and zoom the image, open the linked item, and use a searchable marker list.
-- Persist enough view configuration to reload marker placement if persistence is in scope for the prototype stage.
+- Open linked items and use numeric coordinate controls and a marker list. Advanced canvas pan and zoom remain follow-up work.
+- Persist canonical view configuration so marker placements survive reloads.
 
 **Acceptance**
 
@@ -378,7 +378,7 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 
 **Out of scope**
 
-- Image upload and processing, external maps, geographic coordinates, regions, routes, distance, travel time, nested levels, fog of war, and location history.
+- Image upload and processing, geographic coordinates, regions, routes, distance, travel time, nested levels, fog of war, and location history.
 - Player-visible layers or publication.
 
 ### PoC 4 — Relationship view instance
@@ -389,7 +389,7 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 - Draw only canonical typed relationships among those items.
 - Create one canonical relationship through the shared relationship form, save it in the source item's Markdown, and refresh the board from the resulting projection.
 - Add or remove view membership without changing the relationship facts.
-- Apply an automatic layout and optionally retain presentation-only node positions.
+- Display a deterministic simple SVG layout. Advanced canvas interaction, Dagre layout, and persisted manual node positions remain follow-up work.
 - Open the canonical item from a node and provide an adjacency-list alternative.
 - Use a small synthetic family network to test reciprocal labels, cycles, and more than one relationship between two people.
 
@@ -415,11 +415,11 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 
 | Stage | Work | Dependency | Exit evidence |
 | --- | --- | --- | --- |
-| 0. Resolve blockers | Review proposed ADR 0006 and decide provisional stable-link behavior, view ownership, and synthetic map media. | Existing Archive decisions. | Reviewable proposal and explicit open questions. |
+| 0. Record boundary | Apply accepted ADR 0006: stable UUID links, campaign-owned view documents, and the external HTTPS map exception. | Existing Archive decisions. | Accepted boundary and explicit follow-ups. |
 | 1. Build the fixture | Create one deterministic synthetic campaign and expected document-link, reference, relationship, graph, map, and view outcomes. | Stage 0 vocabulary. | Fixture manifest and expected edge tables. |
 | 2. Prove Wiki links | Run PoC 1 and validate reference/backlink projections. | Stable item identity and item authoring. | Link, rename, archive, and authorization results. |
 | 3. Prove derived Graph | Run PoC 2 from the reference and relationship projections. | Stage 2 reference behavior. | Correctness, accessibility, and timing evidence. |
-| 4. Prove view documents | Round-trip the minimum Map and Relationship configuration model or document fixture. | Proposed view persistence decision. | Reload, revision, export, and restore findings. |
+| 4. Prove view documents | Round-trip the minimum Map and Relationship configuration model or document fixture. | Accepted view persistence decision. | Current-document reload, revision, export, and baseline-restore findings; historical restore gap recorded. |
 | 5. Prove optional views | Run PoCs 3 and 4. These may proceed in parallel after Stage 4. | Shared view model and fixture media. | Task tests, accessibility results, and no-copy checks. |
 | 6. Decide roadmap fit | Compare evidence with DM attention, retrieval, safety, and portability goals. | All PoC evidence. | Promote, revise, defer, or reject each capability. |
 
@@ -466,7 +466,7 @@ At least one simulated live-session exercise should ask a DM to move from an unf
 | Link syntax is portable but fragile, or stable but opaque outside DM HQ. | Test stable IDs, human labels, rename behavior, and export rewriting before accepting a syntax. |
 | Named views overwhelm navigation. | Keep two core tabs, group named instances under Maps and Relationships selectors, and test campaigns with many views of each type. |
 | A hidden item leaks through graph shape or counts. | Authorize before projection output and add negative tests for nodes, edges, labels, and aggregate counts. |
-| Map media forces premature attachment infrastructure. | Use a synthetic local fixture and keep media persistence as an explicit dependency decision. |
+| External map media leaks requests or weakens portability. | Require direct HTTPS URLs and alt text, use a no-referrer browser request, warn that the host receives the request, and mark exports as non-self-contained. |
 | View frontmatter grows too large or creates edit conflicts. | Measure representative placement counts and compare a future per-placement document model only if evidence shows a problem. |
 | Family diagrams imply facts the model does not contain. | Render only explicit relationships, preserve edge kinds, and avoid inferred genealogy. |
 | Canvas interactions exclude keyboard or screen-reader users. | Build and test equivalent lists from the first prototype rather than treating them as later remediation. |
@@ -474,25 +474,22 @@ At least one simulated live-session exercise should ask a DM to move from an unf
 
 ## Open questions
 
-These questions must remain visibly unresolved until evidence or an ADR answers them.
+ADR 0006 resolved the shared persistence boundary. These remaining questions guide PoC validation and follow-up work.
 
-### Blocking the shared model
+### Implementation follow-ups
 
-- What canonical Markdown syntax represents an inline campaign or item link while remaining stable across title and slug changes?
-- Should export preserve an application link, rewrite it to a relative Markdown path, or include both stable identity and portable path metadata?
-- How should shared navigation be represented in `campaign.md` without making ordinary home-page edits difficult to review?
-- Are optional view definitions owned by the campaign, a user, or both? Which parts are shared versus personal?
-- Does accepting canonical view documents provide enough value to extend ADR 0005 with a new document type, and how are those documents revised, archived, exported, restored, and synchronized?
-- What stable media identity may a Map view reference before the attachment model exists?
-- Which relationship kinds are sufficient to test a family-style view without introducing ruleset-specific semantics?
+- When do membership and placement query patterns justify dedicated rebuildable projection rows instead of reading canonical view frontmatter?
+- When should uploaded or self-contained map assets replace the direct external HTTPS URL exception?
+- Which relationship-kind presets need refinement after representative campaign testing?
 
 ### To answer with prototypes
 
 - Which edge classes belong in the Graph by default?
 - Should the Graph open as a focused neighborhood, a filtered campaign overview, or remember a personal last state?
-- How many named maps or relationship boards remain usable in each selector before search or a view manager is necessary?
-- Should Relationship view membership be explicit only, query-driven, or a combination?
-- Is automatic layout sufficient, or is shared manual placement important enough to persist?
+- Which multiple-view selector or view manager remains usable with many maps or relationship boards?
+- Should Relationship view membership remain explicit only, or gain query-driven curation?
+- Does an advanced canvas adapter and Dagre layout improve the experience enough to adopt them?
+- Is automatic layout sufficient, or is saved manual positioning important enough to persist?
 - Which map marker notes belong in view configuration versus the linked Archive item's prose?
 - What node, edge, backlink, marker, and tab counts remain useful on the target tablet?
 - Do users understand the difference between a reference, a relationship, a Graph, and a curated Relationship view?
@@ -508,12 +505,12 @@ These questions must remain visibly unresolved until evidence or an ADR answers 
 
 ## Decision gate
 
-After the proofs of concept, review each capability independently. A capability moves toward implementation only if evidence shows that it:
+After the proofs of concept, review each capability independently. A capability moves from PoC toward productionization only if evidence shows that it:
 
 - Reduces the DM's time or attention needed to capture, retrieve, or understand campaign knowledge.
 - Reuses canonical Archive items and relationships without creating competing facts.
-- Preserves campaign authorization, publication safety, revision, export, and restore guarantees.
+- Preserves campaign authorization and publication safety, and completes the intended revision, export, and restore guarantees, including historical revision reconstruction.
 - Works accessibly on desktop and tablet.
 - Has a bounded implementation that does not require speculative infrastructure.
 
-If those conditions are met, update the [Archive roadmap](archive-roadmap.md), accept or revise [ADR 0006](../decisions/0006-archive-exploration-view-model.md), and create a separate implementation increment with migrations, rollback considerations, tests, and documentation. If they are not met, retain the evidence and defer or reject the view rather than keeping an unsupported prototype in the product.
+ADR 0006 is accepted and the integrated PoC is the implementation increment under validation. Evidence from this gate determines whether each visual capability is productionized, revised, or deferred. Advanced canvas and Dagre layout, persisted manual relationship positions, dedicated membership and placement projections, and a multiple-view selector remain explicit follow-ups rather than implied completed scope.

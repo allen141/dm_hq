@@ -26,18 +26,17 @@ Resolve these through user research, prototypes, or architecture decisions. When
 
 ## Archive exploration
 
-- Which readable Markdown syntax should encode a stable inline link to a logical campaign or item UUID?
-- How should portable export represent those links, and how should existing frontmatter references coexist with the proposed `DocumentLink` projection?
-- How should `campaign.md` store shared Wiki navigation without making ordinary home-page edits difficult to review?
-- Which tab names and order are campaign-owned, and which focus, filter, selection, pan, and zoom state remains personal?
-- Does durable map and relationship-board curation provide enough value to add canonical `archive_view` documents?
-- Which edge classes and bounded query limits make the Graph useful without becoming cluttered?
-- What stable asset identity can maps use before attachment storage, export, and restore are designed?
-- Is automatic relationship layout sufficient, or should campaign-owned manual placement persist?
-- What separate publication representation could make a graph, map, or relationship board player-safe?
-- Which list and keyboard alternatives provide equivalent access to every visual exploration task?
+Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) settles canonical UUID links, `campaign.md` navigation, durable `archive_view` documents, DM-only visual views, and the direct external HTTPS map-image exception for the PoC. The remaining questions are follow-up validation rather than blockers for that boundary:
 
-Proposed [ADR 0006](../decisions/0006-archive-exploration-view-model.md) defines the boundary to test. The [Archive exploration views plan](archive-exploration-views.md) records the four proofs of concept and the evidence required before that proposal can be accepted or the roadmap changed.
+- When do measured query or rebuild costs justify dedicated membership and placement projection tables?
+- Does an advanced canvas adapter and Dagre layout materially improve retrieval and accessibility over the PoC SVG?
+- Is automatic relationship layout sufficient, or should campaign-owned manual positions persist?
+- What multiple-view selector or view manager remains usable with many maps or relationship boards?
+- When should uploaded or self-contained map assets replace or supplement external URLs?
+- What separate publication representation could make a graph, map, or relationship board player-safe?
+- Which list and keyboard alternatives provide equivalent access to every advanced visual interaction?
+
+The [Archive exploration views plan](archive-exploration-views.md) records the PoC slices and evidence required before production-scale visualization work changes the roadmap.
 
 ## Technology
 

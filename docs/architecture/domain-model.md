@@ -22,11 +22,11 @@ This is shared vocabulary for discovery, not a finalized database schema. The Ar
 | Combatant | An encounter participant with temporary runtime state. |
 | Ruleset extension | Templates, fields, terminology, validation, and references associated with a particular game system. |
 
-## Proposed exploration vocabulary
+## Archive exploration vocabulary
 
-The following concepts come from proposed [ADR 0006](../decisions/0006-archive-exploration-view-model.md). They guide discovery prototypes but are not accepted additions to the production model.
+The following concepts are accepted by [ADR 0006](../decisions/0006-archive-exploration-view-model.md) and used by the Archive PoC.
 
-| Concept | Proposed purpose |
+| Concept | Purpose |
 | --- | --- |
 | Document link | A rebuildable projection of an inline link from the campaign home or an Archive item to a logical campaign or item UUID. |
 | Archive view | A campaign-owned definition that curates and lays out one named map or relationship board without owning Archive facts. |
@@ -40,13 +40,13 @@ A template version is itself a Markdown document whose frontmatter defines typed
 
 ### Link, reference, relationship, and placement
 
-An existing reference is an explicit item-to-item navigational connection projected from frontmatter. Proposed document links extend navigation to inline links from `campaign.md` or an Archive item and can target the logical campaign page or an item. Canonical links and page routes use campaign or item UUIDs, never the internal `CampaignDocument.id`.
+An existing reference is an explicit item-to-item navigational connection projected from frontmatter. Document links extend navigation to inline links from `campaign.md` or an Archive item and can target the logical campaign page or an item. Canonical links and page routes use campaign or item UUIDs, never the internal `CampaignDocument.id`.
 
 A relationship is a typed assertion between durable subjects. It is authored once in the source Archive item's Markdown frontmatter with a stable edge UUID and target item UUID. The target page's incoming or inverse view is derived; it does not own a mirrored fact. A placement only controls which item appears in a map or relationship board and where it is drawn. Removing a placement must not delete the item or a relationship, and moving a map pin must not silently assert a fictional location.
 
 ### Archive item and Archive view
 
-An Archive item owns campaign prose and structured facts. Under the proposed exploration model, an Archive view owns only curation, captions, filters, and presentation layout for a named map or relationship board. Wiki and Graph are fixed core lenses rather than view documents; Maps and Relationships are optional top-level lenses that select among named Archive views.
+An Archive item owns campaign prose and structured facts. An Archive view owns only curation, captions, filters, and presentation layout for a named map or relationship board. It has a canonical `archive_view` Markdown document and an `ArchiveView` SQL summary row. The current PoC reads members and placements from the Markdown; dedicated membership and placement projection rows are follow-up work. Wiki and Graph are fixed core lenses rather than view documents; Maps and Relationships are optional top-level lenses.
 
 ### Source content and published content
 
@@ -75,10 +75,8 @@ Campaigns, entities, notes, relationships, claims, revisions, sessions, and publ
 - Which campaign-specific custom fields must remain searchable and filterable?
 - How are incomplete or contradictory claims reconciled without losing provenance?
 - Which publication information must remain after player access is revoked?
-- Which Markdown syntax gives document links stable logical identities and readable portable exports?
-- How should existing frontmatter references coexist with the proposed generic document-link projection?
-- Which shared navigation settings belong in `campaign.md`, and which interaction state remains personal?
-- Does durable map and relationship-board curation justify a new canonical Archive-view document type?
+- How should existing frontmatter references and generic document links converge over time without losing meaning?
+- Which shared navigation refinements belong in `campaign.md`, and which interaction state should remain personal?
 - Which graph edge classes are useful by default without overwhelming the DM?
-- What stable asset identity can a map use before attachment storage and portability are decided?
+- When should self-contained map assets replace or supplement the accepted external-HTTPS-URL exception?
 - What separate publication representation could make a visual view player-safe?

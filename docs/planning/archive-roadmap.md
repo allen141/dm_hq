@@ -2,7 +2,7 @@
 
 This roadmap keeps the active first Archive release narrow while preserving a path to the broader product vision. Release 1 foundation implementation is in progress. Later releases remain directional and should be revisited using research and evidence from real campaigns.
 
-The [Archive implementation plan](archive-implementation-plan.md) tracks Release 1 against the architecture accepted in [ADR 0002](../decisions/0002-archive-application-architecture.md). Proposed exploration prototypes gather evidence for later roadmap decisions without changing the current release boundary.
+The [Archive implementation plan](archive-implementation-plan.md) tracks Release 1 against the architecture accepted in [ADR 0002](../decisions/0002-archive-application-architecture.md). The Archive exploration PoC implements the boundary accepted in [ADR 0006](../decisions/0006-archive-exploration-view-model.md) while leaving production hardening and advanced visual interaction as follow-up work.
 
 ## Delivery rules
 
@@ -16,9 +16,9 @@ The [Archive implementation plan](archive-implementation-plan.md) tracks Release
 
 ## Discovery validation track
 
-The proposed [Archive exploration views plan](archive-exploration-views.md) defines lightweight Wiki, Graph, Map, and Relationship proofs of concept. Proposed [ADR 0006](../decisions/0006-archive-exploration-view-model.md) supplies their decision boundary.
+The [Archive exploration views plan](archive-exploration-views.md) defines the Wiki, Graph, Map, and Relationship PoC slices. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) supplies their decision boundary.
 
-This work is an evidence track, not a production increment. It may use synthetic fixtures, bounded read models, a bundled sample map, and disposable interaction code without adding graph, GIS, attachment, or visualization infrastructure to Release 1. Each proof of concept must measure retrieval value, accessibility, privacy, portability, and the risk of duplicating campaign facts.
+This remains an evidence track rather than a production-scale visualization increment. The current implementation uses bounded read models, canonical view Markdown, simple SVG rendering, and direct external HTTPS map images. It does not add a graph database, GIS, attachment pipeline, or advanced canvas framework. Validation must measure retrieval value, accessibility, privacy, portability, and the risk of duplicating campaign facts.
 
 After validation, each capability is promoted, revised, deferred, or rejected independently. Moving a production capability earlier than Release 3 requires an explicit roadmap change and any necessary accepted architecture decision.
 

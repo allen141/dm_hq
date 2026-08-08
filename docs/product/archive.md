@@ -72,7 +72,7 @@ These terms describe product behavior, not a finalized storage schema.
 
 A reference means that one Archive item points to another. It supports navigation and backlinks but does not state that the subjects are related in the fictional world. A relationship is a typed semantic connection, such as a person belonging to a faction. Each relationship is authored once in the source item's Markdown frontmatter; incoming connections, inverse wording, per-page panels, and graphs are derived from that canonical entry rather than copied into the target document.
 
-[ADR 0006](../decisions/0006-archive-exploration-view-model.md) proposes a generic document-link projection so the campaign home and item bodies can also link through stable logical campaign or item identities. It separately proposes view placement for presentation-only choices such as putting an item at a map coordinate or in a relationship-board layout. A placement must not become a location fact or relationship merely because it appears in a view.
+Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) adds a generic document-link projection so the campaign home and item bodies can link through stable logical campaign or item identities. It also defines view placement for presentation-only choices such as putting an item at a map coordinate or adding it to a relationship board. A placement must not become a location fact or relationship merely because it appears in a view.
 
 ### Relationship and claim
 
@@ -86,22 +86,24 @@ Revision history answers what the user edited and when. Fictional chronology ans
 
 A publication has its own safe Markdown document, revision, and lifecycle. Editing a private Archive record does not silently publish the change. Revocation prevents future player access without erasing the publication history.
 
-## Proposed exploration experience
+## Archive exploration experience
 
-**Status:** Proposed for discovery and proof-of-concept validation.
+**Status:** Accepted architecture with an integrated DM-only proof of concept.
 
-The proposed Archive shell keeps search and quick capture available across several lenses over the same campaign knowledge:
+The Archive shell keeps search and quick capture available across several lenses over the same campaign knowledge:
 
 - **Wiki** is a fixed core tab. The canonical `campaign.md` body is its home page, and notes, entities, and sessions are its other pages.
 - **Graph** is a fixed core tab. It derives a bounded, read-only network from the campaign home, item links, existing references, and semantic relationships.
-- **Maps** appears after a campaign creates its first map. A selector inside the tab chooses among named map instances.
-- **Relationships** appears after a campaign creates its first relationship board. A selector inside the tab chooses among named boards.
+- **Maps** appears after a campaign creates its first map.
+- **Relationships** appears after a campaign creates its first relationship board.
 
-The proposed document-link projection uses logical campaign and item UUIDs; the internal `CampaignDocument.id` is never a page identity or canonical link target. Map and relationship-board documents would store only curation, layout, captions, and references to existing items. Relationship boards read canonical relationship entries from item Markdown. Their shared relationship form edits the owning source document and refreshes derived incoming and graph projections rather than creating canvas-only edges.
+The accepted model allows several named maps and relationship boards. The current shell links to the first active view of each type; a multiple-view selector or view manager is follow-up work.
 
-All exploration views remain DM-private. A player-visible wiki, graph, map, or relationship board would require a separate, versioned safe publication artifact instead of hiding private nodes in the browser.
+The document-link projection uses logical campaign and item UUIDs; the internal `CampaignDocument.id` is never a page identity or canonical link target. Each map or relationship board has a canonical `archive_view` Markdown document and an `ArchiveView` SQL summary row. The Markdown stores curation, layout, captions, and references to existing items; the current PoC reads membership and placements directly from that Markdown rather than materializing separate projection tables. Relationship boards read canonical relationship entries from item Markdown rather than creating canvas-only edges.
 
-See the [Archive exploration views plan](../planning/archive-exploration-views.md) and proposed [ADR 0006](../decisions/0006-archive-exploration-view-model.md) for the proof-of-concept scope, alternatives, and open questions. Production interactive maps and graphs remain later-roadmap capabilities unless evidence supports an explicit roadmap change.
+Maps accept a direct external HTTPS image URL and required alt text. The browser loads that URL with a no-referrer policy; the UI warns that the image host still receives the request and that the exported campaign contains the URL, not a self-contained image. All exploration views remain DM-private. A player-visible wiki, graph, map, or relationship board would require a separate, versioned safe publication artifact instead of hiding private nodes in the browser.
+
+See the [Archive exploration views plan](../planning/archive-exploration-views.md) and accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) for the PoC scope, alternatives, and follow-up validation. Advanced canvas interaction, Dagre layout, persisted manual relationship positions, dedicated membership and placement projections, and multiple-view selection remain follow-up work.
 
 ## Core workflows
 
@@ -119,7 +121,7 @@ See the [Archive exploration views plan](../planning/archive-exploration-views.m
 
 ## Release direction
 
-[The Archive roadmap](../planning/archive-roadmap.md) defines release boundaries, while the [Archive implementation plan](../planning/archive-implementation-plan.md) tracks the active Release 1 foundation. Proposed exploration prototypes gather evidence without silently adding their production scope or dependencies to Release 1.
+[The Archive roadmap](../planning/archive-roadmap.md) defines release boundaries, while the [Archive implementation plan](../planning/archive-implementation-plan.md) tracks the active Release 1 foundation. The accepted exploration boundary supports the integrated PoC; remaining production hardening and richer visual interaction stay explicit follow-up work.
 
 
 ## Canonical campaign documents

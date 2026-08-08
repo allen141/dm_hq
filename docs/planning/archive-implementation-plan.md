@@ -311,7 +311,7 @@ Release 1 preserves these seams without implementing them:
 | Co-DM collaboration | Campaign membership exists, but only the owner role is granted. |
 | Additional rulesets | Shared Archive concepts do not contain mandatory 5e fields. |
 
-The proposed [Archive exploration views plan](archive-exploration-views.md) validates Wiki, Graph, Map, and Relationship interactions against these seams. It is a separate discovery track and does not add production view endpoints, document types, dependencies, or acceptance criteria to Release 1. Promotion requires evidence, an explicit roadmap update, and acceptance or revision of proposed [ADR 0006](../decisions/0006-archive-exploration-view-model.md).
+The [Archive exploration views plan](archive-exploration-views.md) validates Wiki, Graph, Map, and Relationship interactions against these seams under accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md). The integrated PoC adds its documented endpoints and canonical `archive_view` type without making production-scale visualization part of the Release 1 foundation. Promotion still requires evidence and an explicit roadmap update.
 
 ## Definition of Release 1 complete
 
