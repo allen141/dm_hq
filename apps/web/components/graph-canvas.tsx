@@ -48,8 +48,9 @@ class GraphRenderBoundary extends Component<
     return { failed: true };
   }
 
-  componentDidCatch() {
-    this.props.onError("The WebGL view could not start. The page index remains fully available.");
+  componentDidCatch(error: unknown) {
+    const detail = error instanceof Error && error.message ? ` (${error.message})` : "";
+    this.props.onError(`The WebGL view could not start${detail}. The page index remains fully available.`);
   }
 
   componentDidUpdate(previous: Readonly<{ resetKey: number }>) {

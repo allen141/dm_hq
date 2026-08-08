@@ -7,7 +7,7 @@ import { createEdgeCurveProgram } from "@sigma/edge-curve";
 import { bindWebGLLayer, createContoursProgram } from "@sigma/layer-webgl";
 import { createNodeBorderProgram } from "@sigma/node-border";
 import { MultiDirectedGraph } from "graphology";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type Sigma from "sigma";
 import { createEdgeArrowProgram } from "sigma/rendering";
 import type { Settings } from "sigma/settings";
@@ -130,6 +130,7 @@ function GraphController({
     },
   });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const coarsePointer = useSyncExternalStore(subscribeCoarsePointer, coarsePointerSnapshot, () => false);
 
   useEffect(() => {
     registerEvents({
@@ -223,7 +224,7 @@ function GraphController({
   }, [gotoNode, graph, reducedMotion, selectedId]);
 
   useEffect(() => {
-    if (reducedMotion || graph.order < 2) {
+    if (reducedMotion || coarsePointer || graph.order < 2) {
       reset({ duration: 0 });
       return;
     }
@@ -236,10 +237,10 @@ function GraphController({
       window.clearTimeout(timer);
       stopLayout();
     };
-  }, [graph, reducedMotion, reset, startLayout, stopLayout]);
+  }, [coarsePointer, graph, reducedMotion, reset, startLayout, stopLayout]);
 
   useEffect(() => {
-    if (!selectedId || !graph.hasNode(selectedId) || reducedMotion) return;
+    if (!selectedId || !graph.hasNode(selectedId) || reducedMotion || coarsePointer) return;
     const activeNodes = [selectedId, ...graph.neighbors(selectedId)];
     try {
       const cleanup = bindWebGLLayer(
@@ -262,7 +263,7 @@ function GraphController({
     } catch {
       return;
     }
-  }, [graph, reducedMotion, selectedId, sigma]);
+  }, [coarsePointer, graph, reducedMotion, selectedId, sigma]);
 
   useEffect(() => {
     const contextLoss = (event: Event) => {
@@ -275,7 +276,7 @@ function GraphController({
   }, [onRenderError, sigma]);
 
   const relayout = useCallback(() => {
-    if (reducedMotion || graph.order < 2) {
+    if (reducedMotion || coarsePointer || graph.order < 2) {
       reset({ duration: 0 });
       return;
     }
@@ -284,7 +285,7 @@ function GraphController({
       stopLayout();
       reset({ duration: 180 });
     }, 700);
-  }, [graph.order, reducedMotion, reset, startLayout, stopLayout]);
+  }, [coarsePointer, graph.order, reducedMotion, reset, startLayout, stopLayout]);
 
   return (
     <div className="graph-camera-controls" aria-label="Graph camera controls">
@@ -332,6 +333,18 @@ function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId?: string) {
   }
 
   return graph;
+}
+
+function subscribeCoarsePointer(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia("(pointer: coarse)");
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function coarsePointerSnapshot() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(pointer: coarse)").matches;
 }
 
 function supportsWebgl() {
