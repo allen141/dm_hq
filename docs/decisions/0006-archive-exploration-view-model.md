@@ -138,7 +138,7 @@ The PoC uses bounded neighborhood queries, simple SVG, and normalized image coor
 - Measure graph readability, keyboard/table fallbacks, map failure states, and revision conflicts.
 - Revisit scale limits and asset portability before productionizing visual views.
 - Add dedicated membership and placement projections if measured query or rebuild needs justify them.
-- Evaluate an advanced canvas adapter and Dagre layout, then add persisted manual relationship-board positions if interaction testing supports them.
+- Implement the accepted [Sigma.js graph renderer](0007-webgl-graph-renderer.md) behind the bounded read-model boundary. Persisted automatic-graph positions remain out of scope; add persisted manual relationship-board positions only if interaction testing supports them.
 - Add a multiple-view selector or view manager for campaigns with several maps or relationship boards.
 
 ## References
