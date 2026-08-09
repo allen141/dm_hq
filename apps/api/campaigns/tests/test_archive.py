@@ -271,7 +271,12 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(graph.status_code, 200)
         node_ids = {node["id"] for node in graph.json()["nodes"]}
-        expected_ids = {source["id"], direct_target["id"], distant_source["id"], distant_target["id"]}
+        expected_ids = {
+            source["id"],
+            direct_target["id"],
+            distant_source["id"],
+            distant_target["id"],
+        }
         self.assertTrue(expected_ids <= node_ids)
 
     def test_graph_includes_bounded_plain_text_node_summaries(self):
