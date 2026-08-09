@@ -232,7 +232,7 @@ The Graph needs one read model that preserves the source and meaning of each edg
 - Direction and canonical source ownership.
 - Source document version.
 
-The projection is rebuilt from canonical documents and existing relationship projections. It includes the campaign home as a graph node when it links to or is linked from an Archive item. Parallel edges are retained in the API even if the interface groups them visually. This prevents a document link, an existing reference, and a semantic relationship between the same pages from being mistaken for one fact.
+The projection is rebuilt from canonical documents and existing relationship projections. A one-hop request presents every directly connected component in the campaign edge atlas, including the campaign home when it links to or is linked from an Archive item. Parallel edges are retained in the API even if the interface groups them visually. This prevents a document link, an existing reference, and a semantic relationship between the same pages from being mistaken for one fact.
 
 The first Graph proof of concept includes `document_link`, `reference`, and `relationship` edges by default. Entity-reference template fields and session links should be tested as filters before becoming default edges because they may create noise.
 
@@ -292,7 +292,7 @@ The current-document round trip proves that a view can reload, revise, export, a
 
 ### Performance
 
-- Do not load a whole campaign graph by default. Start with a focused item or a bounded overview.
+- The one-hop view is a bounded edge-atlas overview that includes every directly connected component; two-hop exploration remains focused on the selected page.
 - Graph requests declare depth and edge classes and enforce server-side node and edge caps.
 - The UI reports truncation and offers filters instead of silently dropping edges.
 - PostgreSQL projections and ordinary indexed joins are the first implementation hypothesis. A graph database is considered only after representative evidence shows they are insufficient.

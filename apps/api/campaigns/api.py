@@ -796,7 +796,9 @@ def archive_graph(
 
     max_nodes, max_edges = 100, 250
     visited = {selected_focus}
-    frontier = {selected_focus}
+    # One hop is the complete connected atlas: every edge is one hop from
+    # the page it joins. Two hops remains a focused expansion from the selected page.
+    frontier = set(node_map) if depth == 1 else {selected_focus}
     included_edge_ids: set[str] = set()
     included_edges: list[dict[str, Any]] = []
     nodes_truncated = False

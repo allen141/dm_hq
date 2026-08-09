@@ -254,6 +254,25 @@ class ArchiveApiTests(TestCase):
         bad_link = self.create_item(body=f"[Missing](dmhq://item/{uuid.uuid4()})")
         self.assertIn("detail", bad_link)
 
+    def test_one_hop_includes_all_connected_components(self):
+        direct_target = self.create_item(title="Direct target")
+        source = self.create_item(
+            title="Focused source",
+            body=f"Follow [Direct target](dmhq://item/{direct_target['id']}).",
+        )
+        distant_target = self.create_item(title="Distant target")
+        distant_source = self.create_item(
+            title="Distant source",
+            body=f"Follow [Distant target](dmhq://item/{distant_target['id']}).",
+        )
+
+        graph = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1"
+        )
+        self.assertEqual(graph.status_code, 200)
+        node_ids = {node["id"] for node in graph.json()["nodes"]}
+        self.assertTrue({source["id"], direct_target["id"], distant_source["id"], distant_target["id"]} <= node_ids)
+
     def test_graph_includes_bounded_plain_text_node_summaries(self):
         target = self.create_item(
             title="Target",
