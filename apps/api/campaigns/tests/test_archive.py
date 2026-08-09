@@ -266,9 +266,7 @@ class ArchiveApiTests(TestCase):
             body=f"Follow [Distant target](dmhq://item/{distant_target['id']}).",
         )
 
-        graph = self.client.get(
-            f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1"
-        )
+        graph = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1")
         self.assertEqual(graph.status_code, 200)
         node_ids = {node["id"] for node in graph.json()["nodes"]}
         expected_ids = {
