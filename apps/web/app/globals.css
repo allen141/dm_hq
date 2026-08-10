@@ -343,7 +343,7 @@ th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: l
 .map-stage img { display: block; width: 100%; min-height: 360px; height: auto; object-fit: contain; }
 .map-unavailable { position: absolute; inset: 20px; display: grid; place-items: center; }
 .map-marker { position: absolute; z-index: 2; width: 44px; height: 44px; padding: 0; border: 3px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 16px rgb(0 0 0 / 42%); }
-.map-popover { position: absolute; z-index: 8; right: 18px; bottom: 18px; width: min(360px, calc(100% - 36px)); pointer-events: none; }
+.map-popover { position: fixed; z-index: 8; width: min(360px, calc(100% - 36px)); pointer-events: none; }
 .map-summary-card {
   padding: 18px;
   border: 1px solid rgb(227 187 119 / 48%);
@@ -429,7 +429,7 @@ th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: l
   .map-background-editor { grid-template-columns: 1fr; }
   .map-background-editor button { grid-column: auto; }
   .map-viewport-shell, .map-viewport-stage, .map-stage, .map-renderer { min-height: 420px; }
-  .map-popover { right: 10px; bottom: 10px; width: calc(100% - 20px); }
+  .map-popover { width: calc(100% - 20px); }
   .map-coordinate-grid { grid-template-columns: 1fr 1fr; }
   .map-list article { grid-template-columns: 1fr 1fr; }
   .public-shell { padding-inline: 18px; }
