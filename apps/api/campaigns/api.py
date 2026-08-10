@@ -776,8 +776,6 @@ def archive_graph(
     max_nodes, max_edges = 100, 250
     visited = {selected_focus}
     frontier = {selected_focus}
-    included_edge_ids: set[str] = set()
-    included_edges: list[dict[str, Any]] = []
     nodes_truncated = False
     edges_truncated = False
     for _ in range(depth):
@@ -785,23 +783,30 @@ def archive_graph(
         for edge in graph_edges:
             if edge["source_id"] not in frontier and edge["target_id"] not in frontier:
                 continue
-            new_nodes = {edge["source_id"], edge["target_id"]} - visited
-            if len(visited) + len(new_nodes) > max_nodes:
+            new_nodes = sorted({edge["source_id"], edge["target_id"]} - visited, key=str)
+            available_nodes = max_nodes - len(visited)
+            if len(new_nodes) > available_nodes:
                 nodes_truncated = True
-                continue
-            edge_id = f"{edge['edge_class']}:{edge['id']}"
-            if edge_id not in included_edge_ids:
-                if len(included_edges) >= max_edges:
-                    edges_truncated = True
-                    continue
-                included_edge_ids.add(edge_id)
-                included_edges.append(edge)
+                new_nodes = new_nodes[:available_nodes]
             for node_id in new_nodes:
                 visited.add(node_id)
                 next_frontier.add(node_id)
         frontier = next_frontier
         if not frontier:
             break
+
+    # Render the induced subgraph for the selected hop radius. This keeps
+    # every connection between visible pages, including links between peers
+    # discovered in the same hop. Consequently, a two-hop graph is always a
+    # superset of the one-hop graph for the same focus and filters.
+    included_edges: list[dict[str, Any]] = []
+    for edge in graph_edges:
+        if edge["source_id"] not in visited or edge["target_id"] not in visited:
+            continue
+        if len(included_edges) >= max_edges:
+            edges_truncated = True
+            break
+        included_edges.append(edge)
 
     return {
         "focus_id": selected_focus,
