@@ -564,6 +564,48 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())
 
+    def test_archive_view_mutations_return_the_new_document_version(self):
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "map",
+                "title": "Versioned map",
+                "description": "Initial map",
+                "background": {"url": "https://example.test/map.png", "alt": "Harbor"},
+                "placements": [],
+            },
+        )
+        self.assertEqual(created.status_code, 200)
+        view = created.json()
+        first = self.client.patch(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views/{view['id']}",
+            data=json.dumps(
+                {
+                    **{key: view[key] for key in ("view_type", "title", "background", "placements")},
+                    "description": "First edit",
+                    "version": view["version"],
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json()["version"], view["version"] + 1)
+        second = self.client.patch(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views/{view['id']}",
+            data=json.dumps(
+                {
+                    **{key: first.json()[key] for key in ("view_type", "title", "background", "placements")},
+                    "description": "Second edit",
+                    "version": first.json()["version"],
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["version"], first.json()["version"] + 1)
+
     def test_archive_export_restore_remaps_links_navigation_relationships_and_views(self):
         target = self.create_item(kind="entity", title="Harbor", subject_type="place", fields={})
         source = self.create_item(

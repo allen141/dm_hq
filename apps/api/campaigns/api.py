@@ -1063,7 +1063,7 @@ def archive_view_update(request: HttpRequest, campaign_id: UUID, view_id: UUID, 
         raise error(409, "stale_version", "The view changed elsewhere")
     metadata.update(archive_view_metadata(view.id, campaign.id, payload, view.status))
     try:
-        save_document(
+        document = save_document(
             campaign,
             "archive_view",
             view.document.storage_key,
@@ -1075,6 +1075,7 @@ def archive_view_update(request: HttpRequest, campaign_id: UUID, view_id: UUID, 
         )
     except DocumentError as exc:
         raise error(422, "invalid_view", str(exc)) from exc
+    view.document = document
     view.title = payload.title.strip()
     view.view_type = payload.view_type
     view.save(update_fields=["title", "view_type", "updated_at"])
@@ -1090,7 +1091,7 @@ def _archive_view_status(request: HttpRequest, campaign_id: UUID, view_id: UUID,
         raise error(409, "stale_version", "The view changed elsewhere")
     metadata, body = parse_document(read_current(view.document))
     metadata["status"] = status
-    save_document(
+    document = save_document(
         campaign,
         "archive_view",
         view.document.storage_key,
@@ -1100,6 +1101,7 @@ def _archive_view_status(request: HttpRequest, campaign_id: UUID, view_id: UUID,
         payload.version,
         view.document,
     )
+    view.document = document
     view.status = status
     view.save(update_fields=["status", "updated_at"])
     return archive_view_output(view)
