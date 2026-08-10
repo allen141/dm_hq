@@ -254,28 +254,47 @@ class ArchiveApiTests(TestCase):
         bad_link = self.create_item(body=f"[Missing](dmhq://item/{uuid.uuid4()})")
         self.assertIn("detail", bad_link)
 
-    def test_one_hop_includes_all_connected_components(self):
-        direct_target = self.create_item(title="Direct target")
+    def test_graph_two_hops_includes_one_hop_edges_and_peer_connections(self):
+        second = self.create_item(title="Second")
+        third = self.create_item(title="Third")
         source = self.create_item(
-            title="Focused source",
-            body=f"Follow [Direct target](dmhq://item/{direct_target['id']}).",
+            title="Source",
+            body=f"[Second](dmhq://item/{second['id']})",
         )
-        distant_target = self.create_item(title="Distant target")
-        distant_source = self.create_item(
-            title="Distant source",
-            body=f"Follow [Distant target](dmhq://item/{distant_target['id']}).",
+        updated = self.client.patch(
+            f"/api/v1/items/{second['id']}",
+            data=json.dumps(
+                {
+                    "version": second["version"],
+                    "markdown": markdown(
+                        self.campaign.id,
+                        second["id"],
+                        title="Second",
+                        body=f"[Third](dmhq://item/{third['id']})",
+                    ),
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
         )
+        self.assertEqual(updated.status_code, 200)
 
-        graph = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1")
-        self.assertEqual(graph.status_code, 200)
-        node_ids = {node["id"] for node in graph.json()["nodes"]}
-        expected_ids = {
-            source["id"],
-            direct_target["id"],
-            distant_source["id"],
-            distant_target["id"],
-        }
-        self.assertTrue(expected_ids <= node_ids)
+        one_hop = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1")
+        two_hops = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=2"
+        )
+        self.assertEqual(one_hop.status_code, 200)
+        self.assertEqual(two_hops.status_code, 200)
+        one_payload = one_hop.json()
+        two_payload = two_hops.json()
+        self.assertEqual({node["id"] for node in one_payload["nodes"]}, {source["id"], second["id"]})
+        self.assertEqual(
+            {node["id"] for node in two_payload["nodes"]},
+            {source["id"], second["id"], third["id"]},
+        )
+        one_edges = {(edge["edge_class"], edge["id"]) for edge in one_payload["edges"]}
+        two_edges = {(edge["edge_class"], edge["id"]) for edge in two_payload["edges"]}
+        self.assertTrue(one_edges <= two_edges)
 
     def test_graph_includes_bounded_plain_text_node_summaries(self):
         target = self.create_item(
