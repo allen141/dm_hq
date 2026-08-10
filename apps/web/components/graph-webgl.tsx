@@ -283,20 +283,24 @@ function GraphController({
   }, [coarsePointer, graph, reducedMotion, selectedId, sigma]);
 
   useEffect(() => {
-    if (reducedMotion || coarsePointer || clouds.length === 0) return;
+    // The unfocused campaign overview is already a dense all-page atlas. Large
+    // contour fills obscure nodes there, so reserve cloud framing for focused
+    // neighborhoods where it explains the local grouping.
+    const focused = cloudFocusId != null || focusId != null;
+    if (!focused || reducedMotion || coarsePointer || clouds.length === 0) return;
     const cleanups = clouds.map((cloud, index) => {
       try {
         return bindWebGLLayer(
           "graph-cloud-" + index,
           sigma as unknown as Sigma,
           createContoursProgram(cloud.node_ids, {
-            radius: cloud.node_ids.length === 1 ? 38 : 58 + Math.min(28, cloud.node_ids.length * 4),
+            radius: cloud.node_ids.length === 1 ? 26 : 34 + Math.min(18, cloud.node_ids.length * 2),
             feather: 1.35,
             levels: [
-              { color: cloudColor(index, 0.2), threshold: 0.28 },
+              { color: cloudColor(index, 0.1), threshold: 0.28 },
               { color: cloudColor(index, 0), threshold: 0.76 },
             ],
-            border: { color: cloudColor(index, 0.44), thickness: 1.15 },
+            border: { color: cloudColor(index, 0.28), thickness: 1.05 },
           }),
         );
       } catch {
@@ -309,7 +313,7 @@ function GraphController({
         try { cleanup(); } catch { /* The renderer may already be disposed. */ }
       });
     };
-  }, [clouds, coarsePointer, reducedMotion, sigma]);
+  }, [cloudFocusId, clouds, coarsePointer, focusId, reducedMotion, sigma]);
 
   useEffect(() => {
     const contextLoss = (event: Event) => {
