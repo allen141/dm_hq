@@ -27,25 +27,35 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
   const firstMap = useMemo(() => views.find((view) => view.view_type === "map"), [views]);
   const firstRelationship = useMemo(() => views.find((view) => view.view_type === "relationship"), [views]);
   const tabs = [
-    { label: "Wiki", href: `/campaigns/${campaignId}/archive`, active: pathname === `/campaigns/${campaignId}/archive` || pathname.includes("/archive/items/") },
-    { label: "Graph", href: `/campaigns/${campaignId}/archive/graph`, active: pathname.includes("/archive/graph") },
-    ...(firstMap ? [{ label: "Maps", href: `/campaigns/${campaignId}/archive/maps/${firstMap.id}`, active: pathname.includes("/archive/maps/") }] : []),
-    ...(firstRelationship ? [{ label: "Relationships", href: `/campaigns/${campaignId}/archive/relationships/${firstRelationship.id}`, active: pathname.includes("/archive/relationships/") }] : []),
+    { label: "Wiki", glyph: "W", href: `/campaigns/${campaignId}/archive`, active: pathname === `/campaigns/${campaignId}/archive` || pathname.includes("/archive/items/") },
+    { label: "Graph", glyph: "G", href: `/campaigns/${campaignId}/archive/graph`, active: pathname.includes("/archive/graph") },
+    ...(firstMap ? [{ label: "Maps", glyph: "M", href: `/campaigns/${campaignId}/archive/maps/${firstMap.id}`, active: pathname.includes("/archive/maps/") }] : []),
+    ...(firstRelationship ? [{ label: "Relationships", glyph: "R", href: `/campaigns/${campaignId}/archive/relationships/${firstRelationship.id}`, active: pathname.includes("/archive/relationships/") }] : []),
   ];
 
   const graphWorkspace = pathname.includes("/archive/graph") && !pathname.includes("/archive/graph/table");
 
   return <main className={`archive-shell${graphWorkspace ? " graph-shell" : ""}`}>
     <header className="archive-topbar">
-      <div><Link className="back-link" href="/">← Campaigns</Link><div className="eyebrow">Private Archive</div><h1>{campaign?.name ?? "Campaign Archive"}</h1></div>
+      <div className="archive-heading-group">
+        <Link className="back-link" href="/"><span aria-hidden="true">←</span> Campaigns</Link>
+        <div className="archive-title-lockup">
+          <span className="archive-sigil" aria-hidden="true"><span>DM</span></span>
+          <div>
+            <div className="eyebrow">Private Archive · Campaign intelligence</div>
+            <h1>{campaign?.name ?? "Campaign Archive"}</h1>
+            <p className="archive-context">World index, connections, and field views</p>
+          </div>
+        </div>
+      </div>
       <div className="archive-utilities" aria-label="Archive utilities">
-        <Link className="button secondary" href={`/campaigns/${campaignId}/archive?focus=search`}>Search</Link>
-        <Link className="button secondary" href={`/campaigns/${campaignId}/archive?focus=capture`}>Quick capture</Link>
-        <Link className="button" href={`/campaigns/${campaignId}/archive/views/new`}>New view</Link>
+        <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=search`}><span aria-hidden="true">⌕</span> Search</Link>
+        <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=capture`}><span aria-hidden="true">＋</span> Quick capture</Link>
+        <Link className="button archive-primary-action" href={`/campaigns/${campaignId}/archive/views/new`}>New view <span aria-hidden="true">↗</span></Link>
       </div>
     </header>
     <nav className="archive-tabs" aria-label="Archive views">
-      {tabs.map((tab) => <Link key={tab.label} href={tab.href} aria-current={tab.active ? "page" : undefined} className={tab.active ? "active" : undefined}>{tab.label}</Link>)}
+      {tabs.map((tab) => <Link key={tab.label} href={tab.href} aria-current={tab.active ? "page" : undefined} className={tab.active ? "active" : undefined}><span className="archive-tab-glyph" aria-hidden="true">{tab.glyph}</span><span>{tab.label}</span></Link>)}
     </nav>
     {children}
   </main>;
