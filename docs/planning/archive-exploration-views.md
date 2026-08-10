@@ -2,7 +2,7 @@
 
 **Status:** Accepted implementation plan; WebGL map increment in progress.
 
-This plan records how the Archive works as a campaign wiki with Wiki, Graph, Map, and Relationship lenses. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) authorizes its canonical document and read-model boundary. [ADR 0007](../decisions/0007-webgl-map-renderer-and-visual-system.md) accepts a product-shaped WebGL map renderer and private-workspace visual system. Uploaded map assets and player-visible visual views remain outside this increment.
+This plan records how the Archive works as a campaign wiki with Wiki, Graph, Map, and Relationship lenses. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) authorizes its canonical document and read-model boundary. [ADR 0008](../decisions/0008-webgl-map-renderer-and-visual-system.md) accepts a product-shaped WebGL map renderer and private-workspace visual system. Uploaded map assets and player-visible visual views remain outside this increment.
 
 The plan builds on the [Archive product](../product/archive.md), the [Archive roadmap](archive-roadmap.md), the [domain model](../architecture/domain-model.md), and the [Markdown document architecture](../architecture/markdown-documents.md). Sections below preserve the validation rationale; where the current PoC is narrower, the follow-up boundary is stated explicitly.
 
@@ -26,7 +26,7 @@ This plan does not include:
 
 - A production release commitment or a change to the current Release 1 scope.
 - A graph database, PostGIS, external map tiles, geocoding, or route finding.
-- Selection of a final Graph or Relationship-board visualization library. ADR 0007 selects the map renderer only.
+- Selection of a final Relationship-board visualization library. ADR 0007 selects Sigma.js and Graphology for the automatic Graph; ADR 0008 selects Three.js and React Three Fiber for maps.
 - A general attachment or media-processing pipeline.
 - Rich-text editing, transclusion, reusable blocks, or live co-authoring.
 - Historical, knowledge-scoped, or claim-aware graph calculations.
@@ -69,7 +69,7 @@ The following choices are accepted for the PoC by ADR 0006:
 
 The Archive tab strip contains:
 
-ADR 0007 additionally accepts this map and visual boundary:
+ADR 0008 additionally accepts this map and visual boundary:
 
 - Maps use `three` and `@react-three/fiber`, without Drei initially, through one client-only scene with orthographic 2D and constrained perspective 3D cameras.
 - Both modes use the same flat textured plane and normalized placements. Camera, renderer, hover, and selection state are transient and require no document migration.
@@ -160,7 +160,7 @@ The proofs of concept may use fixtures or a thin prototype adapter. A production
 | List or create views | `GET` or `POST /api/v1/campaigns/{campaign_id}/archive/views` |
 | Read, update, or archive a view | `/api/v1/campaigns/{campaign_id}/archive/views/{view_id}` |
 
-The graph query should accept an optional focus page, depth, edge classes, and filters. It must enforce a server-side node and edge limit. All routes must apply campaign authorization before resolving targets or reporting counts. Updating the Archive home must use the current document version so a stale edit cannot overwrite newer `campaign.md` content.
+The graph query accepts an optional focus page, depth, edge classes, and filters. Without a focus page it returns a bounded campaign overview of all pages and their connections; depth is not applied in that mode. With a focus page, depth selects a one-hop or two-hop neighborhood. It must enforce a server-side node and edge limit. All routes must apply campaign authorization before resolving targets or reporting counts. Updating the Archive home must use the current document version so a stale edit cannot overwrite newer `campaign.md` content.
 
 ## Shared internal structures
 
@@ -242,7 +242,7 @@ The Graph needs one read model that preserves the source and meaning of each edg
 - Direction and canonical source ownership.
 - Source document version.
 
-The projection is rebuilt from canonical documents and existing relationship projections. It includes the campaign home as a graph node when it links to or is linked from an Archive item. Parallel edges are retained in the API even if the interface groups them visually. This prevents a document link, an existing reference, and a semantic relationship between the same pages from being mistaken for one fact.
+The projection is rebuilt from canonical documents and existing relationship projections. An unfocused request presents the bounded campaign overview. A focused one-hop request presents the selected page and its directly connected neighbors; a focused two-hop request expands through those neighbors. The campaign home is included when it is in the selected scope. Parallel edges are retained in the API even if the interface groups them visually. This prevents a document link, an existing reference, and a semantic relationship between the same pages from being mistaken for one fact.
 
 The first Graph proof of concept includes `document_link`, `reference`, and `relationship` edges by default. Entity-reference template fields and session links should be tested as filters before becoming default edges because they may create noise.
 
@@ -305,14 +305,14 @@ The current-document round trip proves that a view can reload, revise, export, a
 
 ### Performance
 
-- Do not load a whole campaign graph by default. Start with a focused item or a bounded overview.
+- An unfocused Graph is a bounded campaign overview with no hop mode; focused Graph exploration offers one-hop and two-hop neighborhoods.
 - Graph requests declare depth and edge classes and enforce server-side node and edge caps.
 - The UI reports truncation and offers filters instead of silently dropping edges.
 - PostgreSQL projections and ordinary indexed joins are the first implementation hypothesis. A graph database is considered only after representative evidence shows they are insufficient.
 - Maps use image coordinates and point indexes only. They do not need spatial queries or PostGIS.
 - Record response, layout, and interaction timings against the representative fixture and identify the device and environment used.
 
-ADR 0007 sets the exact map budget for a production build with a 4096-by-4096 image and 250 placements on the agreed representative tablet: shell and marker list interactive within 1.5 seconds p75; first useful WebGL frame within 2.5 seconds p75 after metadata; selection and cached popup within 100 milliseconds p95; mode switch usable within 250 milliseconds; representative camera interaction at 30 frames per second or better; detected renderer failure falling back within one second. The renderer must remain idle when nothing changes and batch repeated marker geometry.
+ADR 0008 sets the exact map budget for a production build with a 4096-by-4096 image and 250 placements on the agreed representative tablet: shell and marker list interactive within 1.5 seconds p75; first useful WebGL frame within 2.5 seconds p75 after metadata; selection and cached popup within 100 milliseconds p95; mode switch usable within 250 milliseconds; representative camera interaction at 30 frames per second or better; detected renderer failure falling back within one second. The renderer must remain idle when nothing changes and batch repeated marker geometry.
 
 Initial safety limits for testing may be 100 rendered nodes and 250 rendered edges. These are hypotheses to measure, not product limits. A useful proof of concept should render a focused view within one second and keep pan, zoom, focus, and selection responsive on the agreed tablet test device.
 
@@ -393,7 +393,7 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 - The 2D and 3D modes show the same placement identities and selection, and mode or camera changes create no document revision.
 - A popup fetches each selected item at most once per item version during the page lifetime and renders only a bounded plain-text excerpt.
 - A WebGL or external-image failure preserves marker selection, editing, saving, and navigation in the DOM fallback.
-- The accessibility, performance, security, visual-regression, and browser acceptance in ADR 0007 passes on the representative fixture.
+- The accessibility, performance, security, visual-regression, and browser acceptance in ADR 0008 passes on the representative fixture.
 - Marker positions remain correct when the image is displayed at different sizes.
 - Renaming an item updates the displayed marker title without changing placement identity.
 - Removing a marker leaves the Archive item and its relationships unchanged.
@@ -447,7 +447,7 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 | 5. Prove optional views | Run PoCs 3 and 4. These may proceed in parallel after Stage 4. | Shared view model and fixture media. | Task tests, accessibility results, and no-copy checks. |
 | 6. Decide roadmap fit | Compare evidence with DM attention, retrieval, safety, and portability goals. | All PoC evidence. | Promote, revise, defer, or reject each capability. |
 
-Production dependencies require an accepted decision and a demonstrated benefit. ADR 0007 authorizes `three` and `@react-three/fiber` for the map increment and rejects a second rendering stack. Other visualization dependencies remain deferred unless separately accepted.
+Production dependencies require an accepted decision and a demonstrated benefit. ADR 0007 and ADR 0008 now define a shared dependency boundary: `@floating-ui/react` is the common DOM overlay primitive, `graphology` is the common transient graph model for Graph and future Relationship boards, Sigma.js is graph-specific, and Three.js plus React Three Fiber are map-specific. Reuse the selection, dynamic-loading, WebGL-health, reduced-motion, and semantic fallback adapters across views, but do not force one renderer to serve the other view. Keep `@react-sigma/*`, `@sigma/*`, `sigma`, and ForceAtlas2 scoped to Graph; keep `three` and `@react-three/fiber` scoped to Maps. Any new renderer or helper requires a measured benefit and an ADR update.
 
 ## Test fixture and evidence
 
@@ -514,7 +514,7 @@ ADR 0006 resolved the shared persistence boundary. These remaining questions gui
 - Should the Graph open as a focused neighborhood, a filtered campaign overview, or remember a personal last state?
 - Which multiple-view selector or view manager remains usable with many maps or relationship boards?
 - Should Relationship view membership remain explicit only, or gain query-driven curation?
-- Does an advanced canvas adapter and Dagre layout improve Relationship boards enough to adopt them? The map renderer is decided by ADR 0007.
+- Does an advanced canvas adapter and Dagre layout improve Relationship boards enough to adopt them? The map renderer is decided by ADR 0008.
 - Is automatic layout sufficient, or is saved manual positioning important enough to persist?
 - Which map marker notes belong in view configuration versus the linked Archive item's prose? Item summaries remain derived and are never copied.
 - What node, edge, backlink, marker, and tab counts remain useful on the target tablet?
@@ -539,4 +539,4 @@ After the proofs of concept, review each capability independently. A capability 
 - Works accessibly on desktop and tablet.
 - Has a bounded implementation that does not require speculative infrastructure.
 
-ADRs 0006 and 0007 are accepted. The WebGL map and expedition-console redesign are the current implementation increment; their exact acceptance is recorded in ADR 0007. Advanced Relationship-board canvas and Dagre layout, persisted manual relationship positions, dedicated membership and placement projections, uploaded assets, and a multiple-view selector remain explicit follow-ups rather than implied completed scope.
+ADRs 0006, 0007, and 0008 are accepted. The WebGL map and expedition-console redesign are the current implementation increment; their exact acceptance is recorded in ADR 0008. Advanced Relationship-board canvas and Dagre layout, persisted manual relationship positions, dedicated membership and placement projections, uploaded assets, and a multiple-view selector remain explicit follow-ups rather than implied completed scope.

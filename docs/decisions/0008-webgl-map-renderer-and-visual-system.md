@@ -1,4 +1,4 @@
-# ADR 0007: WebGL map renderer and visual system
+# ADR 0008: WebGL map renderer and visual system
 
 - **Status:** Accepted
 - **Date:** 2026-08-07

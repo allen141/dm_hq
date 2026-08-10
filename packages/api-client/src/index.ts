@@ -8,10 +8,10 @@ export type RelationshipProjection = {
   id: string; source_id: string; target_id: string; kind: string; label: string; inverse_label: string; notes: string;
   authored_position: number; source_version: number; source?: PageIdentity; target?: PageIdentity;
 };
-export type GraphNode = { id: string; node_type: "campaign" | "item"; title: string; kind: string; status: string };
+export type GraphNode = { id: string; node_type: "campaign" | "item"; title: string; kind: string; status: string; summary?: string };
 export type GraphEdge = { id: string; edge_class: "document_link" | "reference" | "relationship"; source_id: string; target_id: string; kind: string; label: string; inverse_label: string };
 export type GraphResponse = {
-  focus_id: string; depth: number; nodes: GraphNode[]; edges: GraphEdge[];
+  focus_id: string | null; depth: number; nodes: GraphNode[]; edges: GraphEdge[];
   limits: { max_nodes: number; max_edges: number }; truncated: { nodes: boolean; edges: boolean };
 };
 export type ArchiveHome = { markdown: string; html: string; version: number; metadata: Record<string, unknown>; backlinks: DocumentLink[] };

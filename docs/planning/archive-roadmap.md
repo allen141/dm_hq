@@ -18,7 +18,7 @@ The [Archive implementation plan](archive-implementation-plan.md) tracks Release
 
 The [Archive exploration views plan](archive-exploration-views.md) defines the Wiki, Graph, Map, and Relationship PoC slices. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) supplies their decision boundary.
 
-This remains an evidence track rather than a production-scale visualization increment. The current implementation uses bounded read models, canonical view Markdown, simple SVG rendering, and direct external HTTPS map images. It does not add a graph database, GIS, attachment pipeline, or advanced canvas framework. Validation must measure retrieval value, accessibility, privacy, portability, and the risk of duplicating campaign facts.
+This began as an evidence track using bounded read models, canonical view Markdown, simple SVG rendering, and direct external HTTPS map images. The approved [Graph UI revamp](graph-ui-revamp.md) now promotes the automatic graph renderer to a production-shaped, client-only Sigma.js experience without adding a graph database, GIS, attachment pipeline, or persistent automatic-graph layout. Validation must still measure retrieval value, accessibility, privacy, portability, and the risk of duplicating campaign facts.
 
 After validation, each capability is promoted, revised, deferred, or rejected independently. Moving a production capability earlier than Release 3 requires an explicit roadmap change and any necessary accepted architecture decision.
 
