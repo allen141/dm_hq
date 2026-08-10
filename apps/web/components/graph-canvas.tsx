@@ -20,8 +20,8 @@ type GraphCanvasProps = {
   campaignId: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
-  focusId?: string;
-  cloudFocusId?: string;
+  focusId?: string | null;
+  cloudFocusId?: string | null;
 };
 
 type AnchorPosition = { x: number; y: number };

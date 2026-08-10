@@ -19,8 +19,8 @@ type GraphWebglProps = {
   campaignId: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
-  focusId?: string;
-  cloudFocusId?: string;
+  focusId?: string | null;
+  cloudFocusId?: string | null;
   selectedId: string | null;
   reducedMotion: boolean;
   onAnchorChange: (position: AnchorPosition | null) => void;
@@ -145,7 +145,7 @@ function GraphController({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const coarsePointer = useSyncExternalStore(subscribeCoarsePointer, coarsePointerSnapshot, () => false);
   const clouds = useMemo(
-    () => buildGraphClouds(nodes, edges, cloudFocusId ?? focusId),
+    () => buildGraphClouds(nodes, edges, cloudFocusId ?? focusId ?? undefined),
     [cloudFocusId, edges, focusId, nodes],
   );
 
@@ -343,7 +343,7 @@ function GraphController({
   );
 }
 
-function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId?: string) {
+function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId?: string | null) {
   const presentation = buildGraphPresentation(nodes, edges);
   const graph = new MultiDirectedGraph<NodeAttributes, EdgeAttributes>();
 

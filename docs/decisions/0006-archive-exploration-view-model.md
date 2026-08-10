@@ -68,7 +68,7 @@ The target page does not store a reciprocal copy. Incoming panels, inverse wordi
 
 The default Graph is computed from current relational projections; it is not a canonical document and it does not own edges. Its campaign-scoped read model returns bounded nodes and typed edges. Link/reference edges and semantic relationship edges remain separately filterable and visually distinct.
 
-The first query starts from a focus page and returns a limited one-hop neighborhood. A caller explicitly expands the graph or requests a broader scope. The response states when it was truncated. PostgreSQL and the existing projections are sufficient for the proof of concept; no graph database is introduced.
+An unfocused query returns a bounded campaign overview of all pages and projected edges. A focused query starts from a focus page and returns a limited one-hop neighborhood; a caller explicitly expands it to two hops. Hop depth is not applied to the unfocused overview, and the response states when it was truncated. PostgreSQL and the existing projections are sufficient for the proof of concept; no graph database is introduced.
 
 ### Optional views store curation and layout only
 

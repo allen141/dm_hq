@@ -93,7 +93,7 @@ A publication has its own safe Markdown document, revision, and lifecycle. Editi
 The Archive shell keeps search and quick capture available across several lenses over the same campaign knowledge:
 
 - **Wiki** is a fixed core tab. The canonical `campaign.md` body is its home page, and notes, entities, and sessions are its other pages.
-- **Graph** is a fixed core tab. Its one-hop view derives a bounded, read-only edge atlas from all campaign links, references, and semantic relationships; two-hop exploration expands from the selected page.
+- **Graph** is a fixed core tab. With no focused page it shows a bounded, read-only overview of all campaign pages and their links, references, and semantic relationships. One-hop and two-hop modes apply only after a page is focused.
 - **Maps** appears after a campaign creates its first map.
 - **Relationships** appears after a campaign creates its first relationship board.
 

@@ -296,6 +296,28 @@ class ArchiveApiTests(TestCase):
         two_edges = {(edge["edge_class"], edge["id"]) for edge in two_payload["edges"]}
         self.assertTrue(one_edges <= two_edges)
 
+    def test_graph_without_focus_returns_complete_overview(self):
+        first = self.create_item(title="First")
+        second = self.create_item(title="Second")
+        third = self.create_item(title="Third")
+        fourth = self.create_item(title="Fourth")
+        self.create_item(
+            title="Linked first",
+            body=f"[First](dmhq://item/{first['id']})",
+        )
+        self.create_item(
+            title="Linked second",
+            body=f"[Second](dmhq://item/{second['id']})",
+        )
+        overview = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph")
+        self.assertEqual(overview.status_code, 200)
+        payload = overview.json()
+        self.assertIsNone(payload["focus_id"])
+        self.assertEqual(payload["depth"], 0)
+        node_ids = {node["id"] for node in payload["nodes"]}
+        self.assertTrue({str(self.campaign.id), first["id"], second["id"], third["id"], fourth["id"]} <= node_ids)
+        self.assertGreaterEqual(len(payload["edges"]), 2)
+
     def test_graph_includes_bounded_plain_text_node_summaries(self):
         target = self.create_item(
             title="Target",

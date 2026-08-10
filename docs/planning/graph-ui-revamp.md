@@ -47,7 +47,7 @@ The shared shell should feel like one product rather than a collection of protot
 
 The graph becomes a full-width atlas workspace with three responsibilities:
 
-1. A compact explorer and toolbar provide search, one-hop or two-hop depth, connection filters, legend, fit, zoom, and relayout.
+1. A compact explorer and toolbar provide an unfocused overview or focused one-hop/two-hop depth, connection filters, legend, fit, zoom, and relayout.
 2. The WebGL stage prioritizes pan, zoom, focus, and selection while showing node kind, status, edge class, and direction through more than color alone.
 3. A selected-node card provides kind, status, summary, connection count, connected pages, an **Open page** action, and an **Explore neighborhood** action.
 

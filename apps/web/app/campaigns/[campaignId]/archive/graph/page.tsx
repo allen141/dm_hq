@@ -30,7 +30,7 @@ export default function ArchiveGraphPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBusy(true);
     setError("");
-    void client.archiveGraph(campaignId, { focus_id: focusId, depth, edge_classes: edgeClasses })
+    void client.archiveGraph(campaignId, { focus_id: focusId, depth: focusId ? depth : undefined, edge_classes: edgeClasses })
       .then((result) => { if (active) setGraph(result); })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Graph could not be loaded."); })
       .finally(() => { if (active) setBusy(false); });
@@ -51,8 +51,8 @@ export default function ArchiveGraphPage() {
         <h2 id="graph-page-title" className="sr-only">Knowledge graph</h2>
 
         <div className="graph-query-bar graph-command-deck">
-          <div className="graph-vitals" aria-label="Graph totals"><span><strong>{graph?.nodes.length ?? "—"}</strong> pages</span><span><strong>{graph?.edges.length ?? "—"}</strong> connections</span><span><strong>{depth}</strong> {depth === 1 ? "hop" : "hops"}</span></div>
-          <fieldset className="graph-depth-control"><legend>Exploration depth</legend><button type="button" className={depth === 1 ? "active" : "secondary"} aria-pressed={depth === 1} onClick={() => setDepth(1)}>One hop</button><button type="button" className={depth === 2 ? "active" : "secondary"} aria-pressed={depth === 2} onClick={() => setDepth(2)}>Two hops</button></fieldset>
+          <div className="graph-vitals" aria-label="Graph totals"><span><strong>{graph?.nodes.length ?? "—"}</strong> pages</span><span><strong>{graph?.edges.length ?? "—"}</strong> connections</span>{focusId ? <span><strong>{depth}</strong> {depth === 1 ? "hop" : "hops"}</span> : <span>Overview</span>}</div>
+          {focusId && <fieldset className="graph-depth-control"><legend>Exploration depth</legend><button type="button" className={depth === 1 ? "active" : "secondary"} aria-pressed={depth === 1} onClick={() => setDepth(1)}>One hop</button><button type="button" className={depth === 2 ? "active" : "secondary"} aria-pressed={depth === 2} onClick={() => setDepth(2)}>Two hops</button></fieldset>}
           <fieldset className="graph-filters"><legend>Connection types</legend>{classes.map((edgeClass) => { const active = edgeClasses.includes(edgeClass); const onlyActive = active && edgeClasses.length === 1; return <label className={"graph-filter-chip " + (active ? "active" : "")} key={edgeClass} title={classCopy[edgeClass].detail}><input type="checkbox" checked={active} disabled={onlyActive} onChange={() => toggle(edgeClass)} /><span className={"edge-swatch " + edgeClass} aria-hidden="true" />{classCopy[edgeClass].label}</label>; })}</fieldset>
           <Link className="button secondary graph-table-link" href={`/campaigns/${campaignId}/archive/graph/table${focusId ? `?focus_id=${encodeURIComponent(focusId)}` : ""}`}>Accessible graph table <span aria-hidden="true">↗</span></Link>
         </div>
