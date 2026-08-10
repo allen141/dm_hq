@@ -93,7 +93,7 @@ A publication has its own safe Markdown document, revision, and lifecycle. Editi
 The Archive shell keeps search and quick capture available across several lenses over the same campaign knowledge:
 
 - **Wiki** is a fixed core tab. The canonical `campaign.md` body is its home page, and notes, entities, and sessions are its other pages.
-- **Graph** is a fixed core tab. It derives a bounded, read-only network from the campaign home, item links, existing references, and semantic relationships.
+- **Graph** is a fixed core tab. With no focused page it shows a bounded, read-only overview of all campaign pages and their links, references, and semantic relationships. One-hop and two-hop modes apply only after a page is focused.
 - **Maps** appears after a campaign creates its first map.
 - **Relationships** appears after a campaign creates its first relationship board.
 
@@ -103,7 +103,7 @@ The document-link projection uses logical campaign and item UUIDs; the internal 
 
 Maps accept a direct external HTTPS image URL and required alt text. The browser loads that URL with a no-referrer policy; the UI warns that the image host still receives the request and that the exported campaign contains the URL, not a self-contained image. All exploration views remain DM-private. A player-visible wiki, graph, map, or relationship board would require a separate, versioned safe publication artifact instead of hiding private nodes in the browser.
 
-See the [Archive exploration views plan](../planning/archive-exploration-views.md) and accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) for the PoC scope, alternatives, and follow-up validation. Advanced canvas interaction, Dagre layout, persisted manual relationship positions, dedicated membership and placement projections, and multiple-view selection remain follow-up work.
+See the [Archive exploration views plan](../planning/archive-exploration-views.md) and accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) for the PoC boundary. The approved [Graph UI revamp](../planning/graph-ui-revamp.md) and [ADR 0007](../decisions/0007-webgl-graph-renderer.md) promote the automatic Graph to a client-only Sigma.js and Graphology experience with bounded summaries and an equivalent semantic fallback. Persisted automatic-graph positions remain out of scope. Persisted manual relationship-board positions, dedicated membership and placement projections, and multiple-view selection remain follow-up work.
 
 ## Core workflows
 

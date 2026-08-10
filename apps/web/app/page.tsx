@@ -40,8 +40,8 @@ export default function Home() {
 
   async function signOut() { await client.logout(); setUser(null); setCampaigns([]); }
 
-  return <main className="shell">
-    <header className="masthead"><div><div className="eyebrow">The Archive · Release 1</div><h1>Keep the thread.</h1></div><p className="lede">A quiet home for campaign knowledge. Capture rough ideas, give them structure, and find them again when play is moving quickly.</p></header>
+  return <main className="shell home-shell">
+    <header className="masthead"><div className="masthead-title"><div className="eyebrow">DM HQ · The Archive</div><h1>Keep the thread.</h1><p className="masthead-detail">A campaign atlas for the moments between preparation and play.</p></div><p className="lede">Capture rough ideas, give them structure, and find them again when the table is moving quickly.</p></header>
     <div className="workspace">
       <section className="panel" aria-labelledby="campaigns-heading">
         <div className="panel-heading"><div><div className="eyebrow">Private workspace</div><h2 id="campaigns-heading">Campaigns</h2></div>{user && <div className="userbar"><span>{user.username}</span><button className="secondary" onClick={signOut}>Sign out</button></div>}</div>

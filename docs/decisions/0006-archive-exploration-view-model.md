@@ -68,7 +68,7 @@ The target page does not store a reciprocal copy. Incoming panels, inverse wordi
 
 The default Graph is computed from current relational projections; it is not a canonical document and it does not own edges. Its campaign-scoped read model returns bounded nodes and typed edges. Link/reference edges and semantic relationship edges remain separately filterable and visually distinct.
 
-The first query starts from a focus page and returns a limited one-hop neighborhood. A caller explicitly expands the graph or requests a broader scope. The response states when it was truncated. PostgreSQL and the existing projections are sufficient for the proof of concept; no graph database is introduced.
+An unfocused query returns a bounded campaign overview of all pages and projected edges. A focused query starts from a focus page and returns a limited one-hop neighborhood; a caller explicitly expands it to two hops. Hop depth is not applied to the unfocused overview, and the response states when it was truncated. PostgreSQL and the existing projections are sufficient for the proof of concept; no graph database is introduced.
 
 ### Optional views store curation and layout only
 
@@ -138,7 +138,7 @@ The PoC uses bounded neighborhood queries, simple SVG, and normalized image coor
 - Measure graph readability, keyboard/table fallbacks, map failure states, and revision conflicts.
 - Revisit scale limits and asset portability before productionizing visual views.
 - Add dedicated membership and placement projections if measured query or rebuild needs justify them.
-- Evaluate an advanced canvas adapter and Dagre layout, then add persisted manual relationship-board positions if interaction testing supports them.
+- Implement the accepted [Sigma.js graph renderer](0007-webgl-graph-renderer.md) behind the bounded read-model boundary. Persisted automatic-graph positions remain out of scope; add persisted manual relationship-board positions only if interaction testing supports them.
 - Add a multiple-view selector or view manager for campaigns with several maps or relationship boards.
 
 ## References

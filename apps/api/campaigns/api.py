@@ -6,6 +6,7 @@ import posixpath
 import re
 import secrets
 import zipfile
+from html import unescape
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -24,6 +25,7 @@ from ninja.security import HttpBearer, django_auth
 
 from .documents import (
     DocumentError,
+    clean_body,
     current_markdown_for_item,
     item_document_output,
     markdown_html,
@@ -129,6 +131,10 @@ class ArchiveViewPayload(Schema):
     placements: list[dict[str, Any]] | None = None
     members: list[dict[str, Any]] | None = None
     settings: dict[str, Any] | None = None
+
+
+GRAPH_NODE_SUMMARY_MAX_LENGTH = 240
+GRAPH_NODE_SUMMARY_SOURCE_MAX_LENGTH = 4096
 
 
 class SessionLinkPayload(Schema):
@@ -680,6 +686,20 @@ def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
     return result
 
 
+def graph_node_summary(markdown: str, campaign_id: UUID) -> str:
+    if not markdown:
+        return ""
+    try:
+        _, body = parse_document(markdown)
+    except DocumentError:
+        return ""
+    rendered = markdown_html(body[:GRAPH_NODE_SUMMARY_SOURCE_MAX_LENGTH], campaign_id)
+    plain_text = re.sub(r"\s+", " ", unescape(clean_body(rendered))).strip()
+    if len(plain_text) <= GRAPH_NODE_SUMMARY_MAX_LENGTH:
+        return plain_text
+    return f"{plain_text[: GRAPH_NODE_SUMMARY_MAX_LENGTH - 1].rstrip()}…"
+
+
 @api.get("items/{item_id}", auth=django_auth)
 def item_detail(request: HttpRequest, item_id: UUID):
     return item_document_output(get_member_item(request, item_id))
@@ -695,7 +715,7 @@ def archive_graph(
     relationship_kinds: str = "",
 ):
     campaign = get_member_campaign(request, campaign_id)
-    if depth not in {1, 2}:
+    if focus_id is not None and depth not in {1, 2}:
         raise error(422, "validation", "Graph depth must be one or two")
     selected_classes = {value.strip() for value in edge_classes.split(",") if value.strip()}
     allowed_classes = {"document_link", "reference", "relationship"}
@@ -705,6 +725,7 @@ def archive_graph(
 
     root_id = campaign.id
     items = list(campaign.archive_items.all().order_by("id"))
+    items_by_id = {item.id: item for item in items}
     node_map: dict[UUID, dict[str, Any]] = {
         root_id: {
             "id": root_id,
@@ -722,8 +743,8 @@ def archive_graph(
             "kind": item.kind,
             "status": item.status,
         }
-    selected_focus = focus_id or root_id
-    if selected_focus not in node_map:
+    selected_focus = focus_id
+    if selected_focus is not None and selected_focus not in node_map:
         raise error(404, "not_found", "Graph focus item not found")
 
     graph_edges: list[dict[str, Any]] = []
@@ -774,38 +795,60 @@ def archive_graph(
     graph_edges.sort(key=lambda value: (value["edge_class"], str(value["id"])))
 
     max_nodes, max_edges = 100, 250
-    visited = {selected_focus}
-    frontier = {selected_focus}
-    included_edge_ids: set[str] = set()
-    included_edges: list[dict[str, Any]] = []
     nodes_truncated = False
     edges_truncated = False
-    for _ in range(depth):
-        next_frontier: set[UUID] = set()
-        for edge in graph_edges:
-            if edge["source_id"] not in frontier and edge["target_id"] not in frontier:
-                continue
-            new_nodes = {edge["source_id"], edge["target_id"]} - visited
-            if len(visited) + len(new_nodes) > max_nodes:
-                nodes_truncated = True
-                continue
-            edge_id = f"{edge['edge_class']}:{edge['id']}"
-            if edge_id not in included_edge_ids:
-                if len(included_edges) >= max_edges:
-                    edges_truncated = True
+    if selected_focus is None:
+        # An unfocused request is the campaign overview, not a one-hop query.
+        # Keep the campaign home first so the bounded view remains stable if a
+        # large campaign exceeds the safety limit.
+        overview_ids = [root_id, *(item.id for item in items)]
+        visible_ids = overview_ids[:max_nodes]
+        visited = set(visible_ids)
+        nodes_truncated = len(overview_ids) > max_nodes
+    else:
+        visited = {selected_focus}
+        frontier = {selected_focus}
+        for _ in range(depth):
+            next_frontier: set[UUID] = set()
+            for edge in graph_edges:
+                if edge["source_id"] not in frontier and edge["target_id"] not in frontier:
                     continue
-                included_edge_ids.add(edge_id)
-                included_edges.append(edge)
-            for node_id in new_nodes:
-                visited.add(node_id)
-                next_frontier.add(node_id)
-        frontier = next_frontier
-        if not frontier:
+                new_nodes = sorted({edge["source_id"], edge["target_id"]} - visited, key=str)
+                available_nodes = max_nodes - len(visited)
+                if len(new_nodes) > available_nodes:
+                    nodes_truncated = True
+                    new_nodes = new_nodes[:available_nodes]
+                for node_id in new_nodes:
+                    visited.add(node_id)
+                    next_frontier.add(node_id)
+            frontier = next_frontier
+            if not frontier:
+                break
+
+    # Render the induced subgraph for the selected scope. Focused graphs use
+    # the requested hop radius; an overview includes every visible page.
+    included_edges: list[dict[str, Any]] = []
+    for edge in graph_edges:
+        if edge["source_id"] not in visited or edge["target_id"] not in visited:
+            continue
+        if len(included_edges) >= max_edges:
+            edges_truncated = True
             break
+        included_edges.append(edge)
+
+    for node_id in visited:
+        if node_id == root_id:
+            markdown = read_current(campaign.document) if campaign.document_id else ""
+        else:
+            item = items_by_id.get(node_id)
+            if item is None:
+                continue
+            markdown = current_markdown_for_item(item)
+        node_map[node_id]["summary"] = graph_node_summary(markdown, campaign.id)
 
     return {
         "focus_id": selected_focus,
-        "depth": depth,
+        "depth": depth if selected_focus is not None else 0,
         "nodes": [node_map[node_id] for node_id in sorted(visited, key=str)],
         "edges": included_edges,
         "limits": {"max_nodes": max_nodes, "max_edges": max_edges},

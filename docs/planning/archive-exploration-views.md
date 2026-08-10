@@ -128,7 +128,8 @@ These routes describe stable navigation outcomes. They do not prescribe the curr
 | --- | --- |
 | `/campaigns/{campaign_id}/archive` | Open the `campaign.md` Wiki home or its unsaved generated starting state. |
 | `/campaigns/{campaign_id}/archive/items/{item_id}` | Open one canonical Archive item as a wiki page. |
-| `/campaigns/{campaign_id}/archive/graph` | Open the built-in Graph. |
+| `/campaigns/{campaign_id}/archive/graph` | Open the immersive built-in Graph workspace. |
+| `/campaigns/{campaign_id}/archive/graph/table` | Open the keyboard-friendly accessible Graph table. |
 | `/campaigns/{campaign_id}/archive/maps` | Open Maps with the current or first named map selected. |
 | `/campaigns/{campaign_id}/archive/maps/{view_id}` | Deep-link to one named map. |
 | `/campaigns/{campaign_id}/archive/relationships` | Open Relationships with the current or first named board selected. |
@@ -149,7 +150,7 @@ The proofs of concept may use fixtures or a thin prototype adapter. A production
 | List or create views | `GET` or `POST /api/v1/campaigns/{campaign_id}/archive/views` |
 | Read, update, or archive a view | `/api/v1/campaigns/{campaign_id}/archive/views/{view_id}` |
 
-The graph query should accept an optional focus page, depth, edge classes, and filters. It must enforce a server-side node and edge limit. All routes must apply campaign authorization before resolving targets or reporting counts. Updating the Archive home must use the current document version so a stale edit cannot overwrite newer `campaign.md` content.
+The graph query accepts an optional focus page, depth, edge classes, and filters. Without a focus page it returns a bounded campaign overview of all pages and their connections; depth is not applied in that mode. With a focus page, depth selects a one-hop or two-hop neighborhood. It must enforce a server-side node and edge limit. All routes must apply campaign authorization before resolving targets or reporting counts. Updating the Archive home must use the current document version so a stale edit cannot overwrite newer `campaign.md` content.
 
 ## Shared internal structures
 
@@ -231,7 +232,7 @@ The Graph needs one read model that preserves the source and meaning of each edg
 - Direction and canonical source ownership.
 - Source document version.
 
-The projection is rebuilt from canonical documents and existing relationship projections. It includes the campaign home as a graph node when it links to or is linked from an Archive item. Parallel edges are retained in the API even if the interface groups them visually. This prevents a document link, an existing reference, and a semantic relationship between the same pages from being mistaken for one fact.
+The projection is rebuilt from canonical documents and existing relationship projections. An unfocused request presents the bounded campaign overview. A focused one-hop request presents the selected page and its directly connected neighbors; a focused two-hop request expands through those neighbors. The campaign home is included when it is in the selected scope. Parallel edges are retained in the API even if the interface groups them visually. This prevents a document link, an existing reference, and a semantic relationship between the same pages from being mistaken for one fact.
 
 The first Graph proof of concept includes `document_link`, `reference`, and `relationship` edges by default. Entity-reference template fields and session links should be tested as filters before becoming default edges because they may create noise.
 
@@ -291,7 +292,7 @@ The current-document round trip proves that a view can reload, revise, export, a
 
 ### Performance
 
-- Do not load a whole campaign graph by default. Start with a focused item or a bounded overview.
+- An unfocused Graph is a bounded campaign overview with no hop mode; focused Graph exploration offers one-hop and two-hop neighborhoods.
 - Graph requests declare depth and edge classes and enforce server-side node and edge caps.
 - The UI reports truncation and offers filters instead of silently dropping edges.
 - PostgreSQL projections and ordinary indexed joins are the first implementation hypothesis. A graph database is considered only after representative evidence shows they are insufficient.

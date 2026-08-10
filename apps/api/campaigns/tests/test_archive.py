@@ -254,6 +254,98 @@ class ArchiveApiTests(TestCase):
         bad_link = self.create_item(body=f"[Missing](dmhq://item/{uuid.uuid4()})")
         self.assertIn("detail", bad_link)
 
+    def test_graph_two_hops_includes_one_hop_edges_and_peer_connections(self):
+        second = self.create_item(title="Second")
+        third = self.create_item(title="Third")
+        source = self.create_item(
+            title="Source",
+            body=f"[Second](dmhq://item/{second['id']})",
+        )
+        updated = self.client.patch(
+            f"/api/v1/items/{second['id']}",
+            data=json.dumps(
+                {
+                    "version": second["version"],
+                    "markdown": markdown(
+                        self.campaign.id,
+                        second["id"],
+                        title="Second",
+                        body=f"[Third](dmhq://item/{third['id']})",
+                    ),
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(updated.status_code, 200)
+
+        one_hop = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=1")
+        two_hops = self.client.get(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}&depth=2"
+        )
+        self.assertEqual(one_hop.status_code, 200)
+        self.assertEqual(two_hops.status_code, 200)
+        one_payload = one_hop.json()
+        two_payload = two_hops.json()
+        self.assertEqual({node["id"] for node in one_payload["nodes"]}, {source["id"], second["id"]})
+        self.assertEqual(
+            {node["id"] for node in two_payload["nodes"]},
+            {source["id"], second["id"], third["id"]},
+        )
+        one_edges = {(edge["edge_class"], edge["id"]) for edge in one_payload["edges"]}
+        two_edges = {(edge["edge_class"], edge["id"]) for edge in two_payload["edges"]}
+        self.assertTrue(one_edges <= two_edges)
+
+    def test_graph_without_focus_returns_complete_overview(self):
+        first = self.create_item(title="First")
+        second = self.create_item(title="Second")
+        third = self.create_item(title="Third")
+        fourth = self.create_item(title="Fourth")
+        self.create_item(
+            title="Linked first",
+            body=f"[First](dmhq://item/{first['id']})",
+        )
+        self.create_item(
+            title="Linked second",
+            body=f"[Second](dmhq://item/{second['id']})",
+        )
+        overview = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph")
+        self.assertEqual(overview.status_code, 200)
+        payload = overview.json()
+        self.assertIsNone(payload["focus_id"])
+        self.assertEqual(payload["depth"], 0)
+        node_ids = {node["id"] for node in payload["nodes"]}
+        self.assertTrue({str(self.campaign.id), first["id"], second["id"], third["id"], fourth["id"]} <= node_ids)
+        self.assertGreaterEqual(len(payload["edges"]), 2)
+
+    def test_graph_includes_bounded_plain_text_node_summaries(self):
+        target = self.create_item(
+            title="Target",
+            body=" ".join(["A **very** long note."] * 100),
+        )
+        source = self.create_item(
+            title="Source",
+            body=f"Source points to [Target](dmhq://item/{target['id']}).",
+        )
+        home = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/home").json()
+        home_markdown = home["markdown"].replace(
+            "\n\n", f"\n\nCampaign links [Source](dmhq://item/{source['id']}).\n", 1
+        )
+        updated_home = self.client.patch(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/home",
+            data=json.dumps({"version": home["version"], "markdown": home_markdown}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(updated_home.status_code, 200)
+        graph = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/archive/graph?focus_id={source['id']}")
+        self.assertEqual(graph.status_code, 200)
+        nodes = {node["id"]: node for node in graph.json()["nodes"]}
+        self.assertEqual(nodes[source["id"]]["summary"], "Source points to Target.")
+        self.assertEqual(nodes[str(self.campaign.id)]["summary"], "Campaign links Source.")
+        self.assertLessEqual(len(nodes[target["id"]]["summary"]), 240)
+        self.assertNotIn("**", nodes[target["id"]]["summary"])
+
     def test_default_templates_validate_typed_fields_and_canon_requirements(self):
         templates = self.client.get(f"/api/v1/campaigns/{self.campaign.id}/templates").json()["templates"]
         person = next(template for template in templates if template["applies_to"] == "entity")
