@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { ApiError, createApiClient, type ArchiveItem, type ArchiveViewDocument, type ItemSummary, type MapPlacement } from "@dm-hq/api-client";
 
@@ -162,13 +161,12 @@ export default function MapViewPage() {
 
   const isArchived = view.status === "archived";
   return <section className={`archive-view-page map-product-page${editing ? " map-editor-page" : " visualization-page map-viewer-page"}`}>
-    <div className={`archive-page-heading${editing ? "" : " visualization-panel map-viewer-heading"}`}>
+    {editing ? <div className="archive-page-heading">
       <div><div className="eyebrow">Interactive atlas · DM private · {view.status}</div><h2>{view.title}</h2><p>{view.description || "Explore this campaign map in two or three dimensions."}</p></div>
       <div className="archive-page-actions">
-        <Link className="button secondary" href={editing ? `/campaigns/${campaignId}/archive/maps/${view.id}` : `/campaigns/${campaignId}/archive/maps/${view.id}/edit`}>{editing ? "View map" : "Edit map"}</Link>
-        {editing && <button type="button" className="secondary" disabled={busy} onClick={() => void changeArchiveStatus()}>{isArchived ? "Restore view" : "Archive view"}</button>}
+        <button type="button" className="secondary" disabled={busy} onClick={() => void changeArchiveStatus()}>{isArchived ? "Restore view" : "Archive view"}</button>
       </div>
-    </div>
+    </div> : <h2 className="sr-only">{view.title}</h2>}
     {editing ? <p className="map-privacy-notice">External map images are requested directly by your browser with no referrer. The image host still receives the request, may block WebGL use through CORS, and campaign exports contain the URL rather than the image.</p> : <details className="map-privacy-disclosure"><summary>External image privacy</summary><p>The image host receives the browser request. WebGL also requires the host to allow cross-origin textures, and exports retain the URL rather than the image.</p></details>}
     {editing && <form className="map-background-editor" onSubmit={saveBackground}>
       <label>Background HTTPS URL<input type="url" required pattern="https://.*" value={backgroundUrl} onChange={(event) => setBackgroundUrl(event.target.value)} disabled={isArchived} /></label>

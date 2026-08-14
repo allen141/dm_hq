@@ -36,24 +36,24 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
   const graphWorkspace = pathname.includes("/archive/graph") && !pathname.includes("/archive/graph/table");
   const mapWorkspace = pathname.includes("/archive/maps/") && !pathname.endsWith("/edit");
   const visualizationWorkspace = graphWorkspace || mapWorkspace;
+  const mapRoute = pathname.match(/\/archive\/maps\/([^/]+)/);
+  const mapViewId = mapRoute?.[1];
+  const mapEditing = Boolean(mapViewId && pathname.endsWith("/edit"));
 
   return <main className={`archive-shell${visualizationWorkspace ? " visualization-shell" : ""}${graphWorkspace ? " graph-shell" : ""}${mapWorkspace ? " map-shell" : ""}`}>
     <header className="archive-topbar">
       <div className="archive-heading-group">
-        <Link className="back-link" href="/"><span aria-hidden="true">←</span> Campaigns</Link>
+        <Link className="back-link" href="/"><span aria-hidden="true">←</span> <span className="archive-back-label">Campaigns</span></Link>
         <div className="archive-title-lockup">
           <span className="archive-sigil" aria-hidden="true"><span>DM</span></span>
-          <div>
-            <div className="eyebrow">Private Archive · Campaign intelligence</div>
-            <h1>{campaign?.name ?? "Campaign Archive"}</h1>
-            <p className="archive-context">World index, connections, and field views</p>
-          </div>
+          <h1>{campaign?.name ?? "Campaign Archive"}</h1>
         </div>
       </div>
       <div className="archive-utilities" aria-label="Archive utilities">
-        <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=search`}><span aria-hidden="true">⌕</span> Search</Link>
-        <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=capture`}><span aria-hidden="true">＋</span> Quick capture</Link>
-        <Link className="button archive-primary-action" href={`/campaigns/${campaignId}/archive/views/new`}>New view <span aria-hidden="true">↗</span></Link>
+        {mapViewId && <Link className="button secondary archive-context-action" href={`/campaigns/${campaignId}/archive/maps/${mapViewId}${mapEditing ? "" : "/edit"}`}>{mapEditing ? "View map" : "Edit map"}</Link>}
+        <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=search`}><span aria-hidden="true">⌕</span> <span className="archive-utility-label">Search</span></Link>
+        <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=capture`}><span aria-hidden="true">＋</span> <span className="archive-utility-label">Quick capture</span></Link>
+        <Link className="button archive-primary-action" href={`/campaigns/${campaignId}/archive/views/new`}><span className="archive-utility-label">New view</span> <span aria-hidden="true">↗</span></Link>
       </div>
     </header>
     <nav className="archive-tabs" aria-label="Archive views">

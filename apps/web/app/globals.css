@@ -813,3 +813,62 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
   .visualization-shell .archive-topbar,
   .visualization-shell .archive-tabs { border: 1px solid CanvasText; color: CanvasText; background: Canvas; box-shadow: none; }
 }
+
+/* Shared compact Archive chrome keeps visualization space focused on campaign content. */
+.archive-topbar {
+  min-height: 68px;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 14px;
+}
+.archive-heading-group {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 14px;
+}
+.archive-title-lockup { min-width: 0; flex: 1 1 auto; gap: 10px; }
+.archive-sigil { width: 34px; height: 34px; box-shadow: inset 0 0 0 3px rgb(199 154 80 / 8%); font-size: .58rem; }
+.archive-topbar .back-link { flex: 0 0 auto; margin: 0; font-size: .72rem; white-space: nowrap; }
+.archive-topbar h1 {
+  min-width: 0;
+  max-width: 820px;
+  margin: 0;
+  overflow: hidden;
+  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.archive-utilities { flex: 0 0 auto; align-items: center; flex-wrap: nowrap; padding: 0; }
+.archive-topbar .button { min-height: 40px; padding: 8px 12px; }
+.archive-context-action { border-color: rgb(218 171 95 / 55%); color: #f2ca83; background: rgb(199 154 80 / 10%); }
+.archive-tabs { padding-top: 4px; }
+.archive-tabs a { min-height: 44px; padding-block: 8px 10px; }
+.map-shell .map-viewer-page { padding-top: 8px; }
+
+@media (max-width: 920px) {
+  .archive-topbar { align-items: center; }
+  .archive-utilities { max-width: none; }
+}
+
+@media (max-width: 720px) {
+  .archive-topbar {
+    display: flex;
+    min-height: 58px;
+    margin-inline: -4px;
+    padding: 8px 10px;
+  }
+  .archive-heading-group { gap: 8px; }
+  .archive-title-lockup { align-items: center; }
+  .archive-sigil { width: 30px; height: 30px; }
+  .archive-topbar h1 { font-size: 1.08rem; }
+  .archive-back-label,
+  .archive-utility-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .archive-utilities { display: flex; max-width: none; margin: 0; }
+  .archive-primary-action { grid-column: auto; }
+  .archive-topbar .button { min-width: 38px; min-height: 38px; justify-content: center; padding: 7px 9px; }
+  .archive-context-action { min-width: auto; }
+  .archive-tabs a { min-height: 44px; }
+}

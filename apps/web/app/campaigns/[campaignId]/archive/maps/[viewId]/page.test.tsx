@@ -44,11 +44,12 @@ test("keeps the viewer focused on the map and moves authoring to a separate rout
   render(<MapViewPage />);
 
   expect(await screen.findByRole("heading", { name: "The Harbor" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Edit map" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/maps/map-1/edit");
+  expect(screen.getByRole("heading", { name: "The Harbor" })).toHaveClass("sr-only");
+  expect(screen.queryByRole("link", { name: "Edit map" })).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Page to place")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Search markers")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Archive view" })).not.toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "The Harbor" }).closest(".map-viewer-heading")).toHaveClass("visualization-panel");
+  expect(document.querySelector(".map-viewer-heading")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Map controls")).toHaveClass("visualization-panel", "is-viewing");
   expect(document.querySelector(".map-workspace-grid")).toHaveClass("visualization-stage", "is-viewing");
   expect(screen.getByText("Map locations", { exact: false }).closest("details")).toHaveClass("visualization-panel");

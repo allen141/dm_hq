@@ -28,6 +28,7 @@ test("presents campaign context, utilities, and route-selected Archive tabs", as
   expect(screen.getByRole("main")).toHaveClass("visualization-shell", "map-shell");
   expect(screen.getByRole("link", { name: "Quick capture" })).toHaveAttribute("href", "/campaigns/campaign-1/archive?focus=capture");
   expect(screen.getByRole("link", { name: "New view" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/views/new");
+  expect(screen.getByRole("link", { name: "Edit map" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/maps/map-1/edit");
   expect(screen.getByRole("link", { name: "Maps" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/relationships/ties-1");
   expect(screen.getByText("Map workspace")).toBeInTheDocument();
