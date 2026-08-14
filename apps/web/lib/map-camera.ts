@@ -35,3 +35,30 @@ export function clampMapCameraTarget(
     y: clampAxis(target.y, bounds.y),
   };
 }
+
+type MapCameraVector = {
+  x: number;
+  y: number;
+  z: number;
+};
+
+export function constrainMapCameraPose(
+  target: MapCameraVector,
+  position: MapCameraVector,
+  bounds: MapCameraBounds,
+) {
+  const planarTarget = clampMapCameraTarget({ x: target.x, y: target.z }, bounds);
+  const shift = {
+    x: planarTarget.x - target.x,
+    y: -target.y,
+    z: planarTarget.y - target.z,
+  };
+  return {
+    target: { x: planarTarget.x, y: 0, z: planarTarget.y },
+    position: {
+      x: position.x + shift.x,
+      y: position.y + shift.y,
+      z: position.z + shift.z,
+    },
+  };
+}

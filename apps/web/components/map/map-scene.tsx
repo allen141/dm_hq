@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { MapControls as ThreeMapControls } from "three/addons/controls/MapControls.js";
 import { OrthographicCamera, PerspectiveCamera, type Texture } from "three";
-import { clampMapCameraTarget, mapCameraBounds } from "@/lib/map-camera";
+import { constrainMapCameraPose, mapCameraBounds } from "@/lib/map-camera";
 import { mapPointFromUv, mapPointToWorld, planeDimensions } from "@/lib/map-coordinates";
 import { loadMapTexture } from "@/lib/map-texture";
 import type { MapCanvasProps, MapMode } from "@/lib/map-types";
@@ -75,7 +75,7 @@ function MapControls({ mode, resetToken = 0, planeWidth, planeHeight, enabled }:
     controls.enableDamping = false;
     controls.enabled = enabled;
     controls.enableRotate = mode === "3d";
-    controls.screenSpacePanning = false;
+    controls.screenSpacePanning = mode === "2d";
     controls.minDistance = longestSide * 0.25;
     controls.maxDistance = longestSide * 4;
     controls.minZoom = 1;
@@ -90,16 +90,14 @@ function MapControls({ mode, resetToken = 0, planeWidth, planeHeight, enabled }:
       const visibleWidth = orthographic ? (orthographic.right - orthographic.left) / orthographic.zoom : undefined;
       const visibleHeight = orthographic ? (orthographic.top - orthographic.bottom) / orthographic.zoom : undefined;
       const bounds = mapCameraBounds(mode, planeWidth, planeHeight, visibleWidth, visibleHeight);
-      const constrained = clampMapCameraTarget({ x: controls.target.x, y: controls.target.z }, bounds);
-      const shiftX = constrained.x - controls.target.x;
-      const shiftZ = constrained.y - controls.target.z;
-      if (shiftX || shiftZ) {
-        controls.target.x = constrained.x;
-        controls.target.z = constrained.y;
-        camera.position.x += shiftX;
-        camera.position.z += shiftZ;
-        camera.updateMatrixWorld();
-      }
+      const constrained = constrainMapCameraPose(
+        { x: controls.target.x, y: controls.target.y, z: controls.target.z },
+        { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        bounds,
+      );
+      controls.target.set(constrained.target.x, constrained.target.y, constrained.target.z);
+      camera.position.set(constrained.position.x, constrained.position.y, constrained.position.z);
+      camera.updateMatrixWorld();
       invalidate();
     };
     controls.addEventListener("change", handleChange);

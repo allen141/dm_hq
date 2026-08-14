@@ -96,7 +96,7 @@ Measure a production build in current Chromium on the agreed representative tabl
 - A cached summary opens within 100 milliseconds at the 95th percentile.
 - A 2D/3D mode change produces a usable camera within 250 milliseconds, or immediately when reduced motion is enabled.
 - Pan, zoom, and orbit sustain at least 30 frames per second at the 95th-percentile frame interval during the representative interaction trace.
-- Camera zoom and pan bounds keep the target on the map plane; zooming, panning, resizing, and resetting cannot move the entire image outside the viewport.
+- The 2D controls pan in screen space, and every camera update projects the target back onto the map plane before applying zoom and pan bounds. Zooming, panning, resizing, and resetting cannot move the entire image outside the viewport or carry the camera through the plane.
 - The renderer uses one canvas, one background texture, instanced or otherwise batched repeated marker geometry, and no continuous animation loop when the scene is idle.
 - WebGL or texture failure activates the functional fallback within one second of the detected failure.
 
