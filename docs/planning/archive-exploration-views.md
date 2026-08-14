@@ -142,6 +142,7 @@ These routes describe stable navigation outcomes. They do not prescribe the curr
 | `/campaigns/{campaign_id}/archive/graph/table` | Open the keyboard-friendly accessible Graph table. |
 | `/campaigns/{campaign_id}/archive/maps` | Open Maps with the current or first named map selected. |
 | `/campaigns/{campaign_id}/archive/maps/{view_id}` | Deep-link to one named map. |
+| `/campaigns/{campaign_id}/archive/maps/{view_id}/edit` | Edit the background, placements, status, and marker metadata for one named map. |
 | `/campaigns/{campaign_id}/archive/relationships` | Open Relationships with the current or first named board selected. |
 | `/campaigns/{campaign_id}/archive/relationships/{view_id}` | Deep-link to one named relationship board. |
 
@@ -380,6 +381,7 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 - Create one named Map view from a direct external HTTPS raster image URL with required alt text and an explicit privacy and portability warning.
 - Render one image plane and normalized placements through a dynamically loaded Three.js and React Three Fiber scene.
 - Switch between an orthographic 2D camera and a constrained perspective 3D camera without changing canonical placement data.
+- Keep the named map route focused on read-only exploration and move all map authoring to its dedicated `/edit` route.
 - Add an existing Archive item as a point marker using an explicit add-marker mode.
 - Move and remove the marker without editing or deleting the item.
 - Select a custom graphical marker to open a DOM summary popup with a lazy, bounded plain-text item excerpt and canonical page link.
@@ -391,6 +393,8 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 
 - A tester creates or opens the Map view, places three existing items, reloads, and finds the same placements.
 - The 2D and 3D modes show the same placement identities and selection, and mode or camera changes create no document revision.
+- Zooming, panning, resizing, and resetting never allow the complete image plane to leave the viewport.
+- The viewer contains no placement, background, coordinate, archive-status, or save controls; the editor retains the full authoring and accessible marker workflow.
 - A popup fetches each selected item at most once per item version during the page lifetime and renders only a bounded plain-text excerpt.
 - A WebGL or external-image failure preserves marker selection, editing, saving, and navigation in the DOM fallback.
 - The accessibility, performance, security, visual-regression, and browser acceptance in ADR 0008 passes on the representative fixture.

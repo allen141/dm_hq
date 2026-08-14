@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { MapControls as ThreeMapControls } from "three/addons/controls/MapControls.js";
 import { OrthographicCamera, PerspectiveCamera, type Texture } from "three";
+import { clampMapCameraTarget, mapCameraBounds } from "@/lib/map-camera";
 import { mapPointFromUv, mapPointToWorld, planeDimensions } from "@/lib/map-coordinates";
 import { loadMapTexture } from "@/lib/map-texture";
 import type { MapCanvasProps, MapMode } from "@/lib/map-types";
@@ -47,24 +48,29 @@ function CameraRig({ mode, width, height, resetToken = 0 }: { mode: MapMode; wid
   useLayoutEffect(() => {
     const longestSide = Math.max(width, height);
     if (mode === "2d") {
+      // eslint-disable-next-line react-hooks/immutability -- Three cameras are configured through their imperative API.
+      camera.zoom = 1;
       camera.position.set(0, longestSide * 1.35, 0.001);
       camera.up.set(0, 0, -1);
     } else {
+      camera.zoom = 1;
       camera.position.set(0, longestSide * 0.82, longestSide * 0.92);
       camera.up.set(0, 1, 0);
     }
     camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
     invalidate();
-  }, [camera, height, invalidate, mode, resetToken, width]);
+  }, [camera, height, invalidate, mode, resetToken, size.height, size.width, width]);
 
   return null;
 }
 
-function MapControls({ mode, resetToken = 0, longestSide, enabled }: { mode: MapMode; resetToken?: number; longestSide: number; enabled: boolean }) {
+function MapControls({ mode, resetToken = 0, planeWidth, planeHeight, enabled }: { mode: MapMode; resetToken?: number; planeWidth: number; planeHeight: number; enabled: boolean }) {
   const { camera, gl, invalidate } = useThree();
 
   useEffect(() => {
+    const longestSide = Math.max(planeWidth, planeHeight);
     const controls = new ThreeMapControls(camera, gl.domElement);
     controls.enableDamping = false;
     controls.enabled = enabled;
@@ -72,18 +78,36 @@ function MapControls({ mode, resetToken = 0, longestSide, enabled }: { mode: Map
     controls.screenSpacePanning = false;
     controls.minDistance = longestSide * 0.25;
     controls.maxDistance = longestSide * 4;
+    controls.minZoom = 1;
+    controls.maxZoom = 12;
     controls.maxPolarAngle = mode === "3d" ? Math.PI * 0.46 : 0;
     controls.minPolarAngle = mode === "3d" ? Math.PI * 0.08 : 0;
     controls.target.set(0, 0, 0);
     controls.update();
     controls.saveState();
-    const handleChange = () => invalidate();
+    const handleChange = () => {
+      const orthographic = camera instanceof OrthographicCamera ? camera : null;
+      const visibleWidth = orthographic ? (orthographic.right - orthographic.left) / orthographic.zoom : undefined;
+      const visibleHeight = orthographic ? (orthographic.top - orthographic.bottom) / orthographic.zoom : undefined;
+      const bounds = mapCameraBounds(mode, planeWidth, planeHeight, visibleWidth, visibleHeight);
+      const constrained = clampMapCameraTarget({ x: controls.target.x, y: controls.target.z }, bounds);
+      const shiftX = constrained.x - controls.target.x;
+      const shiftZ = constrained.y - controls.target.z;
+      if (shiftX || shiftZ) {
+        controls.target.x = constrained.x;
+        controls.target.z = constrained.y;
+        camera.position.x += shiftX;
+        camera.position.z += shiftZ;
+        camera.updateMatrixWorld();
+      }
+      invalidate();
+    };
     controls.addEventListener("change", handleChange);
     return () => {
       controls.removeEventListener("change", handleChange);
       controls.dispose();
     };
-  }, [camera, enabled, gl.domElement, invalidate, longestSide, mode, resetToken]);
+  }, [camera, enabled, gl.domElement, invalidate, mode, planeHeight, planeWidth, resetToken]);
 
   return null;
 }
@@ -108,6 +132,7 @@ export function MapScene({
   placements,
   mode,
   selectedPlacementId,
+  editable = false,
   placementArmed = false,
   resetToken,
   onSelectPlacement,
@@ -161,7 +186,7 @@ export function MapScene({
       <ambientLight intensity={mode === "3d" ? 1.1 : 1.5} />
       <directionalLight position={[4, 10, 5]} intensity={mode === "3d" ? 2.4 : 1.25} />
       <CameraRig mode={mode} width={imageSize.width} height={imageSize.height} resetToken={resetToken} />
-      <MapControls mode={mode} resetToken={resetToken} longestSide={Math.max(imageSize.width, imageSize.height)} enabled={!dragging} />
+      <MapControls mode={mode} resetToken={resetToken} planeWidth={imageSize.width} planeHeight={imageSize.height} enabled={!dragging} />
       <ContextGuard onFailure={onFailure} />
       {activeTexture && (
         <>
@@ -178,6 +203,7 @@ export function MapScene({
                 item={itemById.get(placement.item_id)}
                 mode={mode}
                 selected={placement.id === selectedPlacementId}
+                editable={editable}
                 position={[world[0], 0.02, world[2]]}
                 scale={markerScale}
                 planeWidth={imageSize.width}

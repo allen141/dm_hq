@@ -11,6 +11,7 @@ type MapMarkerProps = {
   item?: MapItem;
   mode: MapMode;
   selected: boolean;
+  editable: boolean;
   position: [number, number, number];
   scale: number;
   planeWidth: number;
@@ -26,7 +27,7 @@ const COLORS = {
   session: "#aa82e8",
 };
 
-export function MapMarker({ placement, item, mode, selected, position, scale, planeWidth, planeHeight, onSelect, onDragStateChange, onMove }: MapMarkerProps) {
+export function MapMarker({ placement, item, mode, selected, editable, position, scale, planeWidth, planeHeight, onSelect, onDragStateChange, onMove }: MapMarkerProps) {
   const kind = item?.kind === "entity" || item?.kind === "session" ? item.kind : "note";
   const archived = item?.status === "archived";
   const color = archived ? "#87918f" : COLORS[kind];
@@ -88,10 +89,10 @@ export function MapMarker({ placement, item, mode, selected, position, scale, pl
       position={position}
       scale={markerScale}
       onClick={select}
-      onPointerDown={startDrag}
-      onPointerMove={moveDrag}
-      onPointerUp={finishDrag}
-      onPointerCancel={finishDrag}
+      onPointerDown={editable ? startDrag : undefined}
+      onPointerMove={editable ? moveDrag : undefined}
+      onPointerUp={editable ? finishDrag : undefined}
+      onPointerCancel={editable ? finishDrag : undefined}
       userData={{ placementId: placement.id, title: placement.caption || item?.title }}
     >
       {selected && (

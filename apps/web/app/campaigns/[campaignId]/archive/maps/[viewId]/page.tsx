@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
 import { ApiError, createApiClient, type ArchiveItem, type ArchiveViewDocument, type ItemSummary, type MapPlacement } from "@dm-hq/api-client";
 
 import { MapMarkerList } from "@/components/map/map-marker-list";
+import { MapLocationIndex } from "@/components/map/map-location-index";
 import { MapToolbar } from "@/components/map/map-toolbar";
 import { MapWorkspace } from "@/components/map/map-workspace";
 import type { MapMode, MapPoint } from "@/lib/map-types";
@@ -16,6 +18,8 @@ const clamp = (value: number) => Math.max(0, Math.min(1, Number.isFinite(value) 
 
 export default function MapViewPage() {
   const { campaignId, viewId } = useParams<{ campaignId: string; viewId: string }>();
+  const pathname = usePathname();
+  const editing = pathname.endsWith("/edit");
   const [view, setView] = useState<ArchiveViewDocument | null>(null);
   const [items, setItems] = useState<ItemSummary[]>([]);
   const [backgroundUrl, setBackgroundUrl] = useState("");
@@ -160,22 +164,26 @@ export default function MapViewPage() {
   return <section className="archive-view-page map-product-page">
     <div className="archive-page-heading">
       <div><div className="eyebrow">Interactive atlas · DM private · {view.status}</div><h2>{view.title}</h2><p>{view.description || "Explore this campaign map in two or three dimensions."}</p></div>
-      <button type="button" className="secondary" disabled={busy} onClick={() => void changeArchiveStatus()}>{isArchived ? "Restore view" : "Archive view"}</button>
+      <div className="archive-page-actions">
+        <Link className="button secondary" href={editing ? `/campaigns/${campaignId}/archive/maps/${view.id}` : `/campaigns/${campaignId}/archive/maps/${view.id}/edit`}>{editing ? "View map" : "Edit map"}</Link>
+        {editing && <button type="button" className="secondary" disabled={busy} onClick={() => void changeArchiveStatus()}>{isArchived ? "Restore view" : "Archive view"}</button>}
+      </div>
     </div>
-    <p className="map-privacy-notice">External map images are requested directly by your browser with no referrer. The image host still receives the request, may block WebGL use through CORS, and campaign exports contain the URL rather than the image.</p>
-    <form className="map-background-editor" onSubmit={saveBackground}>
+    {editing ? <p className="map-privacy-notice">External map images are requested directly by your browser with no referrer. The image host still receives the request, may block WebGL use through CORS, and campaign exports contain the URL rather than the image.</p> : <details className="map-privacy-disclosure"><summary>External image privacy</summary><p>The image host receives the browser request. WebGL also requires the host to allow cross-origin textures, and exports retain the URL rather than the image.</p></details>}
+    {editing && <form className="map-background-editor" onSubmit={saveBackground}>
       <label>Background HTTPS URL<input type="url" required pattern="https://.*" value={backgroundUrl} onChange={(event) => setBackgroundUrl(event.target.value)} disabled={isArchived} /></label>
       <label>Image description<input required value={backgroundAlt} onChange={(event) => setBackgroundAlt(event.target.value)} disabled={isArchived} /></label>
       <button disabled={busy || conflicted || isArchived || !backgroundUrl.startsWith("https://") || !backgroundAlt.trim()}>{busy ? "Saving…" : "Save background"}</button>
-    </form>
-    <MapToolbar mode={mode} onModeChange={setMode} items={items} itemId={placementItemId} onItemChange={setPlacementItemId} placementArmed={placementArmed} onTogglePlacement={() => setPlacementArmed((current) => !current)} onResetView={() => setResetToken((current) => current + 1)} disabled={busy || conflicted || isArchived} />
-    <div className="map-workspace-grid">
+    </form>}
+    <MapToolbar mode={mode} onModeChange={setMode} items={items} itemId={placementItemId} onItemChange={setPlacementItemId} placementArmed={placementArmed} onTogglePlacement={() => setPlacementArmed((current) => !current)} onResetView={() => setResetToken((current) => current + 1)} disabled={busy || conflicted || isArchived} editing={editing} />
+    <div className={`map-workspace-grid ${editing ? "is-editing" : "is-viewing"}`}>
       <div className="map-viewport-column">
-        <MapWorkspace campaignId={campaignId} background={{ url: view.background?.url ?? backgroundUrl, alt: view.background?.alt ?? backgroundAlt }} items={items} placements={view.placements} mode={mode} selectedPlacementId={selectedPlacementId} placementArmed={placementArmed} resetToken={resetToken} selectedItem={selectedItem} selectedExcerpt={selectedItem ? markdownExcerpt(selectedItem.markdown) : undefined} selectedItemLoading={selectedItemLoading} selectedItemError={selectedItemError} rendererError={rendererError} onSelectPlacement={setSelectedPlacementId} onPlace={(point) => void place(point)} onMovePlacement={movePlacement} onRendererError={handleRendererError} />
+        <MapWorkspace campaignId={campaignId} background={{ url: view.background?.url ?? backgroundUrl, alt: view.background?.alt ?? backgroundAlt }} items={items} placements={view.placements} mode={mode} selectedPlacementId={selectedPlacementId} editing={editing} placementArmed={placementArmed} resetToken={resetToken} selectedItem={selectedItem} selectedExcerpt={selectedItem ? markdownExcerpt(selectedItem.markdown) : undefined} selectedItemLoading={selectedItemLoading} selectedItemError={selectedItemError} rendererError={rendererError} onSelectPlacement={setSelectedPlacementId} onPlace={(point) => void place(point)} onMovePlacement={movePlacement} onRendererError={handleRendererError} />
+        {!editing && <MapLocationIndex placements={view.placements} items={items} selectedPlacementId={selectedPlacementId} onSelect={setSelectedPlacementId} />}
       </div>
-      <aside className="map-inspector" aria-label="Marker editor">
+      {editing && <aside className="map-inspector" aria-label="Marker editor">
         <MapMarkerList placements={view.placements} items={items} selectedPlacementId={selectedPlacementId} busy={busy || conflicted || isArchived} onSelect={setSelectedPlacementId} onChange={changePlacement} onNudge={nudgePlacement} onRemove={(id) => void removePlacement(id)} onSave={() => void save(view.placements, undefined, "Marker changes saved.")} />
-      </aside>
+      </aside>}
     </div>
     {message && <p className="success" role="status">{message}</p>}
     {error && <div className="error" role="alert"><p>{error}</p>{conflicted && <button type="button" className="secondary" onClick={() => void load()}>Reload map</button>}</div>}

@@ -30,6 +30,7 @@ export type MapCanvasProps = {
   placements: MapCanvasPlacement[];
   mode: MapMode;
   selectedPlacementId?: string | null;
+  editable?: boolean;
   placementArmed?: boolean;
   resetToken?: number;
   className?: string;

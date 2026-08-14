@@ -55,6 +55,10 @@ Selection is shared between the WebGL marker, DOM fallback marker, and searchabl
 
 ### Authoring interaction
 
+The canonical map route is a read-only exploration screen. It gives the renderer the full content width, keeps selection summaries and a collapsed semantic location index, and contains no background, placement, archive-status, coordinate, or save controls. A dedicated `/edit` route owns those authoring controls and links back to the viewer. This separation keeps live-play exploration focused without weakening keyboard or nonvisual navigation.
+
+Marker dragging and placement mode are disabled at the renderer boundary on the viewer route, rather than hidden only with CSS.
+
 Adding a placement requires an explicit **Add marker** mode. Ordinary clicks pan, inspect, or select; they never create content. While add-marker mode is active, the next valid point on the map supplies normalized, clamped coordinates for the selected Archive item, and the user confirms or cancels before saving.
 
 Dragging an existing marker previews its position and persists only on pointer release. Numeric `x` and `y` controls, keyboard nudging, item search, remove, and open-page actions remain available in the DOM marker editor. Version conflicts stop the save and offer reload rather than attempting an automatic merge.
@@ -71,7 +75,7 @@ This visual system applies across the private DM workspace. Player publication r
 
 The enhanced map is accepted only when all of the following are true:
 
-- The canvas is supplemental. A semantic, searchable marker list exposes every marker, selection state, caption, item status, open-page action, and edit action available through the visual map.
+- The canvas is supplemental. The viewer's collapsed semantic location index exposes every marker and selection action; the editor's searchable marker list additionally exposes captions, status, open-page actions, coordinates, and edit actions.
 - Mode, zoom, reset-view, add-marker, confirm, cancel, and popup-close controls are native buttons with visible names, states, and focus indicators.
 - Every placement can be added, selected, moved in documented increments, assigned exact coordinates, and removed without dragging. Coordinates are announced as percentages or bounded numeric values.
 - The summary popup has an accessible name, moves focus predictably when opened from the canvas, is dismissible with `Escape`, does not trap focus unnecessarily, and restores focus on close.
@@ -90,6 +94,7 @@ Measure a production build in current Chromium on the agreed representative tabl
 - A cached summary opens within 100 milliseconds at the 95th percentile.
 - A 2D/3D mode change produces a usable camera within 250 milliseconds, or immediately when reduced motion is enabled.
 - Pan, zoom, and orbit sustain at least 30 frames per second at the 95th-percentile frame interval during the representative interaction trace.
+- Camera zoom and pan bounds keep the target on the map plane; zooming, panning, resizing, and resetting cannot move the entire image outside the viewport.
 - The renderer uses one canvas, one background texture, instanced or otherwise batched repeated marker geometry, and no continuous animation loop when the scene is idle.
 - WebGL or texture failure activates the functional fallback within one second of the detected failure.
 
@@ -101,6 +106,7 @@ Automated coverage must include:
 
 - Unit tests for normalized coordinate-to-plane conversion, clamping, camera bounds, 2D/3D mode state, keyboard nudge increments, excerpt normalization and length, summary cache keys, and add-marker state transitions.
 - Component tests proving that canvas selection, DOM fallback selection, marker-list selection, popup content, canonical item links, archived state, and placement editing share the same adapter contracts.
+- Route tests prove that the viewer exposes selection and navigation without authoring controls, while the `/edit` route exposes the complete marker workflow.
 - Failure tests for absent WebGL, context loss, image load failure, CORS/texture rejection, item-summary failure, and stale placement saves. Each verifies that editing data is retained.
 - Security tests proving the summary is plain text, item fetches remain campaign-authorized, external images are never fetched by the server, and the custom image is configured for anonymous CORS with no referrer before loading.
 - Playwright coverage for keyboard-only marker creation and editing, pointer selection, popup focus restoration, 2D/3D switching, reduced motion, tablet layout, fallback operation, repeat item placements, reload persistence, and archive/restore of a view.

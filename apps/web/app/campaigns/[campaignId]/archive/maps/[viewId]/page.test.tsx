@@ -4,7 +4,8 @@ import type { MapCanvasProps } from "@/lib/map-types";
 
 import MapViewPage from "./page";
 
-vi.mock("next/navigation", () => ({ useParams: () => ({ campaignId: "campaign-1", viewId: "map-1" }) }));
+const navigation = vi.hoisted(() => ({ pathname: "/campaigns/campaign-1/archive/maps/map-1/edit" }));
+vi.mock("next/navigation", () => ({ useParams: () => ({ campaignId: "campaign-1", viewId: "map-1" }), usePathname: () => navigation.pathname }));
 vi.mock("@/components/map/map-canvas", () => ({
   default: (props: MapCanvasProps) => <div aria-label="Test map canvas">
     <button type="button" onClick={() => props.onPlace?.({ x: 0.25, y: 0.75 })}>Choose map point</button>
@@ -24,6 +25,7 @@ const initialView = {
 };
 
 beforeEach(() => {
+  navigation.pathname = "/campaigns/campaign-1/archive/maps/map-1/edit";
   vi.stubGlobal("fetch", vi.fn().mockImplementation(async (path: string, init?: RequestInit) => {
     if (path.endsWith("/archive/views/map-1") && init?.method === "PATCH") {
       const body = JSON.parse(String(init.body));
@@ -37,6 +39,20 @@ beforeEach(() => {
 });
 
 afterEach(() => cleanup());
+test("keeps the viewer focused on the map and moves authoring to a separate route", async () => {
+  navigation.pathname = "/campaigns/campaign-1/archive/maps/map-1";
+  render(<MapViewPage />);
+
+  expect(await screen.findByRole("heading", { name: "The Harbor" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Edit map" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/maps/map-1/edit");
+  expect(screen.queryByLabelText("Page to place")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Search markers")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Archive view" })).not.toBeInTheDocument();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Canvas marker marker-1" }));
+  expect(await screen.findByRole("dialog", { name: "Brass Lantern" })).toBeInTheDocument();
+});
+
 
 test("requires explicit armed placement mode and opens a DOM marker summary", async () => {
   render(<MapViewPage />);

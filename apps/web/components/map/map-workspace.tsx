@@ -19,6 +19,7 @@ type MapWorkspaceProps = {
   placements: MapPlacement[];
   mode: MapMode;
   selectedPlacementId: string | null;
+  editing?: boolean;
   placementArmed: boolean;
   resetToken: number;
   selectedItem?: ArchiveItem | null;
@@ -27,8 +28,8 @@ type MapWorkspaceProps = {
   selectedItemError?: string;
   rendererError?: string;
   onSelectPlacement: (placementId: string | null) => void;
-  onPlace: (point: { x: number; y: number }) => void;
-  onMovePlacement: (placementId: string, point: { x: number; y: number }, phase: "preview" | "commit") => void;
+  onPlace?: (point: { x: number; y: number }) => void;
+  onMovePlacement?: (placementId: string, point: { x: number; y: number }, phase: "preview" | "commit") => void;
   onRendererError: (error: Error) => void;
 };
 
@@ -36,7 +37,7 @@ function identityFor(placement: MapPlacement, items: ItemSummary[]): ItemSummary
   return items.find((item) => item.id === placement.item_id) ?? placement.item;
 }
 
-export function MapWorkspace({ campaignId, background, items, placements, mode, selectedPlacementId, placementArmed, resetToken, selectedItem, selectedExcerpt, selectedItemLoading, selectedItemError, rendererError, onSelectPlacement, onPlace, onMovePlacement, onRendererError }: MapWorkspaceProps) {
+export function MapWorkspace({ campaignId, background, items, placements, mode, selectedPlacementId, editing = false, placementArmed, resetToken, selectedItem, selectedExcerpt, selectedItemLoading, selectedItemError, rendererError, onSelectPlacement, onPlace, onMovePlacement, onRendererError }: MapWorkspaceProps) {
   const selectedPlacement = placements.find((placement) => placement.id === selectedPlacementId);
   const viewportRef = useRef<HTMLDivElement>(null);
   const { refs, floatingStyles, update } = useFloating({
@@ -74,7 +75,7 @@ export function MapWorkspace({ campaignId, background, items, placements, mode, 
   }
 
   return <section className="map-workspace" aria-label="Interactive campaign map">
-    {rendererError && <p className="map-renderer-warning" role="status">The WebGL map could not start ({rendererError}). The accessible 2D fallback is active. A remote image host may also block the map texture through CORS; marker data and editing remain available.</p>}
+    {rendererError && <p className="map-renderer-warning" role="status">The WebGL map could not start ({rendererError}). The accessible 2D fallback is active. A remote image host may also block the map texture through CORS; marker data and navigation remain available.</p>}
     {!background.url ? <div className="map-empty-state"><strong>Add a background to begin exploring.</strong><p>Your markers remain available in the index while the map image is configured.</p></div> : <div className="map-viewport-shell" ref={viewportRef}>
       <MapCanvas
         className="map-renderer"
@@ -83,11 +84,12 @@ export function MapWorkspace({ campaignId, background, items, placements, mode, 
         placements={placements}
         mode={mode}
         selectedPlacementId={selectedPlacementId}
-        placementArmed={placementArmed}
+        editable={editing}
+        placementArmed={editing && placementArmed}
         resetToken={resetToken}
         onSelectPlacement={onSelectPlacement}
-        onPlace={onPlace}
-        onMovePlacement={onMovePlacement}
+        onPlace={editing ? onPlace : undefined}
+        onMovePlacement={editing ? onMovePlacement : undefined}
         onRendererError={onRendererError}
       />
       {selectedPlacement && <div className="map-popover" ref={setFloating} style={floatingStyles}>

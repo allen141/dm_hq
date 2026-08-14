@@ -40,6 +40,9 @@ test("a DM can author and explore a map without WebGL", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Harbor Atlas" })).toBeVisible();
   await expect(page.locator(".map-dom-stage")).toBeVisible();
+  await expect(page.getByLabel("Page to place")).toHaveCount(0);
+  await page.getByRole("link", { name: "Edit map" }).click();
+  await expect(page.getByRole("link", { name: "View map" })).toBeVisible();
   await page.getByLabel("Page to place").selectOption({ label: "Mara Venn" });
   await page.getByRole("button", { name: "Add marker" }).click();
   await expect(page.getByText("Placement armed")).toBeVisible();
@@ -63,4 +66,8 @@ test("a DM can author and explore a map without WebGL", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Ferrymaster's office" })).toBeVisible();
   await page.getByRole("button", { name: "Ferrymaster's office" }).click();
   await expect(page.getByText("Ferrymaster's office")).toBeVisible();
+  await page.getByRole("link", { name: "View map" }).click();
+  await expect(page.getByLabel("Page to place")).toHaveCount(0);
+  await expect(page.getByLabel("Search markers")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ferrymaster's office" })).toBeVisible();
 });
