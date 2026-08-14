@@ -62,3 +62,11 @@ export function constrainMapCameraPose(
     },
   };
 }
+
+export function mapPolarAngleBounds(mode: MapMode) {
+  if (mode === "2d") {
+    const topDownAngle = Math.PI / 2;
+    return { min: topDownAngle, max: topDownAngle };
+  }
+  return { min: Math.PI * 0.08, max: Math.PI * 0.46 };
+}

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
+import { OrthographicCamera } from "three";
+import { MapControls as ThreeMapControls } from "three/addons/controls/MapControls.js";
 
-import { clampMapCameraTarget, constrainMapCameraPose, mapCameraBounds } from "@/lib/map-camera";
+import { clampMapCameraTarget, constrainMapCameraPose, mapCameraBounds, mapPolarAngleBounds } from "@/lib/map-camera";
 
 describe("map camera constraints", () => {
   test("keeps a fully framed 2D map centered", () => {
@@ -36,5 +38,36 @@ describe("map camera constraints", () => {
     expect(pose.position.x).toBe(3);
     expect(pose.position.y).toBeCloseTo(16.2);
     expect(pose.position.z).toBeCloseTo(-1.999);
+  });
+
+  test("keeps the 2D controls perpendicular to the map plane", () => {
+    expect(mapPolarAngleBounds("2d")).toEqual({
+      min: Math.PI / 2,
+      max: Math.PI / 2,
+    });
+    expect(mapPolarAngleBounds("3d")).toEqual({
+      min: Math.PI * 0.08,
+      max: Math.PI * 0.46,
+    });
+  });
+
+  test("MapControls keeps the orthographic camera above the plane", () => {
+    const camera = new OrthographicCamera(-8, 8, 5, -5, 0.01, 100);
+    camera.position.set(0, 16.2, 0.001);
+    camera.up.set(0, 0, -1);
+    camera.lookAt(0, 0, 0);
+
+    const controls = new ThreeMapControls(camera, document.createElement("canvas"));
+    const polarAngles = mapPolarAngleBounds("2d");
+    controls.enableRotate = false;
+    controls.screenSpacePanning = true;
+    controls.minPolarAngle = polarAngles.min;
+    controls.maxPolarAngle = polarAngles.max;
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    expect(camera.position.y).toBeCloseTo(16.2);
+    expect(camera.position.z).toBeCloseTo(0.001);
+    controls.dispose();
   });
 });
