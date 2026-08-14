@@ -8,7 +8,7 @@ type MapLocationIndexProps = {
 };
 
 export function MapLocationIndex({ placements, items, selectedPlacementId, onSelect }: MapLocationIndexProps) {
-  return <details className="map-location-index">
+  return <details className="visualization-panel map-location-index">
     <summary>Map locations <span>({placements.length})</span></summary>
     {placements.length === 0 ? <p>No locations have been placed on this map.</p> : <ol>
       {placements.map((placement, index) => {

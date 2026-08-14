@@ -25,6 +25,7 @@ test("presents campaign context, utilities, and route-selected Archive tabs", as
   expect(await screen.findByRole("heading", { name: "Lantern Harbor" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Campaigns" })).toHaveAttribute("href", "/");
   expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/campaigns/campaign-1/archive?focus=search");
+  expect(screen.getByRole("main")).toHaveClass("visualization-shell", "map-shell");
   expect(screen.getByRole("link", { name: "Quick capture" })).toHaveAttribute("href", "/campaigns/campaign-1/archive?focus=capture");
   expect(screen.getByRole("link", { name: "New view" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/views/new");
   expect(screen.getByRole("link", { name: "Maps" })).toHaveAttribute("aria-current", "page");

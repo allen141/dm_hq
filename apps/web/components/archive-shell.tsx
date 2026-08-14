@@ -34,8 +34,10 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
   ];
 
   const graphWorkspace = pathname.includes("/archive/graph") && !pathname.includes("/archive/graph/table");
+  const mapWorkspace = pathname.includes("/archive/maps/") && !pathname.endsWith("/edit");
+  const visualizationWorkspace = graphWorkspace || mapWorkspace;
 
-  return <main className={`archive-shell${graphWorkspace ? " graph-shell" : ""}`}>
+  return <main className={`archive-shell${visualizationWorkspace ? " visualization-shell" : ""}${graphWorkspace ? " graph-shell" : ""}${mapWorkspace ? " map-shell" : ""}`}>
     <header className="archive-topbar">
       <div className="archive-heading-group">
         <Link className="back-link" href="/"><span aria-hidden="true">←</span> Campaigns</Link>

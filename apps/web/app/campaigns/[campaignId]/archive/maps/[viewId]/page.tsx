@@ -161,8 +161,8 @@ export default function MapViewPage() {
   if (!view) return <section className="archive-view-page map-product-page"><div className="map-empty-state"><h2>Map unavailable</h2><p>{error || "This map could not be loaded."}</p><button type="button" onClick={() => void load()}>Try again</button></div></section>;
 
   const isArchived = view.status === "archived";
-  return <section className="archive-view-page map-product-page">
-    <div className="archive-page-heading">
+  return <section className={`archive-view-page map-product-page${editing ? " map-editor-page" : " visualization-page map-viewer-page"}`}>
+    <div className={`archive-page-heading${editing ? "" : " visualization-panel map-viewer-heading"}`}>
       <div><div className="eyebrow">Interactive atlas · DM private · {view.status}</div><h2>{view.title}</h2><p>{view.description || "Explore this campaign map in two or three dimensions."}</p></div>
       <div className="archive-page-actions">
         <Link className="button secondary" href={editing ? `/campaigns/${campaignId}/archive/maps/${view.id}` : `/campaigns/${campaignId}/archive/maps/${view.id}/edit`}>{editing ? "View map" : "Edit map"}</Link>
@@ -176,7 +176,7 @@ export default function MapViewPage() {
       <button disabled={busy || conflicted || isArchived || !backgroundUrl.startsWith("https://") || !backgroundAlt.trim()}>{busy ? "Saving…" : "Save background"}</button>
     </form>}
     <MapToolbar mode={mode} onModeChange={setMode} items={items} itemId={placementItemId} onItemChange={setPlacementItemId} placementArmed={placementArmed} onTogglePlacement={() => setPlacementArmed((current) => !current)} onResetView={() => setResetToken((current) => current + 1)} disabled={busy || conflicted || isArchived} editing={editing} />
-    <div className={`map-workspace-grid ${editing ? "is-editing" : "is-viewing"}`}>
+    <div className={`map-workspace-grid ${editing ? "is-editing" : "visualization-stage is-viewing"}`}>
       <div className="map-viewport-column">
         <MapWorkspace campaignId={campaignId} background={{ url: view.background?.url ?? backgroundUrl, alt: view.background?.alt ?? backgroundAlt }} items={items} placements={view.placements} mode={mode} selectedPlacementId={selectedPlacementId} editing={editing} placementArmed={placementArmed} resetToken={resetToken} selectedItem={selectedItem} selectedExcerpt={selectedItem ? markdownExcerpt(selectedItem.markdown) : undefined} selectedItemLoading={selectedItemLoading} selectedItemError={selectedItemError} rendererError={rendererError} onSelectPlacement={setSelectedPlacementId} onPlace={(point) => void place(point)} onMovePlacement={movePlacement} onRendererError={handleRendererError} />
         {!editing && <MapLocationIndex placements={view.placements} items={items} selectedPlacementId={selectedPlacementId} onSelect={setSelectedPlacementId} />}

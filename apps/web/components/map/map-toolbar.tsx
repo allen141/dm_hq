@@ -15,7 +15,7 @@ type MapToolbarProps = {
 };
 
 export function MapToolbar({ mode, onModeChange, items, itemId, onItemChange, placementArmed, onTogglePlacement, onResetView, disabled, editing = false }: MapToolbarProps) {
-  return <div className={`map-command-bar${editing ? " is-editing" : " is-viewing"}`} aria-label="Map controls">
+  return <div className={`map-command-bar${editing ? " is-editing" : " visualization-panel is-viewing"}`} aria-label="Map controls">
     <div className="map-mode-switch" role="group" aria-label="Map dimension">
       <button type="button" className={mode === "2d" ? "active" : "secondary"} aria-pressed={mode === "2d"} onClick={() => onModeChange("2d")}>2D</button>
       <button type="button" className={mode === "3d" ? "active" : "secondary"} aria-pressed={mode === "3d"} onClick={() => onModeChange("3d")}>3D</button>

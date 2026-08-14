@@ -48,6 +48,10 @@ test("keeps the viewer focused on the map and moves authoring to a separate rout
   expect(screen.queryByLabelText("Page to place")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Search markers")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Archive view" })).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "The Harbor" }).closest(".map-viewer-heading")).toHaveClass("visualization-panel");
+  expect(screen.getByLabelText("Map controls")).toHaveClass("visualization-panel", "is-viewing");
+  expect(document.querySelector(".map-workspace-grid")).toHaveClass("visualization-stage", "is-viewing");
+  expect(screen.getByText("Map locations", { exact: false }).closest("details")).toHaveClass("visualization-panel");
 
   fireEvent.click(await screen.findByRole("button", { name: "Canvas marker marker-1" }));
   expect(await screen.findByRole("dialog", { name: "Brass Lantern" })).toBeInTheDocument();
@@ -57,6 +61,7 @@ test("keeps the viewer focused on the map and moves authoring to a separate rout
 test("requires explicit armed placement mode and opens a DOM marker summary", async () => {
   render(<MapViewPage />);
   expect(await screen.findByRole("heading", { name: "The Harbor" })).toBeInTheDocument();
+  expect(document.querySelector(".map-workspace-grid")).not.toHaveClass("visualization-stage");
 
   fireEvent.click(await screen.findByRole("button", { name: "Choose map point" }));
   expect(fetch).toHaveBeenCalledTimes(2);

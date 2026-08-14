@@ -45,12 +45,12 @@ export default function ArchiveGraphPage() {
   }
 
   return (
-    <section className="archive-view-page graph-page" aria-labelledby="graph-page-title">
+    <section className="archive-view-page visualization-page graph-page" aria-labelledby="graph-page-title">
       {graph && <GraphCanvas campaignId={campaignId} nodes={graph.nodes} edges={graph.edges} focusId={focusId} cloudFocusId={graph.focus_id} />}
-      <div className="graph-interface">
+      <div className="visualization-interface graph-interface">
         <h2 id="graph-page-title" className="sr-only">Knowledge graph</h2>
 
-        <div className="graph-query-bar graph-command-deck">
+        <div className="visualization-panel graph-query-bar graph-command-deck">
           <div className="graph-vitals" aria-label="Graph totals"><span><strong>{graph?.nodes.length ?? "—"}</strong> pages</span><span><strong>{graph?.edges.length ?? "—"}</strong> connections</span>{focusId ? <span><strong>{depth}</strong> {depth === 1 ? "hop" : "hops"}</span> : <span>Overview</span>}</div>
           {focusId && <fieldset className="graph-depth-control"><legend>Exploration depth</legend><button type="button" className={depth === 1 ? "active" : "secondary"} aria-pressed={depth === 1} onClick={() => setDepth(1)}>One hop</button><button type="button" className={depth === 2 ? "active" : "secondary"} aria-pressed={depth === 2} onClick={() => setDepth(2)}>Two hops</button></fieldset>}
           <fieldset className="graph-filters"><legend>Connection types</legend>{classes.map((edgeClass) => { const active = edgeClasses.includes(edgeClass); const onlyActive = active && edgeClasses.length === 1; return <label className={"graph-filter-chip " + (active ? "active" : "")} key={edgeClass} title={classCopy[edgeClass].detail}><input type="checkbox" checked={active} disabled={onlyActive} onChange={() => toggle(edgeClass)} /><span className={"edge-swatch " + edgeClass} aria-hidden="true" />{classCopy[edgeClass].label}</label>; })}</fieldset>

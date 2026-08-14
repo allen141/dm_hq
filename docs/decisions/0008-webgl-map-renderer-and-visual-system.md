@@ -57,6 +57,8 @@ Selection is shared between the WebGL marker, DOM fallback marker, and searchabl
 
 The canonical map route is a read-only exploration screen. It gives the renderer the full content width, keeps selection summaries and a collapsed semantic location index, and contains no background, placement, archive-status, coordinate, or save controls. A dedicated `/edit` route owns those authoring controls and links back to the viewer. This separation keeps live-play exploration focused without weakening keyboard or nonvisual navigation.
 
+The viewer uses the same immersive visualization composition as the Graph: a full-viewport renderer stage sits behind compact, translucent interface panels. Shared shell, page, stage, interface, and panel primitives own viewport behavior and accessibility preferences; Graph and Map styles specialize only their renderer content and controls. This keeps future spatial views consistent without coupling Sigma and Three.js implementations.
+
 Marker dragging and placement mode are disabled at the renderer boundary on the viewer route, rather than hidden only with CSS.
 
 Adding a placement requires an explicit **Add marker** mode. Ordinary clicks pan, inspect, or select; they never create content. While add-marker mode is active, the next valid point on the map supplies normalized, clamped coordinates for the selected Archive item, and the user confirms or cancels before saving.

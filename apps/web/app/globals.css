@@ -503,37 +503,12 @@ th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: l
 
 
 /* The graph route is an atlas workspace: the relationship field stays behind the controls. */
-.graph-shell {
-  position: relative;
-  width: 100%;
-  max-width: none;
-  min-height: 100vh;
-  padding: 16px 24px 48px;
-  color: #eaf3f1;
-  background: #07151c;
-}
-.graph-shell .archive-topbar,
-.graph-shell .archive-tabs { position: relative; z-index: 10; }
-.graph-shell .archive-topbar { background: rgb(7 25 31 / 82%); backdrop-filter: blur(16px); }
-.graph-shell .archive-tabs { background: rgb(8 25 31 / 84%); backdrop-filter: blur(14px); }
-.graph-shell .graph-page { position: relative; min-height: calc(100vh - 32px); margin: 0; padding: 28px 0 64px; }
 .graph-shell .graph-canvas {
-  position: fixed;
-  z-index: 0;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  min-height: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
   background:
     radial-gradient(circle at 18% 20%, rgb(20 126 119 / 22%), transparent 28%),
     radial-gradient(circle at 82% 72%, rgb(170 111 42 / 14%), transparent 30%),
     radial-gradient(circle, rgb(118 166 163 / 18%) 1px, transparent 1px) 0 0 / 26px 26px,
     linear-gradient(145deg, #102d35, #06131a 72%);
-  box-shadow: none;
-  pointer-events: none;
 }
 .graph-shell .graph-canvas svg { width: 100%; min-width: 0; height: 100%; min-height: 100vh; opacity: .84; }
 .graph-shell .graph-edge { stroke: #88b7b0; stroke-opacity: .55; }
@@ -544,7 +519,6 @@ th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: l
 .graph-shell .graph-node.focus rect { fill: rgb(20 89 82 / 92%); stroke: #f1c77d; }
 .graph-shell .graph-node text { fill: #edf5f3; }
 .graph-shell .graph-node .graph-node-kind { fill: #a8c1be; }
-.graph-interface { position: relative; z-index: 1; display: grid; gap: 14px; max-width: 1180px; margin: 0 auto; }
 .graph-page-heading,
 .graph-command-deck,
 .graph-status-line,
@@ -586,8 +560,6 @@ th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: l
 .graph-table-summary { display: flex; gap: 20px; margin-bottom: 8px; color: var(--muted); font: 700 .72rem var(--font-ui); }
 
 @media (max-width: 720px) {
-  .graph-shell { padding: 10px 14px 42px; }
-  .graph-shell .graph-page { padding-top: 18px; }
   .graph-page-heading { display: block; padding: 18px; }
   .graph-vitals { justify-content: flex-start; margin-top: 18px; text-align: left; }
   .graph-command-deck { align-items: stretch; }
@@ -667,40 +639,8 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
 
 /* Immersive graph workspace: the atlas owns the viewport and the controls float above it. */
-.graph-shell {
-  position: relative;
-  width: 100%;
-  max-width: none;
-  min-height: 100vh;
-  padding: 16px 24px 48px;
-  color: #eaf3f1;
-  background: #07151c;
-}
-.graph-shell .archive-topbar,
-.graph-shell .archive-tabs { position: relative; z-index: 10; }
-.graph-shell .archive-topbar { background: rgb(7 25 31 / 82%); backdrop-filter: blur(16px); }
-.graph-shell .archive-tabs { background: rgb(8 25 31 / 84%); backdrop-filter: blur(14px); }
-.graph-shell .graph-page { position: relative; min-height: 100vh; margin: 0; padding: 28px 0 64px; }
-.graph-shell .graph-canvas {
-  position: fixed;
-  z-index: 1;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  min-height: 0;
-  overflow: auto;
-  border: 0;
-  border-radius: 0;
-  background:
-    radial-gradient(circle at 18% 20%, rgb(20 126 119 / 22%), transparent 28%),
-    radial-gradient(circle at 82% 72%, rgb(170 111 42 / 14%), transparent 30%),
-    radial-gradient(circle, rgb(118 166 163 / 18%) 1px, transparent 1px) 0 0 / 26px 26px,
-    linear-gradient(145deg, #102d35, #06131a 72%);
-  box-shadow: none;
-}
 .graph-shell .graph-stage-frame,
 .graph-shell .graph-sigma { min-height: 100vh; }
-.graph-shell .graph-interface { position: relative; z-index: 2; display: grid; gap: 14px; max-width: 1180px; margin: 0 auto; }
 .graph-shell .graph-page-heading,
 .graph-shell .graph-command-deck,
 .graph-shell .graph-status-line,
@@ -743,11 +683,133 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
 .graph-table-summary { display: flex; gap: 20px; margin-bottom: 8px; color: var(--muted); font: 700 .72rem var(--font-ui); }
 
 @media (max-width: 760px) {
-  .graph-shell { padding: 10px 14px 42px; }
-  .graph-shell .graph-page { padding-top: 18px; }
   .graph-shell .graph-page-heading { display: block; padding: 18px; }
   .graph-shell .graph-command-deck .graph-vitals { justify-content: flex-start; margin: 0; text-align: left; }
   .graph-shell .graph-command-deck { align-items: stretch; }
   .graph-shell .graph-command-deck fieldset { width: 100%; }
   .graph-shell .graph-table-link { width: 100%; margin-left: 0; text-align: center; }
   .graph-table-summary { flex-wrap: wrap; gap: 8px 16px; }
+}
+/* Shared immersive visualization primitives. Renderer-specific rules only describe stage content. */
+.visualization-shell {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  padding: 16px 24px 48px;
+  color: #eaf3f1;
+  background: #07151c;
+}
+.visualization-shell .archive-topbar,
+.visualization-shell .archive-tabs { position: relative; z-index: 10; }
+.visualization-shell .archive-topbar { background: rgb(7 25 31 / 82%); backdrop-filter: blur(16px); }
+.visualization-shell .archive-tabs { background: rgb(8 25 31 / 84%); backdrop-filter: blur(14px); }
+.visualization-page { position: relative; min-height: 100vh; margin: 0; padding: 28px 0 64px; pointer-events: none; }
+.visualization-stage {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: auto;
+}
+.visualization-interface { position: relative; z-index: 2; display: grid; gap: 14px; max-width: 1180px; margin: 0 auto; }
+.visualization-panel {
+  border: 1px solid rgb(157 197 190 / 24%);
+  border-radius: var(--radius-md);
+  background: rgb(7 25 31 / 76%);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 22%);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+}
+
+/* The map viewer is a full-viewport atlas behind compact explorer controls. */
+.map-shell .map-viewer-page { padding-top: 20px; }
+.map-shell .map-viewer-heading {
+  position: relative;
+  z-index: 3;
+  width: min(720px, calc(100vw - 48px));
+  margin: 0;
+  padding: 18px 20px;
+  color: #eaf3f1;
+}
+.map-shell .map-viewer-heading h2 { color: #fffdf8; font-size: clamp(2rem, 4vw, 3.4rem); }
+.map-shell .map-viewer-heading p { max-width: 560px; color: #b5ceca; }
+.map-shell .map-viewer-heading .button { border-color: rgb(157 197 190 / 28%); color: #f1cb88; background: rgb(255 255 255 / 7%); }
+.map-shell .map-privacy-disclosure { position: relative; z-index: 3; width: min(640px, calc(100vw - 48px)); margin: 10px 0; color: #b5ceca; pointer-events: auto; }
+.map-shell .map-privacy-disclosure summary { width: fit-content; padding-inline: 10px; border-radius: 9px; background: rgb(7 25 31 / 70%); }
+.map-shell .map-privacy-disclosure p { color: #e9d4aa; background: rgb(7 25 31 / 88%); }
+.map-shell .map-command-bar.is-viewing { position: relative; z-index: 3; width: fit-content; margin: 10px 0; border-color: rgb(157 197 190 / 24%); background: rgb(7 25 31 / 76%); }
+.map-shell .map-command-bar.is-viewing .map-mode-switch { border-color: rgb(157 197 190 / 22%); background: rgb(18 51 57 / 68%); }
+.map-shell .map-command-bar.is-viewing .map-mode-switch button,
+.map-shell .map-command-bar.is-viewing .map-reset { color: #c7dcda; background: transparent; box-shadow: none; }
+.map-shell .map-command-bar.is-viewing .map-mode-switch button.active { color: #10262a; background: #e4bb78; }
+.map-shell .map-workspace-grid.is-viewing { display: block; margin: 0; padding: 0; }
+.map-shell .map-workspace-grid.is-viewing .map-viewport-column,
+.map-shell .map-workspace-grid.is-viewing .map-workspace,
+.map-shell .map-workspace-grid.is-viewing .map-viewport-shell,
+.map-shell .map-workspace-grid.is-viewing .map-canvas-shell,
+.map-shell .map-workspace-grid.is-viewing .map-renderer,
+.map-shell .map-workspace-grid.is-viewing .map-renderer canvas,
+.map-shell .map-workspace-grid.is-viewing .map-dom-fallback,
+.map-shell .map-workspace-grid.is-viewing .map-dom-stage { width: 100vw; height: 100vh; min-height: 100vh; }
+.map-shell .map-workspace-grid.is-viewing .map-workspace,
+.map-shell .map-workspace-grid.is-viewing .map-viewport-shell,
+.map-shell .map-workspace-grid.is-viewing .map-dom-stage { overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
+.map-shell .map-workspace-grid.is-viewing .map-dom-fallback { padding: 0; }
+.map-shell .map-workspace-grid.is-viewing .map-renderer-warning {
+  position: fixed;
+  z-index: 5;
+  left: 24px;
+  bottom: 24px;
+  width: min(520px, calc(100vw - 48px));
+  min-height: 0;
+  margin: 0;
+  padding: 12px 14px;
+  background: rgb(7 25 31 / 90%);
+}
+.map-shell .map-location-index {
+  position: fixed;
+  z-index: 5;
+  right: 24px;
+  bottom: 24px;
+  width: min(380px, calc(100vw - 48px));
+  max-height: min(48vh, 520px);
+  margin: 0;
+  overflow: auto;
+  color: #dbe8e5;
+}
+.map-shell .map-location-index summary { position: sticky; top: 0; z-index: 1; color: #eaf3f1; background: rgb(7 25 31 / 94%); }
+.map-shell .map-location-index ol { grid-template-columns: 1fr; padding: 4px 10px 10px; }
+.map-shell .map-location-index button { color: #eaf3f1; background: rgb(26 61 67 / 90%); }
+.map-shell .map-location-index button:hover,
+.map-shell .map-location-index button[aria-pressed="true"] { background: rgb(41 91 94 / 94%); transform: none; }
+.map-shell .map-location-index button small { color: #a9bfbc; }
+
+@media (max-width: 760px) {
+  .visualization-shell { padding: 10px 14px 42px; }
+  .visualization-page { padding-top: 18px; }
+  .map-shell .map-viewer-heading { display: flex; width: calc(100vw - 28px); padding: 15px; }
+  .map-shell .map-viewer-heading h2 { font-size: clamp(1.7rem, 9vw, 2.5rem); }
+  .map-shell .map-viewer-heading p { display: none; }
+  .map-shell .map-privacy-disclosure { width: calc(100vw - 28px); }
+  .map-shell .map-command-bar.is-viewing { align-items: center; flex-direction: row; }
+  .map-shell .map-command-bar.is-viewing .map-reset { width: auto; margin-left: auto; }
+  .map-shell .map-location-index { right: 14px; bottom: 14px; width: calc(100vw - 28px); max-height: 42vh; }
+  .map-shell .map-workspace-grid.is-viewing .map-renderer-warning { left: 14px; bottom: 14px; width: calc(100vw - 28px); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .visualization-panel,
+  .visualization-shell .archive-topbar,
+  .visualization-shell .archive-tabs { backdrop-filter: none; background: #07191f; }
+}
+@media (forced-colors: active) {
+  .visualization-panel,
+  .visualization-shell .archive-topbar,
+  .visualization-shell .archive-tabs { border: 1px solid CanvasText; color: CanvasText; background: Canvas; box-shadow: none; }
+}
