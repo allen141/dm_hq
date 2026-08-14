@@ -17,6 +17,8 @@ Each release contains immutable API and web image digests plus the commit and pu
 
 The controllers poll the mutable `preview` and `production` channel tags, then resolve and deploy the signed immutable digest. The active commit and preview pull request are available from `/api/v1/health/version`.
 
+Before pulling application images, and again after a successful rollout, the controller removes stale digest-pinned DM HQ API, web, and release images. Current and previous preview and production releases are protected so rollback remains available. Cleanup never targets unrelated images on the Docker host. A failed release pull triggers one cleanup-and-retry cycle.
+
 ## One-time node setup
 
 These steps affect the host and are deliberately not run by GitHub Actions.
