@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import json
+import math
 import posixpath
 import re
 import secrets
@@ -122,6 +123,15 @@ class RelationshipDeletePayload(Schema):
     version: int
 
 
+class RelationshipViewSettings(Schema):
+    layout_mode: Literal["network", "hierarchy"] = "network"
+    orientation: Literal["top_to_bottom", "left_to_right"] = "top_to_bottom"
+    root_item_id: UUID | None = None
+    relationship_kinds: list[str] = []
+    layout_relationship_kinds: list[str] = []
+    layout_direction: Literal["outgoing", "incoming"] = "outgoing"
+
+
 class ArchiveViewPayload(Schema):
     version: int | None = None
     view_type: str
@@ -130,7 +140,7 @@ class ArchiveViewPayload(Schema):
     background: dict[str, Any] | None = None
     placements: list[dict[str, Any]] | None = None
     members: list[dict[str, Any]] | None = None
-    settings: dict[str, Any] | None = None
+    settings: RelationshipViewSettings | None = None
 
 
 GRAPH_NODE_SUMMARY_MAX_LENGTH = 240
@@ -900,10 +910,17 @@ def archive_view_output(view: ArchiveView) -> dict[str, Any]:
         if str(entry.get("item_id")) in items
     ]
     edges = []
+    available_relationship_kinds: list[str] = []
+    relationship_settings = relationship_view_settings(metadata.get("settings"))
     if view.view_type == "relationship":
         member_set = set(items)
+        visible_kinds = set(relationship_settings["relationship_kinds"])
+        available_kinds = set()
         for rel in Relationship.objects.filter(source__campaign=view.campaign).order_by("authored_position", "edge_id"):
             if str(rel.source_id) in member_set and str(rel.target_id) in member_set:
+                available_kinds.add(rel.kind)
+                if visible_kinds and rel.kind not in visible_kinds:
+                    continue
                 edges.append(
                     {
                         "id": str(rel.edge_id),
@@ -915,6 +932,7 @@ def archive_view_output(view: ArchiveView) -> dict[str, Any]:
                         "inverse_label": rel.inverse_label,
                     }
                 )
+        available_relationship_kinds = sorted(available_kinds)
     return {
         "id": view.id,
         "campaign_id": view.campaign_id,
@@ -929,9 +947,82 @@ def archive_view_output(view: ArchiveView) -> dict[str, Any]:
         "background": metadata.get("background"),
         "placements": placements,
         "members": members,
-        "settings": metadata.get("settings", {}),
+        "settings": relationship_settings if view.view_type == "relationship" else metadata.get("settings", {}),
         "edges": edges,
+        "available_relationship_kinds": available_relationship_kinds,
     }
+
+
+def relationship_view_settings(settings: Any) -> dict[str, Any]:
+    """Return the complete relationship settings contract for old and new boards."""
+    source = settings if isinstance(settings, dict) else {}
+    return {
+        "layout_mode": source.get("layout_mode", "network"),
+        "orientation": source.get("orientation", "top_to_bottom"),
+        "root_item_id": str(source["root_item_id"]) if source.get("root_item_id") else None,
+        "relationship_kinds": list(source.get("relationship_kinds") or []),
+        "layout_relationship_kinds": list(source.get("layout_relationship_kinds") or []),
+        "layout_direction": source.get("layout_direction", "outgoing"),
+    }
+
+
+def validate_relationship_view(
+    campaign: Campaign, payload: ArchiveViewPayload
+) -> tuple[list[dict[str, Any]], RelationshipViewSettings]:
+    members = payload.members or []
+    normalized_members = []
+    member_item_ids: set[str] = set()
+    member_ids: set[str] = set()
+    campaign_item_ids = {str(value) for value in campaign.archive_items.values_list("id", flat=True)}
+    for member in members:
+        if not isinstance(member, dict) or not member.get("id") or not member.get("item_id"):
+            raise error(422, "validation", "Each relationship member requires id and item_id")
+        try:
+            member_id = str(UUID(str(member["id"])))
+            item_id = str(UUID(str(member["item_id"])))
+        except (TypeError, ValueError) as exc:
+            raise error(422, "validation", "Relationship member ids must be UUIDs") from exc
+        if member_id in member_ids or item_id in member_item_ids:
+            raise error(422, "validation", "Relationship members must be unique")
+        if item_id not in campaign_item_ids:
+            raise error(422, "validation", "Relationship members must belong to the campaign")
+        member_ids.add(member_id)
+        member_item_ids.add(item_id)
+        normalized = {**member, "id": member_id, "item_id": item_id}
+        position = member.get("position")
+        if position is not None:
+            if not isinstance(position, dict) or set(position) != {"x", "y"}:
+                raise error(422, "validation", "Member positions require numeric x and y values")
+            coordinates = (position["x"], position["y"])
+            if any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                for value in coordinates
+            ):
+                raise error(422, "validation", "Member positions require finite numeric x and y values")
+            normalized["position"] = {"x": float(position["x"]), "y": float(position["y"])}
+        normalized_members.append(normalized)
+
+    raw_settings = payload.settings.model_dump(mode="json") if payload.settings else {}
+    normalized_settings = relationship_view_settings(raw_settings)
+    for key in ("relationship_kinds", "layout_relationship_kinds"):
+        values = []
+        for value in normalized_settings[key]:
+            normalized = value.strip()
+            if not normalized:
+                raise error(422, "validation", "Relationship kinds cannot be blank")
+            if normalized not in values:
+                values.append(normalized)
+        normalized_settings[key] = values
+    root_item_id = normalized_settings["root_item_id"]
+    if root_item_id and root_item_id not in member_item_ids:
+        raise error(422, "validation", "The relationship root must be a board member")
+    visible_kinds = set(normalized_settings["relationship_kinds"])
+    structural_kinds = set(normalized_settings["layout_relationship_kinds"])
+    if visible_kinds and not structural_kinds.issubset(visible_kinds):
+        raise error(422, "validation", "Hierarchy relationship kinds must also be visible")
+    return normalized_members, RelationshipViewSettings(**normalized_settings)
 
 
 def archive_view_metadata(
@@ -951,7 +1042,8 @@ def archive_view_metadata(
         metadata["placements"] = payload.placements or []
     else:
         metadata["members"] = payload.members or []
-        metadata["settings"] = payload.settings or {"orientation": "top_to_bottom", "relationship_kinds": []}
+        raw_settings = payload.settings.model_dump(mode="json") if payload.settings else {}
+        metadata["settings"] = relationship_view_settings(raw_settings)
     return metadata
 
 
@@ -1018,6 +1110,8 @@ def archive_view_create(request: HttpRequest, campaign_id: UUID, payload: Archiv
     campaign = get_member_campaign(request, campaign_id)
     if payload.view_type not in {"map", "relationship"} or not payload.title.strip():
         raise error(422, "validation", "View type and title are required")
+    if payload.view_type == "relationship":
+        payload.members, payload.settings = validate_relationship_view(campaign, payload)
     view_id = uuid4()
     metadata = archive_view_metadata(view_id, campaign.id, payload)
     try:
@@ -1061,6 +1155,10 @@ def archive_view_update(request: HttpRequest, campaign_id: UUID, view_id: UUID, 
     metadata, _ = parse_document(read_current(view.document))
     if payload.version != view.document.current_version:
         raise error(409, "stale_version", "The view changed elsewhere")
+    if payload.view_type not in {"map", "relationship"} or not payload.title.strip():
+        raise error(422, "validation", "View type and title are required")
+    if payload.view_type == "relationship":
+        payload.members, payload.settings = validate_relationship_view(campaign, payload)
     metadata.update(archive_view_metadata(view.id, campaign.id, payload, view.status))
     try:
         document = save_document(

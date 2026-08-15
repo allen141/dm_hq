@@ -194,8 +194,7 @@
           "settings": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/RelationshipViewSettings"
               },
               {
                 "type": "null"
@@ -470,6 +469,67 @@
           "kind"
         ],
         "title": "RelationshipPayload",
+        "type": "object"
+      },
+      "RelationshipViewSettings": {
+        "properties": {
+          "layout_direction": {
+            "default": "outgoing",
+            "enum": [
+              "outgoing",
+              "incoming"
+            ],
+            "title": "Layout Direction",
+            "type": "string"
+          },
+          "layout_mode": {
+            "default": "network",
+            "enum": [
+              "network",
+              "hierarchy"
+            ],
+            "title": "Layout Mode",
+            "type": "string"
+          },
+          "layout_relationship_kinds": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Layout Relationship Kinds",
+            "type": "array"
+          },
+          "orientation": {
+            "default": "top_to_bottom",
+            "enum": [
+              "top_to_bottom",
+              "left_to_right"
+            ],
+            "title": "Orientation",
+            "type": "string"
+          },
+          "relationship_kinds": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Relationship Kinds",
+            "type": "array"
+          },
+          "root_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Item Id"
+          }
+        },
+        "title": "RelationshipViewSettings",
         "type": "object"
       },
       "RestorePayload": {

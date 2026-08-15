@@ -624,6 +624,138 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())
 
+    def test_relationship_view_filters_edges_and_reports_available_kinds(self):
+        parent = self.create_item(kind="entity", title="Parent", subject_type="person", fields={})
+        child = self.create_item(kind="entity", title="Child", subject_type="person", fields={})
+        order = self.create_item(kind="entity", title="Order", subject_type="faction", fields={})
+        parent_edge = self.post(
+            f"/api/v1/items/{parent['id']}/relationships",
+            {
+                "version": parent["version"],
+                "target_id": child["id"],
+                "kind": "parent_of",
+                "label": "parent of",
+                "inverse_label": "child of",
+            },
+        ).json()
+        member_edge = self.post(
+            f"/api/v1/items/{child['id']}/relationships",
+            {
+                "version": child["version"],
+                "target_id": order["id"],
+                "kind": "member_of",
+                "label": "member of",
+                "inverse_label": "has member",
+            },
+        )
+        self.assertEqual(member_edge.status_code, 200)
+        members = [
+            {"id": str(uuid.uuid4()), "item_id": item["id"]}
+            for item in (parent, child, order)
+        ]
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Family and order",
+                "members": members,
+                "settings": {
+                    "layout_mode": "hierarchy",
+                    "orientation": "left_to_right",
+                    "root_item_id": parent["id"],
+                    "relationship_kinds": [" parent_of ", "parent_of"],
+                    "layout_relationship_kinds": ["parent_of"],
+                    "layout_direction": "outgoing",
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.content)
+        board = created.json()
+        self.assertEqual([edge["kind"] for edge in board["edges"]], ["parent_of"])
+        self.assertEqual(board["available_relationship_kinds"], ["member_of", "parent_of"])
+        self.assertEqual(
+            board["settings"],
+            {
+                "layout_mode": "hierarchy",
+                "orientation": "left_to_right",
+                "root_item_id": parent["id"],
+                "relationship_kinds": ["parent_of"],
+                "layout_relationship_kinds": ["parent_of"],
+                "layout_direction": "outgoing",
+            },
+        )
+        parent_detail = self.client.get(f"/api/v1/items/{parent['id']}").json()
+        self.assertEqual(parent_detail["relationships"][0]["id"], parent_edge["relationship"]["id"])
+        child_detail = self.client.get(f"/api/v1/items/{child['id']}").json()
+        self.assertEqual([edge["kind"] for edge in child_detail["relationships"]], ["member_of"])
+
+    def test_relationship_view_defaults_and_validates_hierarchy_settings(self):
+        first = self.create_item(kind="entity", title="First", subject_type="person", fields={})
+        second = self.create_item(kind="entity", title="Second", subject_type="person", fields={})
+        members = [
+            {"id": str(uuid.uuid4()), "item_id": item["id"]}
+            for item in (first, second)
+        ]
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Default board",
+                "members": members,
+                "settings": {"orientation": "top_to_bottom", "relationship_kinds": []},
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.content)
+        self.assertEqual(
+            created.json()["settings"],
+            {
+                "layout_mode": "network",
+                "orientation": "top_to_bottom",
+                "root_item_id": None,
+                "relationship_kinds": [],
+                "layout_relationship_kinds": [],
+                "layout_direction": "outgoing",
+            },
+        )
+
+        invalid_root = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Bad root",
+                "members": members,
+                "settings": {"root_item_id": str(uuid.uuid4())},
+            },
+        )
+        self.assertEqual(invalid_root.status_code, 422)
+        self.assertIn("root must be a board member", invalid_root.content.decode())
+
+        hidden_structure = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Hidden structure",
+                "members": members,
+                "settings": {
+                    "relationship_kinds": ["parent_of"],
+                    "layout_relationship_kinds": ["member_of"],
+                },
+            },
+        )
+        self.assertEqual(hidden_structure.status_code, 422)
+        self.assertIn("must also be visible", hidden_structure.content.decode())
+
+        invalid_position = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Bad position",
+                "members": [{**members[0], "position": {"x": 1}}],
+            },
+        )
+        self.assertEqual(invalid_position.status_code, 422)
+        self.assertIn("positions require numeric x and y", invalid_position.content.decode())
+
     def test_archive_view_mutations_return_the_new_document_version(self):
         created = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/archive/views",

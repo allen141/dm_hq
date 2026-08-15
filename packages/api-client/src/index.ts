@@ -17,21 +17,30 @@ export type GraphResponse = {
 export type ArchiveHome = { markdown: string; html: string; version: number; metadata: Record<string, unknown>; backlinks: DocumentLink[] };
 export type MapPlacement = { id: string; item_id: string; x: number; y: number; caption: string; item?: PageIdentity };
 export type RelationshipMember = { id: string; item_id: string; position?: { x: number; y: number } | null; item?: PageIdentity };
+export type RelationshipViewSettings = {
+  layout_mode: "network" | "hierarchy";
+  orientation: "top_to_bottom" | "left_to_right";
+  root_item_id: string | null;
+  relationship_kinds: string[];
+  layout_relationship_kinds: string[];
+  layout_direction: "outgoing" | "incoming";
+};
 export type ArchiveViewSummary = { id: string; campaign_id: string; view_type: "map" | "relationship"; title: string; slug: string; status: "active" | "archived"; version: number; updated_at: string };
 export type ArchiveViewDocument = ArchiveViewSummary & {
   markdown: string; html: string; description?: string;
   background?: { url: string; alt: string };
   placements: MapPlacement[];
   members: RelationshipMember[];
-  settings?: { orientation?: "top_to_bottom" | "left_to_right"; root_item_id?: string | null; relationship_kinds?: string[] };
+  settings?: RelationshipViewSettings;
   edges?: GraphEdge[];
+  available_relationship_kinds?: string[];
 };
 export type ArchiveViewPayload = {
   version?: number; view_type: "map" | "relationship"; title: string; description?: string;
   background?: { url: string; alt: string };
   placements?: Array<Omit<MapPlacement, "item">>;
   members?: Array<Omit<RelationshipMember, "item">>;
-  settings?: ArchiveViewDocument["settings"];
+  settings?: Partial<RelationshipViewSettings>;
 };
 export type ItemKind = "note" | "entity" | "session";
 export type ItemStatus = "draft" | "canon" | "archived";
