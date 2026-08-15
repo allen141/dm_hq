@@ -656,10 +656,7 @@ class ArchiveApiTests(TestCase):
             },
         )
         self.assertEqual(member_edge.status_code, 200)
-        members = [
-            {"id": str(uuid.uuid4()), "item_id": item["id"]}
-            for item in (parent, child, order)
-        ]
+        members = [{"id": str(uuid.uuid4()), "item_id": item["id"]} for item in (parent, child, order)]
         created = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/archive/views",
             {
@@ -699,10 +696,7 @@ class ArchiveApiTests(TestCase):
     def test_relationship_view_defaults_and_validates_hierarchy_settings(self):
         first = self.create_item(kind="entity", title="First", subject_type="person", fields={})
         second = self.create_item(kind="entity", title="Second", subject_type="person", fields={})
-        members = [
-            {"id": str(uuid.uuid4()), "item_id": item["id"]}
-            for item in (first, second)
-        ]
+        members = [{"id": str(uuid.uuid4()), "item_id": item["id"]} for item in (first, second)]
         created = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/archive/views",
             {

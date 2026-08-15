@@ -623,9 +623,7 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
                         raise DocumentError("Relationship member positions require numeric x and y values")
                     coordinates = (position["x"], position["y"])
                     if any(
-                        isinstance(value, bool)
-                        or not isinstance(value, (int, float))
-                        or not math.isfinite(value)
+                        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
                         for value in coordinates
                     ):
                         raise DocumentError("Relationship member positions require finite numeric x and y values")
@@ -654,8 +652,7 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
             for key in ("relationship_kinds", "layout_relationship_kinds"):
                 values = view_settings.get(key, [])
                 if not isinstance(values, list) or any(
-                    not isinstance(value, str) or not value.strip() or value != value.strip()
-                    for value in values
+                    not isinstance(value, str) or not value.strip() or value != value.strip() for value in values
                 ):
                     raise DocumentError(f"Relationship {key} must contain non-blank trimmed strings")
                 if len(values) != len(set(values)):

@@ -995,9 +995,7 @@ def validate_relationship_view(
                 raise error(422, "validation", "Member positions require numeric x and y values")
             coordinates = (position["x"], position["y"])
             if any(
-                isinstance(value, bool)
-                or not isinstance(value, (int, float))
-                or not math.isfinite(value)
+                isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
                 for value in coordinates
             ):
                 raise error(422, "validation", "Member positions require finite numeric x and y values")
