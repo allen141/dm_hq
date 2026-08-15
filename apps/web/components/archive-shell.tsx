@@ -35,12 +35,16 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
 
   const graphWorkspace = pathname.includes("/archive/graph") && !pathname.includes("/archive/graph/table");
   const mapWorkspace = pathname.includes("/archive/maps/") && !pathname.endsWith("/edit");
-  const visualizationWorkspace = graphWorkspace || mapWorkspace;
+  const relationshipWorkspace = pathname.includes("/archive/relationships/") && !pathname.endsWith("/edit");
+  const visualizationWorkspace = graphWorkspace || mapWorkspace || relationshipWorkspace;
   const mapRoute = pathname.match(/\/archive\/maps\/([^/]+)/);
   const mapViewId = mapRoute?.[1];
   const mapEditing = Boolean(mapViewId && pathname.endsWith("/edit"));
+  const relationshipRoute = pathname.match(/\/archive\/relationships\/([^/]+)/);
+  const relationshipViewId = relationshipRoute?.[1];
+  const relationshipEditing = Boolean(relationshipViewId && pathname.endsWith("/edit"));
 
-  return <main className={`archive-shell${visualizationWorkspace ? " visualization-shell" : ""}${graphWorkspace ? " graph-shell" : ""}${mapWorkspace ? " map-shell" : ""}`}>
+  return <main className={`archive-shell${visualizationWorkspace ? " visualization-shell" : ""}${graphWorkspace ? " graph-shell" : ""}${mapWorkspace ? " map-shell" : ""}${relationshipWorkspace ? " relationship-shell" : ""}`}>
     <header className="archive-topbar">
       <div className="archive-heading-group">
         <Link className="back-link" href="/"><span aria-hidden="true">←</span> <span className="archive-back-label">Campaigns</span></Link>
@@ -51,6 +55,7 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
       </div>
       <div className="archive-utilities" aria-label="Archive utilities">
         {mapViewId && <Link className="button secondary archive-context-action" href={`/campaigns/${campaignId}/archive/maps/${mapViewId}${mapEditing ? "" : "/edit"}`}>{mapEditing ? "View map" : "Edit map"}</Link>}
+        {relationshipViewId && <Link className="button secondary archive-context-action" href={`/campaigns/${campaignId}/archive/relationships/${relationshipViewId}${relationshipEditing ? "" : "/edit"}`}>{relationshipEditing ? "View relationships" : "Edit relationships"}</Link>}
         <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=search`}><span aria-hidden="true">⌕</span> <span className="archive-utility-label">Search</span></Link>
         <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=capture`}><span aria-hidden="true">＋</span> <span className="archive-utility-label">Quick capture</span></Link>
         <Link className="button archive-primary-action" href={`/campaigns/${campaignId}/archive/views/new`}><span className="archive-utility-label">New view</span> <span aria-hidden="true">↗</span></Link>

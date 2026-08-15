@@ -2,11 +2,13 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import ArchiveShell from "@/components/archive-shell";
 
+const navigation = vi.hoisted(() => ({ pathname: "/campaigns/campaign-1/archive/maps/map-1" }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/campaigns/campaign-1/archive/maps/map-1",
+  usePathname: () => navigation.pathname,
 }));
 
 beforeEach(() => {
+  navigation.pathname = "/campaigns/campaign-1/archive/maps/map-1";
   vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input);
     const payload = url.endsWith("/archive/views")
@@ -32,4 +34,18 @@ test("presents campaign context, utilities, and route-selected Archive tabs", as
   expect(screen.getByRole("link", { name: "Maps" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/relationships/ties-1");
   expect(screen.getByText("Map workspace")).toBeInTheDocument();
+});
+
+test("uses immersive relationship chrome and separates its viewer and editor actions", async () => {
+  navigation.pathname = "/campaigns/campaign-1/archive/relationships/ties-1";
+  const { rerender } = render(<ArchiveShell campaignId="campaign-1"><p>Relationship workspace</p></ArchiveShell>);
+
+  expect(await screen.findByRole("heading", { name: "Lantern Harbor" })).toBeInTheDocument();
+  expect(screen.getByRole("main")).toHaveClass("visualization-shell", "relationship-shell");
+  expect(screen.getByRole("link", { name: "Edit relationships" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/relationships/ties-1/edit");
+
+  navigation.pathname = "/campaigns/campaign-1/archive/relationships/ties-1/edit";
+  rerender(<ArchiveShell campaignId="campaign-1"><p>Relationship editor</p></ArchiveShell>);
+  expect(screen.getByRole("main")).not.toHaveClass("visualization-shell", "relationship-shell");
+  expect(screen.getByRole("link", { name: "View relationships" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/relationships/ties-1");
 });
