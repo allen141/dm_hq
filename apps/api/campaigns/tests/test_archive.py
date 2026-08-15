@@ -9,8 +9,15 @@ from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
 
-from campaigns.documents import content_hash, parse_document, serialize_document
-from campaigns.models import ArchiveItem, Campaign, CampaignDocument, CampaignDocumentVersion, CampaignMembership
+from campaigns.documents import DocumentError, content_hash, parse_document, serialize_document, validate_metadata
+from campaigns.models import (
+    ArchiveItem,
+    ArchiveView,
+    Campaign,
+    CampaignDocument,
+    CampaignDocumentVersion,
+    CampaignMembership,
+)
 
 
 def markdown(campaign_id, item_id, kind="note", title="Rumor", body="First", **extra):
@@ -755,6 +762,116 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(invalid_position.status_code, 422)
         self.assertIn("positions require numeric x and y", invalid_position.content.decode())
+
+    def test_relationship_archive_view_document_validates_settings_contract(self):
+        first = self.create_item(kind="entity", title="First", subject_type="person", fields={})
+        second = self.create_item(kind="entity", title="Second", subject_type="person", fields={})
+        member_id = str(uuid.uuid4())
+        metadata = {
+            "document_type": "archive_view",
+            "schema_version": 1,
+            "id": str(uuid.uuid4()),
+            "campaign_id": str(self.campaign.id),
+            "slug": "family",
+            "view_type": "relationship",
+            "title": "Family",
+            "status": "active",
+            "members": [
+                {"id": member_id, "item_id": first["id"], "position": {"x": 0, "y": 1}},
+                {"id": str(uuid.uuid4()), "item_id": second["id"]},
+            ],
+            "settings": {
+                "layout_mode": "hierarchy",
+                "orientation": "top_to_bottom",
+                "root_item_id": first["id"],
+                "relationship_kinds": ["parent_of"],
+                "layout_relationship_kinds": ["parent_of"],
+                "layout_direction": "outgoing",
+            },
+        }
+        validate_metadata(metadata, "archive_view", self.campaign.id)
+
+        invalid_cases = [
+            ({"settings": []}, "settings must be an object"),
+            ({"settings": {**metadata["settings"], "layout_mode": "radial"}}, "layout mode"),
+            (
+                {"settings": {**metadata["settings"], "orientation": "diagonal"}},
+                "orientation is invalid",
+            ),
+            (
+                {"settings": {**metadata["settings"], "layout_direction": "sideways"}},
+                "layout direction is invalid",
+            ),
+            (
+                {"settings": {**metadata["settings"], "root_item_id": str(uuid.uuid4())}},
+                "root must be a board member",
+            ),
+            (
+                {"settings": {**metadata["settings"], "relationship_kinds": ["parent_of", "parent_of"]}},
+                "must not contain duplicates",
+            ),
+            (
+                {"settings": {**metadata["settings"], "layout_relationship_kinds": ["member_of"]}},
+                "must also be visible",
+            ),
+            (
+                {
+                    "members": [
+                        {**metadata["members"][0], "position": {"x": True, "y": 1}},
+                        metadata["members"][1],
+                    ]
+                },
+                "finite numeric x and y",
+            ),
+            (
+                {
+                    "members": [
+                        metadata["members"][0],
+                        {**metadata["members"][1], "id": member_id},
+                    ]
+                },
+                "member ids must be unique",
+            ),
+        ]
+        for changes, message in invalid_cases:
+            with self.subTest(message=message), self.assertRaisesRegex(DocumentError, message):
+                validate_metadata({**metadata, **changes}, "archive_view", self.campaign.id)
+
+    def test_workspace_apply_rejects_invalid_relationship_view_settings(self):
+        member = self.create_item(kind="entity", title="Member", subject_type="person", fields={})
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Order",
+                "members": [{"id": str(uuid.uuid4()), "item_id": member["id"]}],
+                "settings": {
+                    "layout_mode": "hierarchy",
+                    "orientation": "top_to_bottom",
+                    "root_item_id": member["id"],
+                    "relationship_kinds": [],
+                    "layout_relationship_kinds": [],
+                    "layout_direction": "outgoing",
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.content)
+        view = ArchiveView.objects.select_related("document").get(id=created.json()["id"])
+        metadata, body = parse_document(created.json()["markdown"])
+        metadata["settings"]["layout_direction"] = "sideways"
+        rejected = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
+            {
+                "document_id": str(view.document_id),
+                "version": view.document.current_version,
+                "hash": view.document.content_hash,
+                "markdown": serialize_document(metadata, body),
+            },
+        )
+        self.assertEqual(rejected.status_code, 422)
+        self.assertIn("Relationship layout direction is invalid", rejected.content.decode())
+        view.document.refresh_from_db()
+        self.assertEqual(view.document.current_version, created.json()["version"])
 
     def test_archive_view_mutations_return_the_new_document_version(self):
         created = self.post(
