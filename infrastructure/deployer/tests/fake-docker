@@ -1,7 +1,33 @@
 #!/bin/sh
 
+test -z "${FAKE_DOCKER_LOG:-}" || printf '%s\n' "$*" >> "$FAKE_DOCKER_LOG"
+
 if test "${1:-}" = pull; then
   exit 1
+fi
+
+if test "${1:-} ${2:-}" = "image inspect"; then
+  case "$*" in
+    *aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa*) printf '%s\n' sha256:1111111111111111111111111111111111111111111111111111111111111111 ;;
+    *ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff*) printf '%s\n' sha256:6666666666666666666666666666666666666666666666666666666666666666 ;;
+    *eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee*) printf '%s\n' sha256:5555555555555555555555555555555555555555555555555555555555555555 ;;
+    *) exit 1 ;;
+  esac
+  exit 0
+fi
+
+if test "${1:-} ${2:-}" = "image ls"; then
+  cat <<'EOF'
+ghcr.io/allen141/dm-hq-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256:1111111111111111111111111111111111111111111111111111111111111111
+ghcr.io/allen141/dm-hq-api@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd sha256:4444444444444444444444444444444444444444444444444444444444444444
+ghcr.io/allen141/dm-hq-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb sha256:2222222222222222222222222222222222222222222222222222222222222222
+postgres@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc sha256:3333333333333333333333333333333333333333333333333333333333333333
+EOF
+  exit 0
+fi
+
+if test "${1:-} ${2:-}" = "image rm" || test "${1:-} ${2:-}" = "image prune"; then
+  exit 0
 fi
 
 echo "Unexpected docker invocation: $*" >&2

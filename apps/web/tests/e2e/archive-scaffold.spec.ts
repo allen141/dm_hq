@@ -33,18 +33,11 @@ test("an owner can create a campaign and use its Archive workspace", async ({ pa
 
   await page.goto(campaignUrl);
   await expect(page.getByRole("link", { name: "Mara Venn" }).first()).toBeVisible();
-  const maraHref = await page.getByRole("link", { name: "Mara Venn" }).first().getAttribute("href");
   await page.getByRole("link", { name: "Graph" }).click();
   await expect(page.getByRole("heading", { name: "Knowledge graph" })).toBeVisible();
-  await expect(page.getByText("Accessible graph table")).toBeVisible();
-  await expect(page.getByText("Overview")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Two hops" })).not.toBeVisible();
-
-  const maraId = maraHref?.split("/").pop();
-  if (!maraId) throw new Error("Mara Venn link did not include an item id");
-  await page.goto(`${campaignUrl}/graph?focus_id=${encodeURIComponent(maraId)}`);
-  await expect(page.getByRole("button", { name: "Two hops" })).toBeVisible();
-  await page.getByRole("button", { name: "Two hops" }).click();
-  await expect(page.getByRole("button", { name: "Two hops" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Campaign graph explorer")).toBeVisible();
+  const graphTableLink = page.getByRole("link", { name: /Accessible graph table/ });
+  await expect(graphTableLink).toBeVisible();
+  await graphTableLink.click();
+  await expect(page).toHaveURL(/\/archive\/graph\/table/);
+  await expect(page.getByRole("heading", { name: "Graph table" })).toBeVisible();
 });

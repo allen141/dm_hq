@@ -4,6 +4,14 @@ set -eu
 
 IMAGE=${1:-dmhq-deployer:test}
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
+TEST_STATE=$(mktemp -d)
+trap 'rm -rf "$TEST_STATE"' EXIT
+mkdir -p "$TEST_STATE/host/deployer/preview"
+{
+  printf '%s\n' 'ghcr.io/allen141/dm-hq-release@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+  printf '%s\n' 'ghcr.io/allen141/dm-hq-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  printf '%s\n' 'ghcr.io/allen141/dm-hq-web@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+} > "$TEST_STATE/host/deployer/preview/current-release"
 
 if docker run --rm --entrypoint /usr/local/bin/dmhq-deploy -e CHANNEL=staging "$IMAGE"; then
   echo "Controller accepted an invalid channel" >&2
@@ -23,11 +31,25 @@ docker run --rm \
   --entrypoint /usr/local/bin/dmhq-deploy \
   -e CHANNEL=preview \
   -e RUN_ONCE=1 \
+  -e FAKE_DOCKER_LOG=/test-state/docker.log \
   -e PATH=/test:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
   -v "$ROOT/infrastructure/deployer/preview.environment.example:/config/environment.env:ro" \
   -v "$ROOT/infrastructure/deployer/preview.secrets.example:/mnt/user/appdata/dm-hq/preview/secrets.env:ro" \
   -v "$ROOT/infrastructure/deployer/tests/fake-docker:/test/docker:ro" \
+  -v "$TEST_STATE:/test-state" \
+  -v "$TEST_STATE/host/deployer:/mnt/user/appdata/dm-hq/deployer:ro" \
   "$IMAGE"
+
+grep -Fq "image rm sha256:4444444444444444444444444444444444444444444444444444444444444444" "$TEST_STATE/docker.log"
+grep -Fq "image rm sha256:2222222222222222222222222222222222222222222222222222222222222222" "$TEST_STATE/docker.log"
+if grep -Fq "image rm sha256:3333333333333333333333333333333333333333333333333333333333333333" "$TEST_STATE/docker.log"; then
+  echo "Controller cleanup attempted to remove an unrelated image" >&2
+  exit 1
+fi
+if grep -Fq "image rm sha256:1111111111111111111111111111111111111111111111111111111111111111" "$TEST_STATE/docker.log"; then
+  echo "Controller cleanup attempted to remove the active preview image ID" >&2
+  exit 1
+fi
 
 docker run --rm \
   --entrypoint sh \

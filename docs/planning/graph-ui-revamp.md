@@ -31,6 +31,18 @@ This increment turns the Archive Graph proof of concept into a production-shaped
 
 The initial dependency set is `sigma`, `graphology`, `@react-sigma/core`, `@react-sigma/layout-forceatlas2`, `graphology-layout-forceatlas2`, `@sigma/node-border`, `@sigma/edge-curve`, `@sigma/layer-webgl`, and `@floating-ui/react`. Dependencies remain isolated to the graph experience. Optional visual programs may be removed if compatibility, bundle, or performance measurements do not justify them.
 
+## Shared visualization dependency boundary
+
+The merged Graph MR establishes a deliberate two-renderer boundary rather than a second competing graphics framework:
+
+- `@floating-ui/react` is the shared DOM overlay primitive. Graph inspectors, map marker summaries, and future relationship-board cards should use the same anchored positioning, collision handling, focus return, and tablet bottom-sheet adapter.
+- `graphology` is the shared transient graph data model. The automatic Graph uses it today; Relationship boards may use it for membership filtering, adjacency, and cycle-safe traversal while keeping board membership and manual positions canonical in Markdown.
+- GraphResponse, PageIdentity, selection, renderer-health, and DOM-fallback contracts are shared application adapters. WebGL capability checks, dynamic client-only loading, reduced-motion behavior, and semantic list/table fallbacks should be implemented once at that boundary.
+- Sigma remains graph-specific: it supplies graph WebGL rendering, picking, reducers, and ForceAtlas2 integration.
+- Three.js and React Three Fiber remain map-specific: they supply the textured image plane, orthographic/perspective cameras, and custom 3D markers. They do not replace Sigma, and Sigma is not used to render the map.
+
+Do not add a third renderer or duplicate camera/overlay stack for Relationship boards until measured interaction evidence requires it. Keep all renderer packages client-only and review their licenses and bundle cost together.
+
 ## Experience design
 
 ### Application shell

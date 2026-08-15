@@ -9,6 +9,8 @@ COMPOSE_FILE=${COMPOSE_FILE:-/opt/dmhq/deploy.compose.yaml}
 POLL_SECONDS=${POLL_SECONDS:-60}
 HEALTH_ATTEMPTS=${HEALTH_ATTEMPTS:-45}
 RELEASE_REPOSITORY=${RELEASE_REPOSITORY:-ghcr.io/allen141/dm-hq-release}
+API_REPOSITORY=${API_REPOSITORY:-ghcr.io/allen141/dm-hq-api}
+WEB_REPOSITORY=${WEB_REPOSITORY:-ghcr.io/allen141/dm-hq-web}
 OIDC_ISSUER=https://token.actions.githubusercontent.com
 
 case "$CHANNEL" in
@@ -84,6 +86,50 @@ validate_app_image() {
   esac
 }
 
+protected_images() {
+  candidate_release=${1:-}
+  test -n "$candidate_release" && printf '%s\n' "$candidate_release"
+  for state_file in \
+    /mnt/user/appdata/dm-hq/deployer/preview/current-release \
+    /mnt/user/appdata/dm-hq/deployer/preview/previous-release \
+    /mnt/user/appdata/dm-hq/deployer/production/current-release \
+    /mnt/user/appdata/dm-hq/deployer/production/previous-release; do
+    test -r "$state_file" || continue
+    sed -n '1,3p' "$state_file"
+  done
+}
+
+reclaim_image_storage() {
+  candidate_release=${1:-}
+  protected=$(protected_images "$candidate_release")
+  protected_ids=$(printf '%s\n' "$protected" | while IFS= read -r protected_image; do
+    test -n "$protected_image" || continue
+    docker image inspect --format '{{.Id}}' "$protected_image" 2>/dev/null || true
+  done)
+
+  log "Reclaiming stale DM HQ image storage"
+  docker image ls --digests --no-trunc --format '{{.Repository}}@{{.Digest}} {{.ID}}' | while IFS= read -r record; do
+    image=${record%% *}
+    image_id=${record#* }
+    case "$image" in
+      "$API_REPOSITORY"@sha256:*|"$WEB_REPOSITORY"@sha256:*|"$RELEASE_REPOSITORY"@sha256:*) ;;
+      *) continue ;;
+    esac
+    case "$image_id" in
+      sha256:*) ;;
+      *) continue ;;
+    esac
+    if printf '%s\n' "$protected" | grep -Fqx "$image"; then
+      continue
+    fi
+    if printf '%s\n' "$protected_ids" | grep -Fqx "$image_id"; then
+      continue
+    fi
+    docker image rm "$image_id" >/dev/null 2>&1 || true
+  done
+  log "Stale DM HQ image cleanup completed"
+}
+
 rollback() {
   test -r "$CURRENT_FILE" || { log "No previous release is available for rollback"; return 1; }
   previous_api=$(sed -n '2p' "$CURRENT_FILE")
@@ -100,8 +146,12 @@ rollback() {
 deploy_once() {
   log "Checking $RELEASE_IMAGE"
   if ! docker pull "$RELEASE_IMAGE" >/dev/null; then
-    log "Release pull failed; current deployment was not changed"
-    return 0
+    log "Release pull failed; reclaiming image storage before one retry"
+    reclaim_image_storage
+    if ! docker pull "$RELEASE_IMAGE" >/dev/null; then
+      log "Release pull failed after cleanup; current deployment was not changed"
+      return 0
+    fi
   fi
 
   release_digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$RELEASE_IMAGE" 2>/dev/null || true)
@@ -133,6 +183,7 @@ deploy_once() {
   validate_app_image "$api_image" && validate_app_image "$web_image" || return 0
   test -n "$version" || { log "Release version is missing"; return 0; }
 
+  reclaim_image_storage "$release_digest"
   if ! docker pull "$api_image" >/dev/null || ! docker pull "$web_image" >/dev/null; then
     log "Application image pull failed"
     return 0
@@ -202,6 +253,7 @@ deploy_once() {
   } > "$CURRENT_FILE"
   rm -f "$FAILED_FILE"
   log "Deployment succeeded: $version${pr_number:+ (PR $pr_number)}"
+  reclaim_image_storage "$release_digest"
 }
 
 run_with_lock() {

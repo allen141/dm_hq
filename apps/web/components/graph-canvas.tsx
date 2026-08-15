@@ -172,7 +172,7 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
   const selectedSummary = selectedNode && "summary" in selectedNode ? selectedNode.summary : "";
 
   return (
-    <section className="graph-canvas" aria-label="Campaign graph explorer">
+    <section className="visualization-stage graph-canvas" aria-label="Campaign graph explorer">
       <div className="sr-only" role="img" aria-label={graphLabel} />
       <div className="graph-explorer-bar">
         <div className="graph-search" role="search">

@@ -70,6 +70,7 @@ nav:
       - Markdown campaign documents: decisions/0005-markdown-canonical-campaign-documents.md
       - Archive exploration views: decisions/0006-archive-exploration-view-model.md
       - WebGL graph renderer: decisions/0007-webgl-graph-renderer.md
+      - WebGL map renderer and visual system: decisions/0008-webgl-map-renderer-and-visual-system.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md

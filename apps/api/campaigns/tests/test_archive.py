@@ -6,9 +6,10 @@ from pathlib import Path
 
 from django.apps import apps
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
 
-from campaigns.documents import parse_document
+from campaigns.documents import content_hash, parse_document, serialize_document
 from campaigns.models import ArchiveItem, Campaign, CampaignDocument, CampaignDocumentVersion, CampaignMembership
 
 
@@ -503,6 +504,65 @@ class ArchiveApiTests(TestCase):
         self.assertNotIn("gm-only", public.content.decode())
         self.assertNotIn("Secret name", public.content.decode())
 
+    def test_publication_metadata_migration_repairs_legacy_revisions_and_reconciles(self):
+        item = self.create_item(kind="entity", title="Arbor", body="Private source")
+        publications = [
+            self.post(
+                f"/api/v1/campaigns/{self.campaign.id}/publications",
+                {"entries": [{"item_id": item["id"], "markdown": item["markdown"]}]},
+            )
+            for _ in range(2)
+        ]
+        self.assertTrue(all(response.status_code == 200 for response in publications))
+        documents = list(CampaignDocument.objects.filter(document_type="publication_entry").order_by("storage_key"))
+        self.assertEqual(len(documents), 2)
+        original_keys = {document.storage_key for document in documents}
+        self.assertEqual(len(original_keys), 2)
+
+        for document in documents:
+            version = document.versions.get(number=document.current_version)
+            metadata, body = parse_document(version.markdown)
+            metadata.pop("publication_id")
+            metadata.pop("source_item_id")
+            metadata.pop("version")
+            legacy = serialize_document(metadata, body)
+            legacy_hash = content_hash(legacy)
+            version.markdown = legacy
+            version.content_hash = legacy_hash
+            version.save(update_fields=["markdown", "content_hash"])
+            document.content_hash = legacy_hash
+            document.search_text = legacy
+            document.save(update_fields=["content_hash", "search_text"])
+            path = Path("/tmp/dm-hq-test-documents") / document.storage_key
+            path.write_text(legacy, encoding="utf-8")
+
+        import importlib
+
+        migration = importlib.import_module("campaigns.migrations.0015_repair_publication_metadata")
+        migration.forwards(apps, None)
+        call_command("reconcile_documents")
+        call_command("reconcile_documents")
+
+        repaired_documents = list(
+            CampaignDocument.objects.filter(document_type="publication_entry").order_by("storage_key")
+        )
+        self.assertEqual({document.storage_key for document in repaired_documents}, original_keys)
+        self.assertEqual(len(repaired_documents), 2)
+        for document in repaired_documents:
+            metadata, _ = parse_document(
+                (Path("/tmp/dm-hq-test-documents") / document.storage_key).read_text(encoding="utf-8")
+            )
+            self.assertTrue(metadata["publication_id"])
+            self.assertEqual(metadata["source_item_id"], item["id"])
+            self.assertEqual(metadata["version"], 1)
+            document.refresh_from_db()
+            self.assertEqual(document.content_hash, content_hash(document.search_text))
+
+        for publication in publications:
+            response = self.client.get(f"/api/v1/publications/public/{publication.json()['token']}")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()["entries"]), 1)
+
     def test_cursor_pagination_and_workspace_sequence(self):
         first = self.create_item(title="First")
         self.create_item(title="Second")
@@ -563,6 +623,48 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())
+
+    def test_archive_view_mutations_return_the_new_document_version(self):
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "map",
+                "title": "Versioned map",
+                "description": "Initial map",
+                "background": {"url": "https://example.test/map.png", "alt": "Harbor"},
+                "placements": [],
+            },
+        )
+        self.assertEqual(created.status_code, 200)
+        view = created.json()
+        first = self.client.patch(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views/{view['id']}",
+            data=json.dumps(
+                {
+                    **{key: view[key] for key in ("view_type", "title", "background", "placements")},
+                    "description": "First edit",
+                    "version": view["version"],
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json()["version"], view["version"] + 1)
+        second = self.client.patch(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views/{view['id']}",
+            data=json.dumps(
+                {
+                    **{key: first.json()[key] for key in ("view_type", "title", "background", "placements")},
+                    "description": "Second edit",
+                    "version": first.json()["version"],
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["version"], first.json()["version"] + 1)
 
     def test_archive_export_restore_remaps_links_navigation_relationships_and_views(self):
         target = self.create_item(kind="entity", title="Harbor", subject_type="place", fields={})
