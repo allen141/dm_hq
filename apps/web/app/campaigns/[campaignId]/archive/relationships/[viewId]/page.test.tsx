@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import RelationshipViewPage from "./page";
 
@@ -74,7 +74,8 @@ test("keeps membership and hierarchy authoring on the editor route", async () =>
   expect(screen.queryByLabelText("Test relationship canvas")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Layout mode")).toHaveValue("hierarchy");
   expect(screen.getByLabelText("Root member")).toHaveValue("mara");
-  expect(screen.getByRole("checkbox", { name: "commands" })).toBeChecked();
+  const hierarchyKinds = screen.getByRole("group", { name: /Hierarchy relationships/ });
+  expect(within(hierarchyKinds).getByRole("checkbox", { name: "commands" })).toBeChecked();
 
   fireEvent.change(screen.getByLabelText("Add Archive page"), { target: { value: "oren" } });
   fireEvent.click(screen.getByRole("button", { name: "Add member" }));
