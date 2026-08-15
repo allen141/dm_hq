@@ -4,7 +4,7 @@
 
 This increment turns the Archive Graph proof of concept into a production-shaped campaign atlas. It adds a rich 2D WebGL explorer, concise node summaries, connected-node highlighting, responsive information overlays, and a modern product visual system while preserving the existing canonical-data, authorization, portability, and accessibility boundaries.
 
-[ADR 0007](../decisions/0007-webgl-graph-renderer.md) accepts the Sigma.js and Graphology stack. This plan is approved for implementation.
+[ADR 0007](../decisions/0007-webgl-graph-renderer.md) accepts the Sigma.js and Graphology stack. This increment is implemented.
 
 ## Confirmed decisions
 

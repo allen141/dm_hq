@@ -84,10 +84,10 @@ Removing a member never removes the item or any relationship. Relationship creat
 
 ### Shared renderer boundary
 
-- A reusable Sigma viewport owns graph construction, WebGL lifecycle, camera controls, selection reducers, context loss, and anchor coordinates.
+- Automatic Graph and Relationship adapters share graph construction primitives, renderer programs, camera and selection conventions, context-loss behavior, and anchor coordinates.
 - The automatic Graph composes ForceAtlas, clouds, depth behavior, Graph copy, and Graph actions.
 - The Relationship experience composes saved kind filtering, hierarchy positions, relationship wording, diagnostics, and semantic grouping.
-- Shared hooks own reduced motion, renderer failure, anchored-inspector focus, Escape, and focus return.
+- Both experiences preserve the same reduced-motion, renderer-failure, anchored-inspector, Escape, and focus-return behavior.
 - Immersive stage positioning is scoped to an immersive Archive shell so embedded item graphs remain in document flow.
 
 ### Server contract
@@ -117,7 +117,7 @@ Removing a member never removes the item or any relationship. Relationship creat
 
 ### 2. Shared graph foundation
 
-- Separate the reusable Sigma viewport from automatic-Graph composition.
+- Add a Relationship Sigma adapter that reuses the automatic Graph's accepted rendering boundary without changing its product-specific composition.
 - Add explicit network and positioned layout strategies.
 - Scope immersive stage CSS and preserve embedded graph behavior.
 

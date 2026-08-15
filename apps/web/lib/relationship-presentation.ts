@@ -82,14 +82,22 @@ export function relationshipFactsForNode(
       const outgoing = edge.source_id === nodeId;
       const neighbor = self ? node : byId.get(outgoing ? edge.target_id : edge.source_id) ?? null;
       const label = outgoing ? edge.label : edge.inverse_label;
+      const phrase = !self && !outgoing && !label.trim()
+        ? incomingRelationshipPhrase(edge.kind, neighbor?.title)
+        : relationshipPhrase(label, edge.kind, neighbor?.title);
       return {
         edge,
         node,
         neighbor,
         direction: self ? "self" : outgoing ? "outgoing" : "incoming",
-        phrase: relationshipPhrase(label, edge.kind, neighbor?.title),
+        phrase,
       };
     });
+}
+
+function incomingRelationshipPhrase(kind: string, neighborTitle?: string): string {
+  const relation = kind.replaceAll("_", " ").trim() || "relationship";
+  return neighborTitle ? `incoming ${relation} from ${neighborTitle}` : `incoming ${relation}`;
 }
 
 export function relationshipPhrase(label: string, kind: string, neighborTitle?: string): string {

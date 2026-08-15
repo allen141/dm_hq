@@ -72,6 +72,12 @@ describe("relationshipFactsForNode", () => {
       "commands Brann",
     ]);
   });
+
+  test("marks an incoming relationship explicitly when no inverse wording exists", () => {
+    const withoutInverse = edge("unknown-inverse", "mara", "selka", "reports_to", "reports to", "");
+    const [fact] = relationshipFactsForNode(nodes, [withoutInverse], "selka");
+    expect(fact?.phrase).toBe("incoming reports to from Mara");
+  });
 });
 
 function edge(id: string, source_id: string, target_id: string, kind: string, label: string, inverse_label: string): GraphEdge {

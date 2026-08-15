@@ -26,7 +26,7 @@ Relationship boards need a calmer, more concise presentation for explicit campai
 
 ### One renderer, two relationship layouts
 
-Relationship boards use the existing client-only Sigma.js and Graphology boundary. The reusable Sigma viewport owns camera controls, picking, selection emphasis, edge programs, WebGL health, and canvas-to-DOM anchoring. The automatic Graph and Relationship boards compose that viewport with separate copy, inspectors, fallbacks, actions, and layout strategies.
+Relationship boards use the existing client-only Sigma.js and Graphology boundary. Automatic Graph and Relationship adapters share graph presentation, renderer programs, camera and selection conventions, WebGL health behavior, and canvas-to-DOM anchoring while retaining separate copy, inspectors, fallbacks, actions, and layout strategies.
 
 Relationship boards support:
 
@@ -53,7 +53,7 @@ The semantic mode uses the same filtered presentation model. It provides member 
 
 ## Consequences
 
-- The current graph experience is split into a reusable Sigma viewport plus Graph- and Relationship-specific composition.
+- The automatic Graph remains stable while a Relationship-specific adapter reuses its accepted Sigma/Graphology rendering boundary and interaction conventions.
 - Relationship settings and document validation gain additive fields; no database or persistent graph-layout migration is required.
 - The API applies saved visible-kind filters and reports the available member-to-member kinds for authoring.
 - The Archive shell recognizes Relationship viewers as immersive and provides a dedicated edit/view action.

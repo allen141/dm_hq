@@ -1,8 +1,8 @@
 # Archive exploration views
 
-**Status:** Accepted implementation plan; WebGL map increment in progress.
+**Status:** Accepted implementation plan; Graph, Map, and Relationship interface increments implemented.
 
-This plan records how the Archive works as a campaign wiki with Wiki, Graph, Map, and Relationship lenses. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) authorizes its canonical document and read-model boundary. [ADR 0008](../decisions/0008-webgl-map-renderer-and-visual-system.md) accepts a product-shaped WebGL map renderer and private-workspace visual system. Uploaded map assets and player-visible visual views remain outside this increment.
+This plan records how the Archive works as a campaign wiki with Wiki, Graph, Map, and Relationship lenses. Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) authorizes its canonical document and read-model boundary. [ADR 0008](../decisions/0008-webgl-map-renderer-and-visual-system.md) accepts a product-shaped WebGL map renderer and private-workspace visual system. [ADR 0009](../decisions/0009-sigma-relationship-board-renderer.md) accepts Sigma relationship boards, deterministic hierarchy layout, and the viewer/editor boundary. Uploaded map assets and player-visible visual views remain outside these increments.
 
 The plan builds on the [Archive product](../product/archive.md), the [Archive roadmap](archive-roadmap.md), the [domain model](../architecture/domain-model.md), and the [Markdown document architecture](../architecture/markdown-documents.md). Sections below preserve the validation rationale; where the current PoC is narrower, the follow-up boundary is stated explicitly.
 
@@ -26,7 +26,6 @@ This plan does not include:
 
 - A production release commitment or a change to the current Release 1 scope.
 - A graph database, PostGIS, external map tiles, geocoding, or route finding.
-- Selection of a final Relationship-board visualization library. ADR 0007 selects Sigma.js and Graphology for the automatic Graph; ADR 0008 selects Three.js and React Three Fiber for maps.
 - A general attachment or media-processing pipeline.
 - Rich-text editing, transclusion, reusable blocks, or live co-authoring.
 - Historical, knowledge-scoped, or claim-aware graph calculations.
@@ -452,7 +451,7 @@ Each proof of concept uses the same synthetic campaign and produces evidence, no
 | 5. Prove optional views | Run PoCs 3 and 4. These may proceed in parallel after Stage 4. | Shared view model and fixture media. | Task tests, accessibility results, and no-copy checks. |
 | 6. Decide roadmap fit | Compare evidence with DM attention, retrieval, safety, and portability goals. | All PoC evidence. | Promote, revise, defer, or reject each capability. |
 
-Production dependencies require an accepted decision and a demonstrated benefit. ADR 0007 and ADR 0008 now define a shared dependency boundary: `@floating-ui/react` is the common DOM overlay primitive, `graphology` is the common transient graph model for Graph and future Relationship boards, Sigma.js is graph-specific, and Three.js plus React Three Fiber are map-specific. Reuse the selection, dynamic-loading, WebGL-health, reduced-motion, and semantic fallback adapters across views, but do not force one renderer to serve the other view. Keep `@react-sigma/*`, `@sigma/*`, `sigma`, and ForceAtlas2 scoped to Graph; keep `three` and `@react-three/fiber` scoped to Maps. Any new renderer or helper requires a measured benefit and an ADR update.
+Production dependencies require an accepted decision and a demonstrated benefit. ADRs 0007, 0008, and 0009 define a shared dependency boundary: `@floating-ui/react` is the common DOM overlay primitive, Graphology is the common transient graph model, Sigma.js renders the automatic Graph and Relationship boards through experience-specific adapters, and Three.js plus React Three Fiber remain map-specific. Reuse selection, dynamic loading, WebGL health, reduced motion, and semantic fallback patterns across views. Any new renderer or helper requires a measured benefit and an ADR update.
 
 ## Test fixture and evidence
 
@@ -519,7 +518,6 @@ ADR 0006 resolved the shared persistence boundary. These remaining questions gui
 - Should the Graph open as a focused neighborhood, a filtered campaign overview, or remember a personal last state?
 - Which multiple-view selector or view manager remains usable with many maps or relationship boards?
 - Should Relationship view membership remain explicit only, or gain query-driven curation?
-- Does an advanced canvas adapter and Dagre layout improve Relationship boards enough to adopt them? The map renderer is decided by ADR 0008.
 - Is automatic layout sufficient, or is saved manual positioning important enough to persist?
 - Which map marker notes belong in view configuration versus the linked Archive item's prose? Item summaries remain derived and are never copied.
 - What node, edge, backlink, marker, and tab counts remain useful on the target tablet?
@@ -544,4 +542,4 @@ After the proofs of concept, review each capability independently. A capability 
 - Works accessibly on desktop and tablet.
 - Has a bounded implementation that does not require speculative infrastructure.
 
-ADRs 0006, 0007, and 0008 are accepted. The WebGL map and expedition-console redesign are the current implementation increment; their exact acceptance is recorded in ADR 0008. Advanced Relationship-board canvas and Dagre layout, persisted manual relationship positions, dedicated membership and placement projections, uploaded assets, and a multiple-view selector remain explicit follow-ups rather than implied completed scope.
+ADRs 0006 through 0009 are accepted. The Graph, WebGL Map, and Relationship-board redesigns are implemented under their respective decisions. Persisted manual relationship positions, query-driven membership, dedicated membership and placement projections, uploaded assets, and scaling the multiple-view selector remain explicit follow-ups rather than implied completed scope.
