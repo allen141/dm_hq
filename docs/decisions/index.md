@@ -19,5 +19,6 @@ Architecture decision records (ADRs) capture choices that materially constrain t
 - [ADR 0006: Archive exploration view model](0006-archive-exploration-view-model.md) — Accepted.
 - [ADR 0007: Use Sigma.js for interactive Archive graphs](0007-webgl-graph-renderer.md) — Accepted.
 - [ADR 0008: WebGL map renderer and visual system](0008-webgl-map-renderer-and-visual-system.md) — Accepted.
+- [ADR 0009: Reuse Sigma for relationship boards](0009-sigma-relationship-board-renderer.md) — Accepted.
 
 To propose another decision, copy [the ADR template](0000-template.md), assign the next four-digit number, use a short kebab-case filename, and add it to this list.

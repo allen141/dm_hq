@@ -61,6 +61,7 @@ nav:
       - Archive implementation: planning/archive-implementation-plan.md
       - Archive exploration views: planning/archive-exploration-views.md
       - Graph UI revamp: planning/graph-ui-revamp.md
+      - Relationship UI revamp: planning/relationship-ui-revamp.md
       - AI agent integration: planning/ai-agent-integration-plan.md
       - Open questions: planning/open-questions.md
   - Decisions:
@@ -71,6 +72,7 @@ nav:
       - Archive exploration views: decisions/0006-archive-exploration-view-model.md
       - WebGL graph renderer: decisions/0007-webgl-graph-renderer.md
       - WebGL map renderer and visual system: decisions/0008-webgl-map-renderer-and-visual-system.md
+      - Sigma relationship-board renderer: decisions/0009-sigma-relationship-board-renderer.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md
