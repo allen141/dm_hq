@@ -49,4 +49,5 @@ The [Archive exploration views plan](archive-exploration-views.md) records the P
 
 - Is “DM HQ” the intended public name or a working title?
 - Which 2014 D&D 5e sources may be referenced, imported, stored, indexed, or redistributed?
-- What visual tone supports prolonged use without becoming distracting?
+
+[ADR 0010](../decisions/0010-runtime-private-workspace-themes.md) resolves the private-workspace visual direction with five selectable dark themes and Night Cartographer as the default. Prolonged-use testing may refine their tokens, but account synchronization, campaign branding, and player-selectable themes remain deferred rather than open requirements for the initial migration.

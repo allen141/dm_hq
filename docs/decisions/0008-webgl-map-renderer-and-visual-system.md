@@ -4,6 +4,10 @@
 - **Date:** 2026-08-07
 - **Owners:** Product and Engineering
 
+!!! note "Runtime-theme follow-up"
+
+    [ADR 0010](0010-runtime-private-workspace-themes.md) expands the single expedition-console palette into five user-selectable dark private themes and makes Night Cartographer the default. The renderer, interaction, accessibility, performance, and viewer/editor decisions in this ADR remain accepted.
+
 ## Context
 
 The Archive map proof of concept established the canonical boundary: an `archive_view` Markdown document owns a background image reference and normalized item placements, while Archive items remain the source of titles and prose. The next increment needs a richer map that can move between a conventional 2D image view and a constrained 3D presentation without creating a second map model.

@@ -6,6 +6,10 @@ This page is the practical runbook for a DM using DM HQ. It covers the browser w
 
     The Archive, Markdown documents, revisions, publications, exports, and local agent workspace are implemented surfaces. The Dashboard and Battlefield pages describe the product direction while their full live-play workflows remain later work.
 
+!!! note "Planned private appearance choices"
+
+    [ADR 0010](../decisions/0010-runtime-private-workspace-themes.md) accepts five dark private-workspace themes with Night Cartographer as the default. The initial choice will remain on the current browser through a device cookie; it will not change campaign documents, exports, local workspaces, or the fixed player-publication palette. This migration is planned rather than current behavior; see the [runtime theme migration plan](../planning/runtime-theme-migration.md).
+
 ## 1. Choose an environment
 
 For a hosted test, use the shared preview URL after the pull request has deployed successfully:

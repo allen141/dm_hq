@@ -16,7 +16,7 @@ This increment turns the Archive Graph proof of concept into a production-shaped
 - Short node summaries are bounded server-derived previews, not copied or separately authored campaign data.
 - The relationship table/list remains an equivalent keyboard-operable experience and the WebGL failure fallback.
 - Focus, filters, selection, pan, zoom, and layout positions remain transient interface state.
-- The visual direction is an editorial campaign atlas: warm reading surfaces, a deep technical graph stage, restrained verdigris and amber accents, and modern UI typography.
+- Night Cartographer is the default editorial campaign-atlas direction, while the other private themes vary material and accent choices through the shared runtime contract in [ADR 0010](../decisions/0010-runtime-private-workspace-themes.md). All retain a deep graph stage and legible modern UI typography.
 - Player-visible graphs remain outside this increment and require a separate publication artifact.
 
 ## Package review
