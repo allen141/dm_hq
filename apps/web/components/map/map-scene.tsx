@@ -8,6 +8,7 @@ import { constrainMapCameraPose, mapCameraBounds, mapPolarAngleBounds } from "@/
 import { mapPointFromUv, mapPointToWorld, planeDimensions } from "@/lib/map-coordinates";
 import { loadMapTexture } from "@/lib/map-texture";
 import type { MapCanvasProps, MapMode } from "@/lib/map-types";
+import { useTheme } from "@/components/theme-provider";
 import MapMarker from "@/components/map/map-marker";
 
 type SceneProps = Omit<MapCanvasProps, "className"> & {
@@ -139,6 +140,8 @@ export function MapScene({
   onMovePlacement,
   onFailure,
 }: SceneProps) {
+  const { theme } = useTheme();
+  const palette = theme.visualization;
   const [loaded, setLoaded] = useState<{ url: string; texture: Texture; width: number; height: number } | null>(null);
   const invalidate = useThree((state) => state.invalidate);
   const [dragging, setDragging] = useState(false);
@@ -165,6 +168,10 @@ export function MapScene({
     };
   }, [background.url, invalidate, onFailure]);
 
+  useEffect(() => {
+    invalidate();
+  }, [invalidate, theme.id]);
+
   const activeTexture = loaded?.url === background.url ? loaded : null;
   const imageSize = activeTexture ? planeDimensions(activeTexture.width, activeTexture.height) : { width: 12, height: 8 };
   const itemById = new Map(items.map((item) => [item.id, item]));
@@ -181,9 +188,9 @@ export function MapScene({
 
   return (
     <>
-      <color attach="background" args={["#101815"]} />
-      <ambientLight intensity={mode === "3d" ? 1.1 : 1.5} />
-      <directionalLight position={[4, 10, 5]} intensity={mode === "3d" ? 2.4 : 1.25} />
+      <color attach="background" args={[palette.background]} />
+      <ambientLight color={palette.textMuted} intensity={mode === "3d" ? 1.1 : 1.5} />
+      <directionalLight color={palette.text} position={[4, 10, 5]} intensity={mode === "3d" ? 2.4 : 1.25} />
       <CameraRig mode={mode} width={imageSize.width} height={imageSize.height} resetToken={resetToken} />
       <MapControls mode={mode} resetToken={resetToken} planeWidth={imageSize.width} planeHeight={imageSize.height} enabled={!dragging} />
       <ContextGuard onFailure={onFailure} />
@@ -198,6 +205,7 @@ export function MapScene({
             return (
               <MapMarker
                 key={placement.id}
+                palette={palette}
                 placement={placement}
                 item={itemById.get(placement.item_id)}
                 mode={mode}

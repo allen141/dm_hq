@@ -1187,3 +1187,22 @@ button.secondary:hover, .button.secondary:hover {
     box-shadow: none;
   }
 }
+
+.map-marker {
+  width: 44px;
+  height: 44px;
+  color: var(--theme-text-inverse);
+  border-color: var(--viz-background);
+}
+.map-marker-note { border-radius: 7px; background: var(--viz-map-note); }
+.map-marker-entity { border-radius: 50% 50% 50% 8px; background: var(--viz-map-entity); }
+.map-marker-session { border-style: double; border-width: 5px; background: var(--viz-map-session); }
+.map-marker.selected,
+.map-marker[aria-pressed="true"] {
+  border-color: var(--viz-map-selection);
+  box-shadow:
+    0 0 0 3px var(--viz-background),
+    0 0 0 7px var(--viz-map-selection),
+    0 7px 20px rgb(0 0 0 / 48%);
+}
+.map-marker.archived { color: var(--theme-text-primary); background: var(--viz-map-archived); }

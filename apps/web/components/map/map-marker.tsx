@@ -3,10 +3,13 @@
 import { useRef } from "react";
 import { Plane, Vector3 } from "three";
 import { mapWorldToPoint } from "@/lib/map-coordinates";
+import { mapMarkerColor, normalizeMapVisualKind } from "@/lib/map-presentation";
+import type { VisualizationPalette } from "@/lib/theme";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { MapCanvasPlacement, MapItem, MapMode, MapPoint } from "@/lib/map-types";
 
 type MapMarkerProps = {
+  palette: VisualizationPalette;
   placement: MapCanvasPlacement;
   item?: MapItem;
   mode: MapMode;
@@ -21,16 +24,10 @@ type MapMarkerProps = {
   onMove: (placementId: string, point: MapPoint, phase: "preview" | "commit") => void;
 };
 
-const COLORS = {
-  note: "#e2b96b",
-  entity: "#61d7c5",
-  session: "#aa82e8",
-};
-
-export function MapMarker({ placement, item, mode, selected, editable, position, scale, planeWidth, planeHeight, onSelect, onDragStateChange, onMove }: MapMarkerProps) {
-  const kind = item?.kind === "entity" || item?.kind === "session" ? item.kind : "note";
+export function MapMarker({ palette, placement, item, mode, selected, editable, position, scale, planeWidth, planeHeight, onSelect, onDragStateChange, onMove }: MapMarkerProps) {
+  const kind = normalizeMapVisualKind(item?.kind);
   const archived = item?.status === "archived";
-  const color = archived ? "#87918f" : COLORS[kind];
+  const color = mapMarkerColor(palette, kind, archived);
   const markerScale = scale * (selected ? 1.2 : 1);
   const drag = useRef<{ pointerId: number; startX: number; startY: number; moved: boolean; lastPoint: MapPoint | null } | null>(null);
 
@@ -96,10 +93,16 @@ export function MapMarker({ placement, item, mode, selected, editable, position,
       userData={{ placementId: placement.id, title: placement.caption || item?.title }}
     >
       {selected && (
-        <mesh position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.27, 0.35, 32]} />
-          <meshBasicMaterial color="#fff1b8" transparent opacity={0.95} depthWrite={false} />
-        </mesh>
+        <>
+          <mesh position={[0, 0.017, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.29, 0.39, 32]} />
+            <meshBasicMaterial color={palette.background} transparent opacity={0.98} depthWrite={false} />
+          </mesh>
+          <mesh position={[0, 0.019, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.25, 0.34, 32]} />
+            <meshBasicMaterial color={palette.mapSelection} transparent opacity={0.98} depthWrite={false} />
+          </mesh>
+        </>
       )}
       {kind === "entity" && (
         <group position={[0, mode === "3d" ? 0.3 : 0.18, 0]}>
@@ -127,7 +130,7 @@ export function MapMarker({ placement, item, mode, selected, editable, position,
           </mesh>
           <mesh rotation={[-Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.32, 0.045, 8, 28]} />
-            <meshBasicMaterial color={archived ? "#9aa19f" : "#d7c1ff"} transparent={archived} opacity={archived ? 0.55 : 1} />
+            <meshBasicMaterial color={archived ? palette.mapArchived : palette.mapSession} transparent={archived} opacity={archived ? 0.55 : 1} />
           </mesh>
         </group>
       )}

@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent } from "react";
 import { pointerToMapPoint } from "@/lib/map-coordinates";
+import { normalizeMapVisualKind } from "@/lib/map-presentation";
 import type { MapCanvasProps } from "@/lib/map-types";
 
 type MapDomFallbackProps = MapCanvasProps & {
@@ -64,11 +65,12 @@ export function MapDomFallback({
         {placements.map((placement, index) => {
           const item = itemById.get(placement.item_id);
           const label = placement.caption || item?.title || `Map marker ${index + 1}`;
+          const visualKind = normalizeMapVisualKind(item?.kind);
           return (
             <button
               type="button"
               key={placement.id}
-              className={`map-marker map-marker-${item?.kind ?? "note"}${placement.id === selectedPlacementId ? " selected" : ""}${item?.status === "archived" ? " archived" : ""}`}
+              className={`map-marker map-marker-${visualKind}${placement.id === selectedPlacementId ? " selected" : ""}${item?.status === "archived" ? " archived" : ""}`}
               style={{ left: `${placement.x * 100}%`, top: `${placement.y * 100}%`, position: "absolute" }}
               aria-label={label}
               title={label}
