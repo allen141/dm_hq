@@ -69,6 +69,8 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
   const [query, setQuery] = useState("");
   const [renderMode, setRenderMode] = useState<"webgl" | "list">("webgl");
   const [rendererMessage, setRendererMessage] = useState("");
+  const forcedColors = useForcedColors();
+  const displayedRenderMode = forcedColors ? "list" : renderMode;
   const [resetKey, setResetKey] = useState(0);
   const reducedMotion = useReducedMotion();
   const stageRef = useRef<HTMLDivElement>(null);
@@ -102,7 +104,7 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
 
   useEffect(() => {
     const stage = stageRef.current;
-    if (!selection || !anchor || !stage || renderMode !== "webgl") {
+    if (!selection || !anchor || !stage || displayedRenderMode !== "webgl") {
       refs.setPositionReference(null);
       return;
     }
@@ -127,7 +129,7 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
     };
     refs.setPositionReference(virtualReference);
     void update();
-  }, [anchor, refs, renderMode, selection, update]);
+  }, [anchor, displayedRenderMode, refs, selection, update]);
 
   useEffect(() => {
     if (!selection) return;
@@ -198,8 +200,8 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
           )}
         </div>
         <div className="graph-mode-switch" aria-label="Graph presentation">
-          <button type="button" className={renderMode === "webgl" ? "active" : "secondary"} aria-pressed={renderMode === "webgl"} onClick={retryRenderer}>Visual</button>
-          <button type="button" className={renderMode === "list" ? "active" : "secondary"} aria-pressed={renderMode === "list"} onClick={() => { setRenderMode("list"); setAnchor(null); }}>List</button>
+          <button type="button" className={displayedRenderMode === "webgl" ? "active" : "secondary"} aria-pressed={displayedRenderMode === "webgl"} disabled={forcedColors} onClick={retryRenderer}>Visual</button>
+          <button type="button" className={displayedRenderMode === "list" ? "active" : "secondary"} aria-pressed={displayedRenderMode === "list"} onClick={() => { setRenderMode("list"); setAnchor(null); }}>List</button>
         </div>
       </div>
 
@@ -211,7 +213,7 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
       )}
 
       <div className="graph-stage-frame" ref={stageRef}>
-        {renderMode === "webgl" ? (
+        {displayedRenderMode === "webgl" ? (
           <GraphRenderBoundary key={resetKey} resetKey={resetKey} onError={handleRendererError}>
             <WebglGraph
               campaignId={campaignId}
@@ -244,9 +246,9 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
 
         {selection && selectedNode && (
           <aside
-            className={"graph-inspector" + (anchor && renderMode === "webgl" ? " floating" : " static")}
+            className={"graph-inspector" + (anchor && displayedRenderMode === "webgl" ? " floating" : " static")}
             ref={setInspectorElement}
-            style={anchor && renderMode === "webgl" ? floatingStyles : undefined}
+            style={anchor && displayedRenderMode === "webgl" ? floatingStyles : undefined}
             role="dialog"
             aria-modal="false"
             aria-labelledby="graph-inspector-title"
@@ -292,7 +294,7 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
         )}
       </div>
 
-      <details className="graph-node-index" key={renderMode} open={renderMode === "list"}>
+      <details className="graph-node-index" key={displayedRenderMode} open={displayedRenderMode === "list"}>
         <summary>Page index <span>{nodes.length}</span></summary>
         <ul>
           {nodes.map((node) => (
@@ -316,6 +318,23 @@ export default function GraphCanvas({ campaignId, nodes, edges, focusId, cloudFo
 function connectionDirectionLabel(direction: "incoming" | "outgoing" | "bidirectional", count: number) {
   const directionLabel = direction === "bidirectional" ? "both directions" : direction;
   return directionLabel + " · " + count + (count === 1 ? " connection" : " connections");
+}
+
+function subscribeForcedColors(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia("(forced-colors: active)");
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function forcedColorsSnapshot() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(forced-colors: active)").matches;
+}
+
+function useForcedColors() {
+  return useSyncExternalStore(subscribeForcedColors, forcedColorsSnapshot, () => false);
 }
 
 function subscribeReducedMotion(callback: () => void) {

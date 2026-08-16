@@ -1,4 +1,6 @@
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
+import { graphEdgeColor, graphNodeColor } from "@/lib/renderer-theme";
+import { DEFAULT_THEME_ID, THEME_REGISTRY, type VisualizationPalette } from "@/lib/theme";
 
 export type GraphNodeVisualKind = "campaign" | "note" | "entity" | "session";
 
@@ -59,26 +61,26 @@ export type SelectedNodeSummary = {
   self_connection_count: number;
 };
 
-type NodeVisualStyle = Pick<GraphNodeVisual, "color" | "size" | "type"> & {
+type NodeVisualStyle = Pick<GraphNodeVisual, "size" | "type"> & {
   radius: number;
   radius_jitter: number;
 };
 
-type EdgeVisualStyle = Pick<GraphEdgeVisual, "color" | "size" | "type"> & {
+type EdgeVisualStyle = Pick<GraphEdgeVisual, "size" | "type"> & {
   base_curvature: number;
 };
 
 export const GRAPH_NODE_STYLES: Readonly<Record<GraphNodeVisualKind, Readonly<NodeVisualStyle>>> = {
-  campaign: { color: "#d7ad5b", size: 17, type: "circle", radius: 0.18, radius_jitter: 0.08 },
-  note: { color: "#6fa9c8", size: 11, type: "circle", radius: 1.25, radius_jitter: 0.28 },
-  entity: { color: "#9b7bc1", size: 13, type: "circle", radius: 1.72, radius_jitter: 0.34 },
-  session: { color: "#5eb7a5", size: 12, type: "circle", radius: 0.82, radius_jitter: 0.2 },
+  campaign: { size: 17, type: "circle", radius: 0.18, radius_jitter: 0.08 },
+  note: { size: 11, type: "circle", radius: 1.25, radius_jitter: 0.28 },
+  entity: { size: 13, type: "circle", radius: 1.72, radius_jitter: 0.34 },
+  session: { size: 12, type: "circle", radius: 0.82, radius_jitter: 0.2 },
 };
 
 export const GRAPH_EDGE_STYLES: Readonly<Record<GraphEdge["edge_class"], Readonly<EdgeVisualStyle>>> = {
-  document_link: { color: "#6689a2", size: 1.15, type: "arrow", base_curvature: 0 },
-  reference: { color: "#c59d52", size: 1.3, type: "curved", base_curvature: 0.1 },
-  relationship: { color: "#9675b8", size: 1.65, type: "curved", base_curvature: 0.16 },
+  document_link: { size: 1.15, type: "arrow", base_curvature: 0 },
+  reference: { size: 1.3, type: "curved", base_curvature: 0.1 },
+  relationship: { size: 1.65, type: "curved", base_curvature: 0.16 },
 };
 
 const PARALLEL_EDGE_CURVATURE_STEP = 0.18;
@@ -89,10 +91,14 @@ export function graphNodeVisualKind(node: GraphNode): GraphNodeVisualKind {
   return node.node_type === "campaign" ? "campaign" : "entity";
 }
 
-export function buildGraphPresentation(nodes: readonly GraphNode[], edges: readonly GraphEdge[]): GraphPresentation {
+export function buildGraphPresentation(
+  nodes: readonly GraphNode[],
+  edges: readonly GraphEdge[],
+  palette: VisualizationPalette = THEME_REGISTRY[DEFAULT_THEME_ID].visualization,
+): GraphPresentation {
   return {
-    nodes: nodes.map(toVisualNode),
-    edges: toVisualEdges(edges),
+    nodes: nodes.map((node) => toVisualNode(node, palette)),
+    edges: toVisualEdges(edges, palette),
   };
 }
 
@@ -200,7 +206,7 @@ export function summarizeSelectedNode(
   };
 }
 
-function toVisualNode(node: GraphNode): GraphNodeVisual {
+function toVisualNode(node: GraphNode, palette: VisualizationPalette): GraphNodeVisual {
   const visualKind = graphNodeVisualKind(node);
   const style = GRAPH_NODE_STYLES[visualKind];
   const angle = stableUnit(`${node.id}:angle`) * Math.PI * 2;
@@ -209,7 +215,7 @@ function toVisualNode(node: GraphNode): GraphNodeVisual {
   return {
     ...node,
     visual_kind: visualKind,
-    color: style.color,
+    color: graphNodeColor(visualKind, palette),
     size: style.size,
     type: style.type,
     x: roundPosition(Math.cos(angle) * radius),
@@ -217,7 +223,7 @@ function toVisualNode(node: GraphNode): GraphNodeVisual {
   };
 }
 
-function toVisualEdges(edges: readonly GraphEdge[]): GraphEdgeVisual[] {
+function toVisualEdges(edges: readonly GraphEdge[], palette: VisualizationPalette): GraphEdgeVisual[] {
   const directedGroups = new Map<string, GraphEdge[]>();
   for (const edge of edges) {
     const groupKey = `${edge.source_id}\u0000${edge.target_id}`;
@@ -239,7 +245,7 @@ function toVisualEdges(edges: readonly GraphEdge[]): GraphEdgeVisual[] {
     return {
       ...edge,
       key: `${edge.edge_class}:${edge.id}:${edge.source_id}->${edge.target_id}:${index}`,
-      color: style.color,
+      color: graphEdgeColor(edge.edge_class, palette),
       size: style.size,
       type: style.type,
       curvature: roundPosition(style.base_curvature + centeredIndex * PARALLEL_EDGE_CURVATURE_STEP),

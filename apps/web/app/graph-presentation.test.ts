@@ -1,5 +1,7 @@
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
 import { describe, expect, test } from "vitest";
+import { graphEdgeColor, graphNodeColor } from "@/lib/renderer-theme";
+import { THEME_REGISTRY, type VisualizationPalette } from "@/lib/theme";
 import {
   GRAPH_EDGE_STYLES,
   GRAPH_NODE_STYLES,
@@ -24,15 +26,16 @@ const edges: GraphEdge[] = [
 ];
 
 describe("buildGraphPresentation", () => {
+  const palette = THEME_REGISTRY.astral.visualization;
   test("assigns stable node styles and deterministic positions", () => {
-    const first = buildGraphPresentation(nodes, []);
-    const reordered = buildGraphPresentation([...nodes].reverse(), []);
+    const first = buildGraphPresentation(nodes, [], palette);
+    const reordered = buildGraphPresentation([...nodes].reverse(), [], palette);
 
     expect(first.nodes.map(({ id, visual_kind, color, size, type }) => ({ id, visual_kind, color, size, type }))).toEqual([
-      { id: "campaign", visual_kind: "campaign", ...pickNodeStyle("campaign") },
-      { id: "note", visual_kind: "note", ...pickNodeStyle("note") },
-      { id: "entity", visual_kind: "entity", ...pickNodeStyle("entity") },
-      { id: "session", visual_kind: "session", ...pickNodeStyle("session") },
+      { id: "campaign", visual_kind: "campaign", ...pickNodeStyle("campaign", palette) },
+      { id: "note", visual_kind: "note", ...pickNodeStyle("note", palette) },
+      { id: "entity", visual_kind: "entity", ...pickNodeStyle("entity", palette) },
+      { id: "session", visual_kind: "session", ...pickNodeStyle("session", palette) },
     ]);
     expect(positionById(first.nodes)).toEqual(positionById(reordered.nodes));
     expect(first.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y))).toBe(true);
@@ -45,8 +48,8 @@ describe("buildGraphPresentation", () => {
   });
 
   test("preserves directed parallel edges and assigns stable class styles", () => {
-    const first = buildGraphPresentation([], edges).edges;
-    const reordered = buildGraphPresentation([], [...edges].reverse()).edges;
+    const first = buildGraphPresentation([], edges, palette).edges;
+    const reordered = buildGraphPresentation([], [...edges].reverse(), palette).edges;
     const forward = first.filter((edge) => edge.source_id === "campaign" && edge.target_id === "entity");
     const reverse = first.find((edge) => edge.source_id === "entity" && edge.target_id === "campaign");
 
@@ -59,8 +62,8 @@ describe("buildGraphPresentation", () => {
     expect(edgeVisualsById(first)).toEqual(edgeVisualsById(reordered));
 
     for (const edge of first) {
-      const { color, size, type } = GRAPH_EDGE_STYLES[edge.edge_class];
-      expect(edge).toMatchObject({ color, size, type });
+      const { size, type } = GRAPH_EDGE_STYLES[edge.edge_class];
+      expect(edge).toMatchObject({ color: graphEdgeColor(edge.edge_class, palette), size, type });
     }
   });
 });
@@ -109,9 +112,9 @@ describe("summarizeSelectedNode", () => {
   });
 });
 
-function pickNodeStyle(kind: keyof typeof GRAPH_NODE_STYLES) {
-  const { color, size, type } = GRAPH_NODE_STYLES[kind];
-  return { color, size, type };
+function pickNodeStyle(kind: keyof typeof GRAPH_NODE_STYLES, palette: VisualizationPalette) {
+  const { size, type } = GRAPH_NODE_STYLES[kind];
+  return { color: graphNodeColor(kind, palette), size, type };
 }
 
 function positionById(positionedNodes: ReturnType<typeof buildGraphPresentation>["nodes"]) {

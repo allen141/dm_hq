@@ -11,7 +11,10 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type Sigma from "sigma";
 import { createEdgeArrowProgram } from "sigma/rendering";
 import type { Settings } from "sigma/settings";
-import { buildGraphClouds, buildGraphPresentation } from "@/lib/graph-presentation";
+import { buildGraphClouds, buildGraphPresentation, type GraphNodeVisualKind } from "@/lib/graph-presentation";
+import { useTheme } from "@/components/theme-provider";
+import { graphCloudColors, graphEdgeColor, graphNodeColor, graphStatusColor, withAlpha } from "@/lib/renderer-theme";
+import type { VisualizationPalette } from "@/lib/theme";
 
 type AnchorPosition = { x: number; y: number };
 
@@ -72,10 +75,8 @@ const SIGMA_SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
   labelFont: "Inter, ui-sans-serif, system-ui, sans-serif",
   labelSize: 12,
   labelWeight: "600",
-  labelColor: { color: "#dce8f3" },
   edgeLabelFont: "Inter, ui-sans-serif, system-ui, sans-serif",
   edgeLabelSize: 10,
-  edgeLabelColor: { color: "#aabbd0" },
   labelDensity: 0.8,
   labelRenderedSizeThreshold: 6,
   stagePadding: 64,
@@ -85,11 +86,13 @@ const SIGMA_SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
 };
 
 export default function GraphWebgl(props: GraphWebglProps) {
+  const { theme } = useTheme();
   const onRenderError = props.onRenderError;
   const [available] = useState(supportsWebgl);
+  const [initialPalette] = useState(theme.visualization);
   const graph = useMemo(
-    () => createGraph(props.nodes, props.edges, props.focusId),
-    [props.edges, props.focusId, props.nodes],
+    () => createGraph(props.nodes, props.edges, props.focusId, initialPalette),
+    [initialPalette, props.edges, props.focusId, props.nodes],
   );
   // Sigma owns its graph instance for the lifetime of the container. Remount it
   // when the API returns a different neighborhood so depth/filter changes cannot
@@ -110,9 +113,9 @@ export default function GraphWebgl(props: GraphWebglProps) {
       key={graphKey}
       className="graph-sigma"
       graph={graph}
-      settings={SIGMA_SETTINGS}
+      settings={{ ...SIGMA_SETTINGS, labelColor: { color: initialPalette.text }, edgeLabelColor: { color: initialPalette.textMuted } }}
     >
-      <GraphController {...props} />
+      <GraphController {...props} palette={theme.visualization} />
     </SigmaContainer>
   );
 }
@@ -127,7 +130,8 @@ function GraphController({
   onAnchorChange,
   onRenderError,
   onSelect,
-}: GraphWebglProps) {
+  palette,
+}: GraphWebglProps & { palette: VisualizationPalette }) {
   const sigma = useSigma<NodeAttributes, EdgeAttributes>();
   const graph = sigma.getGraph();
   const registerEvents = useRegisterEvents<NodeAttributes, EdgeAttributes>();
@@ -148,6 +152,20 @@ function GraphController({
     () => buildGraphClouds(nodes, edges, cloudFocusId ?? focusId ?? undefined),
     [cloudFocusId, edges, focusId, nodes],
   );
+
+  useEffect(() => {
+    graph.forEachNode((node, data) => {
+      graph.mergeNodeAttributes(node, {
+        color: graphNodeColor(data.kind as GraphNodeVisualKind, palette),
+        borderColor: node === focusId ? palette.selection : graphStatusColor(data.status, palette),
+      });
+    });
+    graph.forEachEdge((edge, data) => {
+      graph.setEdgeAttribute(edge, "color", graphEdgeColor(data.edgeClass, palette));
+    });
+    setSettings({ labelColor: { color: palette.text }, edgeLabelColor: { color: palette.textMuted } });
+    sigma.refresh();
+  }, [focusId, graph, palette, setSettings, sigma]);
 
   useEffect(() => {
     registerEvents({
@@ -174,7 +192,7 @@ function GraphController({
         if (node === activeId) {
           return {
             ...data,
-            borderColor: "#f2bd68",
+            borderColor: palette.selection,
             highlighted: true,
             forceLabel: true,
             size: data.size * 1.35,
@@ -184,7 +202,7 @@ function GraphController({
         if (neighbors.has(node)) {
           return {
             ...data,
-            borderColor: "#67dec8",
+            borderColor: palette.neighbor,
             highlighted: true,
             forceLabel: true,
             size: data.size * 1.08,
@@ -193,8 +211,8 @@ function GraphController({
         }
         return {
           ...data,
-          borderColor: "#31465b",
-          color: "#26384b",
+          borderColor: palette.dimmedEdge,
+          color: palette.dimmedNode,
           label: "",
           size: data.size * 0.82,
           zIndex: 0,
@@ -206,17 +224,17 @@ function GraphController({
         if (source === activeId || target === activeId) {
           return {
             ...data,
-            color: data.edgeClass === "relationship" ? "#e8a759" : "#73c9d7",
+            color: data.edgeClass === "relationship" ? palette.edgeRelationship : palette.neighbor,
             forceLabel: true,
             size: data.size * 2.1,
             zIndex: 2,
           };
         }
-        return { ...data, color: "#293c50", forceLabel: false, size: Math.max(0.45, data.size * 0.55), zIndex: 0 };
+        return { ...data, color: palette.dimmedEdge, forceLabel: false, size: Math.max(0.45, data.size * 0.55), zIndex: 0 };
       },
     });
     sigma.refresh();
-  }, [graph, hoveredId, selectedId, setSettings, sigma]);
+  }, [graph, hoveredId, palette, selectedId, setSettings, sigma]);
 
   useEffect(() => {
     if (!selectedId || !graph.hasNode(selectedId)) {
@@ -267,10 +285,10 @@ function GraphController({
           radius: 54,
           feather: 1.2,
           levels: [
-            { color: "#193d4666", threshold: 0.35 },
-            { color: "#0c182600", threshold: 0.72 },
+            { color: withAlpha(palette.contour, 0.4), threshold: 0.35 },
+            { color: withAlpha(palette.background, 0), threshold: 0.72 },
           ],
-          border: { color: "#58cdb899", thickness: 1.5 },
+          border: { color: withAlpha(palette.neighbor, 0.6), thickness: 1.5 },
         }),
       );
       sigma.refresh();
@@ -280,7 +298,7 @@ function GraphController({
     } catch {
       return;
     }
-  }, [coarsePointer, graph, reducedMotion, selectedId, sigma]);
+  }, [coarsePointer, graph, palette, reducedMotion, selectedId, sigma]);
 
   useEffect(() => {
     // The unfocused campaign overview is already a dense all-page atlas. Large
@@ -297,10 +315,10 @@ function GraphController({
             radius: cloud.node_ids.length === 1 ? 26 : 34 + Math.min(18, cloud.node_ids.length * 2),
             feather: 1.35,
             levels: [
-              { color: cloudColor(index, 0.1), threshold: 0.28 },
-              { color: cloudColor(index, 0), threshold: 0.76 },
+              { color: cloudColor(index, 0.1, palette), threshold: 0.28 },
+              { color: cloudColor(index, 0, palette), threshold: 0.76 },
             ],
-            border: { color: cloudColor(index, 0.28), thickness: 1.05 },
+            border: { color: cloudColor(index, 0.28, palette), thickness: 1.05 },
           }),
         );
       } catch {
@@ -313,7 +331,7 @@ function GraphController({
         try { cleanup(); } catch { /* The renderer may already be disposed. */ }
       });
     };
-  }, [cloudFocusId, clouds, coarsePointer, focusId, reducedMotion, sigma]);
+  }, [cloudFocusId, clouds, coarsePointer, focusId, palette, reducedMotion, sigma]);
 
   useEffect(() => {
     const contextLoss = (event: Event) => {
@@ -347,19 +365,19 @@ function GraphController({
   );
 }
 
-function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId?: string | null) {
-  const presentation = buildGraphPresentation(nodes, edges);
+function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId: string | null | undefined, palette: VisualizationPalette) {
+  const presentation = buildGraphPresentation(nodes, edges, palette);
   const graph = new MultiDirectedGraph<NodeAttributes, EdgeAttributes>();
 
   for (const node of presentation.nodes) {
-    const statusBorder = node.status === "archived" ? "#718096" : node.status === "draft" ? "#d3a65e" : "#67cdb8";
+    const statusBorder = graphStatusColor(node.status, palette);
     graph.addNode(node.id, {
       x: node.x,
       y: node.y,
       size: node.size + (node.id === focusId ? 2 : 0),
       label: node.title,
       color: node.color,
-      borderColor: node.id === focusId ? "#f2bd68" : statusBorder,
+      borderColor: node.id === focusId ? palette.selection : statusBorder,
       type: "border",
       kind: node.kind,
       status: node.status,
@@ -385,12 +403,9 @@ function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId?: string | 
   return graph;
 }
 
-const CLOUD_COLORS = ["#56c9bd", "#8f7bd0", "#e4ae64", "#6ba8d8", "#dc7f9e"];
-
-function cloudColor(index: number, alpha: number) {
-  const hex = CLOUD_COLORS[index % CLOUD_COLORS.length] ?? CLOUD_COLORS[0];
-  const opacity = Math.round(alpha * 255).toString(16).padStart(2, "0");
-  return hex + opacity;
+function cloudColor(index: number, alpha: number, palette: VisualizationPalette) {
+  const colors = graphCloudColors(palette);
+  return withAlpha(colors[index % colors.length] ?? palette.contour, alpha);
 }
 
 function subscribeCoarsePointer(callback: () => void) {
