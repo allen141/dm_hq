@@ -80,6 +80,7 @@ test("keeps membership and hierarchy authoring on the editor route", async () =>
   fireEvent.change(screen.getByLabelText("Add Archive page"), { target: { value: "oren" } });
   fireEvent.click(screen.getByRole("button", { name: "Add member" }));
   expect(await screen.findByText("Member added.")).toBeInTheDocument();
-  expect(screen.getByText("Archivist Oren Pell")).toBeInTheDocument();
+  const members = screen.getByRole("region", { name: /Members/ });
+  expect(within(members).getByText("Archivist Oren Pell")).toBeInTheDocument();
   await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/archive/views/ties-1"), expect.objectContaining({ method: "PATCH" })));
 });
