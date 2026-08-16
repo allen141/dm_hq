@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
 import type { RelationshipOrientation, RelationshipPosition } from "@/lib/relationship-presentation";
 
@@ -45,11 +45,10 @@ export default function RelationshipTree({
   onPositionChange,
   onConnect,
 }: RelationshipTreeProps) {
-  const [draftPositions, setDraftPositions] = useState(manualPositions);
+  const [draftPositions, setDraftPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [drag, setDrag] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const [wireSource, setWireSource] = useState<string | null>(null);
-  useEffect(() => setDraftPositions(manualPositions), [manualPositions]);
-  const { cards, width, height } = treeGeometry(nodes, positions, orientation, draftPositions);
+  const { cards, width, height } = treeGeometry(nodes, positions, orientation, { ...manualPositions, ...draftPositions });
   const cardById = new Map(cards.map((card) => [card.node.id, card]));
   const connectors = edges.flatMap((edge) => {
     const source = cardById.get(edge.source_id);

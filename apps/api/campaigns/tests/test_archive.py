@@ -775,7 +775,7 @@ class ArchiveApiTests(TestCase):
             },
         )
         self.assertEqual(invalid_level.status_code, 422)
-        self.assertIn("level_override", invalid_level.content.decode())
+        self.assertIn("level overrides", invalid_level.content.decode())
 
     def test_relationship_archive_view_document_validates_settings_contract(self):
         first = self.create_item(kind="entity", title="First", subject_type="person", fields={})
@@ -852,7 +852,7 @@ class ArchiveApiTests(TestCase):
                         metadata["members"][1],
                     ]
                 },
-                "level_override",
+                "level overrides",
             ),
             (
                 {
