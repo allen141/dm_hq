@@ -9,8 +9,15 @@ from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
 
-from campaigns.documents import content_hash, parse_document, serialize_document
-from campaigns.models import ArchiveItem, Campaign, CampaignDocument, CampaignDocumentVersion, CampaignMembership
+from campaigns.documents import DocumentError, content_hash, parse_document, serialize_document, validate_metadata
+from campaigns.models import (
+    ArchiveItem,
+    ArchiveView,
+    Campaign,
+    CampaignDocument,
+    CampaignDocumentVersion,
+    CampaignMembership,
+)
 
 
 def markdown(campaign_id, item_id, kind="note", title="Rumor", body="First", **extra):
@@ -623,6 +630,279 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(restored.status_code, 200)
         self.assertTrue(ArchiveItem.objects.filter(campaign_id=restored.json()["id"], title="Secret NPC").exists())
+
+    def test_relationship_view_filters_edges_and_reports_available_kinds(self):
+        parent = self.create_item(kind="entity", title="Parent", subject_type="person", fields={})
+        child = self.create_item(kind="entity", title="Child", subject_type="person", fields={})
+        order = self.create_item(kind="entity", title="Order", subject_type="faction", fields={})
+        parent_edge = self.post(
+            f"/api/v1/items/{parent['id']}/relationships",
+            {
+                "version": parent["version"],
+                "target_id": child["id"],
+                "kind": "parent_of",
+                "label": "parent of",
+                "inverse_label": "child of",
+            },
+        ).json()
+        member_edge = self.post(
+            f"/api/v1/items/{child['id']}/relationships",
+            {
+                "version": child["version"],
+                "target_id": order["id"],
+                "kind": "member_of",
+                "label": "member of",
+                "inverse_label": "has member",
+            },
+        )
+        self.assertEqual(member_edge.status_code, 200)
+        members = [{"id": str(uuid.uuid4()), "item_id": item["id"]} for item in (parent, child, order)]
+        members[1]["level_override"] = 3
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Family and order",
+                "members": members,
+                "settings": {
+                    "layout_mode": "hierarchy",
+                    "orientation": "left_to_right",
+                    "root_item_id": parent["id"],
+                    "relationship_kinds": [" parent_of ", "parent_of"],
+                    "layout_relationship_kinds": ["parent_of"],
+                    "layout_direction": "outgoing",
+                    "show_level_labels": False,
+                    "level_labels": [" Founders ", " Captains "],
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.content)
+        board = created.json()
+        self.assertEqual([edge["kind"] for edge in board["edges"]], ["parent_of"])
+        self.assertEqual(board["edges"][0]["source_version"], parent_edge["item"]["version"])
+        self.assertEqual(board["members"][1]["level_override"], 3)
+        self.assertEqual(board["available_relationship_kinds"], ["member_of", "parent_of"])
+        self.assertEqual(
+            board["settings"],
+            {
+                "layout_mode": "hierarchy",
+                "orientation": "left_to_right",
+                "root_item_id": parent["id"],
+                "relationship_kinds": ["parent_of"],
+                "layout_relationship_kinds": ["parent_of"],
+                "layout_direction": "outgoing",
+                "show_level_labels": False,
+                "level_labels": ["Founders", "Captains"],
+            },
+        )
+        parent_detail = self.client.get(f"/api/v1/items/{parent['id']}").json()
+        self.assertEqual(parent_detail["relationships"][0]["id"], parent_edge["relationship"]["id"])
+        child_detail = self.client.get(f"/api/v1/items/{child['id']}").json()
+        self.assertEqual([edge["kind"] for edge in child_detail["relationships"]], ["member_of"])
+
+    def test_relationship_view_defaults_and_validates_hierarchy_settings(self):
+        first = self.create_item(kind="entity", title="First", subject_type="person", fields={})
+        second = self.create_item(kind="entity", title="Second", subject_type="person", fields={})
+        members = [{"id": str(uuid.uuid4()), "item_id": item["id"]} for item in (first, second)]
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Default board",
+                "members": members,
+                "settings": {"orientation": "top_to_bottom", "relationship_kinds": []},
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.content)
+        self.assertEqual(
+            created.json()["settings"],
+            {
+                "layout_mode": "hierarchy",
+                "orientation": "top_to_bottom",
+                "root_item_id": None,
+                "relationship_kinds": [],
+                "layout_relationship_kinds": [],
+                "layout_direction": "outgoing",
+                "show_level_labels": True,
+                "level_labels": [],
+            },
+        )
+
+        invalid_root = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Bad root",
+                "members": members,
+                "settings": {"root_item_id": str(uuid.uuid4())},
+            },
+        )
+        self.assertEqual(invalid_root.status_code, 422)
+        self.assertIn("root must be a board member", invalid_root.content.decode())
+
+        hidden_structure = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Hidden structure",
+                "members": members,
+                "settings": {
+                    "relationship_kinds": ["parent_of"],
+                    "layout_relationship_kinds": ["member_of"],
+                },
+            },
+        )
+        self.assertEqual(hidden_structure.status_code, 422)
+        self.assertIn("must also be visible", hidden_structure.content.decode())
+
+        invalid_position = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Bad position",
+                "members": [{**members[0], "position": {"x": 1}}],
+            },
+        )
+        self.assertEqual(invalid_position.status_code, 422)
+        self.assertIn("positions require numeric x and y", invalid_position.content.decode())
+
+        invalid_level = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Bad level",
+                "members": [{**members[0], "level_override": -1}],
+            },
+        )
+        self.assertEqual(invalid_level.status_code, 422)
+        self.assertIn("level overrides", invalid_level.content.decode())
+
+    def test_relationship_archive_view_document_validates_settings_contract(self):
+        first = self.create_item(kind="entity", title="First", subject_type="person", fields={})
+        second = self.create_item(kind="entity", title="Second", subject_type="person", fields={})
+        member_id = str(uuid.uuid4())
+        metadata = {
+            "document_type": "archive_view",
+            "schema_version": 1,
+            "id": str(uuid.uuid4()),
+            "campaign_id": str(self.campaign.id),
+            "slug": "family",
+            "view_type": "relationship",
+            "title": "Family",
+            "status": "active",
+            "members": [
+                {"id": member_id, "item_id": first["id"], "position": {"x": 0, "y": 1}, "level_override": 2},
+                {"id": str(uuid.uuid4()), "item_id": second["id"]},
+            ],
+            "settings": {
+                "layout_mode": "hierarchy",
+                "orientation": "top_to_bottom",
+                "root_item_id": first["id"],
+                "relationship_kinds": ["parent_of"],
+                "layout_relationship_kinds": ["parent_of"],
+                "layout_direction": "outgoing",
+            },
+        }
+        validate_metadata(metadata, "archive_view", self.campaign.id)
+
+        invalid_cases = [
+            ({"settings": []}, "settings must be an object"),
+            ({"settings": {**metadata["settings"], "layout_mode": "radial"}}, "layout mode"),
+            (
+                {"settings": {**metadata["settings"], "orientation": "diagonal"}},
+                "orientation is invalid",
+            ),
+            (
+                {"settings": {**metadata["settings"], "layout_direction": "sideways"}},
+                "layout direction is invalid",
+            ),
+            (
+                {"settings": {**metadata["settings"], "show_level_labels": "yes"}},
+                "show_level_labels must be true or false",
+            ),
+            (
+                {"settings": {**metadata["settings"], "level_labels": [" "]}},
+                "level_labels",
+            ),
+            (
+                {"settings": {**metadata["settings"], "root_item_id": str(uuid.uuid4())}},
+                "root must be a board member",
+            ),
+            (
+                {"settings": {**metadata["settings"], "relationship_kinds": ["parent_of", "parent_of"]}},
+                "must not contain duplicates",
+            ),
+            (
+                {"settings": {**metadata["settings"], "layout_relationship_kinds": ["member_of"]}},
+                "must also be visible",
+            ),
+            (
+                {
+                    "members": [
+                        {**metadata["members"][0], "position": {"x": True, "y": 1}},
+                        metadata["members"][1],
+                    ]
+                },
+                "finite numeric x and y",
+            ),
+            (
+                {
+                    "members": [
+                        {**metadata["members"][0], "level_override": True},
+                        metadata["members"][1],
+                    ]
+                },
+                "level overrides",
+            ),
+            (
+                {
+                    "members": [
+                        metadata["members"][0],
+                        {**metadata["members"][1], "id": member_id},
+                    ]
+                },
+                "member ids must be unique",
+            ),
+        ]
+        for changes, message in invalid_cases:
+            with self.subTest(message=message), self.assertRaisesRegex(DocumentError, message):
+                validate_metadata({**metadata, **changes}, "archive_view", self.campaign.id)
+
+    def test_workspace_apply_rejects_invalid_relationship_view_settings(self):
+        member = self.create_item(kind="entity", title="Member", subject_type="person", fields={})
+        created = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Order",
+                "members": [{"id": str(uuid.uuid4()), "item_id": member["id"]}],
+                "settings": {
+                    "layout_mode": "hierarchy",
+                    "orientation": "top_to_bottom",
+                    "root_item_id": member["id"],
+                    "relationship_kinds": [],
+                    "layout_relationship_kinds": [],
+                    "layout_direction": "outgoing",
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.content)
+        view = ArchiveView.objects.select_related("document").get(id=created.json()["id"])
+        metadata, body = parse_document(created.json()["markdown"])
+        metadata["settings"]["layout_direction"] = "sideways"
+        rejected = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/workspace/apply",
+            {
+                "document_id": str(view.document_id),
+                "version": view.document.current_version,
+                "hash": view.document.content_hash,
+                "markdown": serialize_document(metadata, body),
+            },
+        )
+        self.assertEqual(rejected.status_code, 422)
+        self.assertIn("Relationship layout direction is invalid", rejected.content.decode())
+        view.document.refresh_from_db()
+        self.assertEqual(view.document.current_version, created.json()["version"])
 
     def test_archive_view_mutations_return_the_new_document_version(self):
         created = self.post(

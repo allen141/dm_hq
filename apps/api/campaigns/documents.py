@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import tempfile
@@ -600,6 +601,7 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
             if not isinstance(members, list):
                 raise DocumentError("Relationship view members must be a list")
             member_ids = set()
+            member_entry_ids = set()
             for member in members:
                 if (
                     not isinstance(member, dict)
@@ -607,11 +609,78 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
                     or not _valid_uuid(member.get("item_id"))
                 ):
                     raise DocumentError("Relationship members require stable id and item_id")
+                if str(member["id"]) in member_entry_ids:
+                    raise DocumentError("Relationship member ids must be unique")
                 if str(member["item_id"]) in member_ids:
                     raise DocumentError("Relationship view members must be unique")
+                member_entry_ids.add(str(member["id"]))
                 member_ids.add(str(member["item_id"]))
                 if not ArchiveItem.objects.filter(id=member["item_id"], campaign_id=campaign_id).exists():
                     raise DocumentError("Relationship member does not exist in this campaign")
+                position = member.get("position")
+                if position is not None:
+                    if not isinstance(position, dict) or set(position) != {"x", "y"}:
+                        raise DocumentError("Relationship member positions require numeric x and y values")
+                    coordinates = (position["x"], position["y"])
+                    if any(
+                        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+                        for value in coordinates
+                    ):
+                        raise DocumentError("Relationship member positions require finite numeric x and y values")
+
+                level_override = member.get("level_override")
+                if level_override is not None and (
+                    isinstance(level_override, bool)
+                    or not isinstance(level_override, int)
+                    or not 0 <= level_override <= 31
+                ):
+                    raise DocumentError("Relationship member level overrides must be whole numbers from 0 to 31")
+            raw_view_settings = metadata.get("settings")
+            view_settings = {} if raw_view_settings is None else raw_view_settings
+            if not isinstance(view_settings, dict):
+                raise DocumentError("Relationship view settings must be an object")
+            if view_settings.get("layout_mode", "hierarchy") not in {"network", "hierarchy"}:
+                raise DocumentError("Relationship layout mode is invalid")
+            if view_settings.get("orientation", "top_to_bottom") not in {
+                "top_to_bottom",
+                "left_to_right",
+            }:
+                raise DocumentError("Relationship orientation is invalid")
+            if view_settings.get("layout_direction", "outgoing") not in {"outgoing", "incoming"}:
+                raise DocumentError("Relationship layout direction is invalid")
+            root_item_id = view_settings.get("root_item_id")
+            if root_item_id is not None:
+                if not _valid_uuid(root_item_id):
+                    raise DocumentError("Relationship root_item_id must be a UUID or null")
+                if str(root_item_id) not in member_ids:
+                    raise DocumentError("Relationship root must be a board member")
+
+            kind_lists: dict[str, list[str]] = {}
+            for key in ("relationship_kinds", "layout_relationship_kinds"):
+                values = view_settings.get(key, [])
+                if not isinstance(values, list) or any(
+                    not isinstance(value, str) or not value.strip() or value != value.strip() for value in values
+                ):
+                    raise DocumentError(f"Relationship {key} must contain non-blank trimmed strings")
+                if len(values) != len(set(values)):
+                    raise DocumentError(f"Relationship {key} must not contain duplicates")
+                kind_lists[key] = values
+            show_level_labels = view_settings.get("show_level_labels", True)
+            if not isinstance(show_level_labels, bool):
+                raise DocumentError("Relationship show_level_labels must be true or false")
+            level_labels = view_settings.get("level_labels", [])
+            if (
+                not isinstance(level_labels, list)
+                or len(level_labels) > 32
+                or any(
+                    not isinstance(value, str) or value != value.strip() or len(value) > 80 for value in level_labels
+                )
+            ):
+                raise DocumentError("Relationship level_labels must contain up to 32 trimmed strings of 80 characters")
+            visible_kinds = set(kind_lists["relationship_kinds"])
+            structural_kinds = set(kind_lists["layout_relationship_kinds"])
+            if visible_kinds and not structural_kinds.issubset(visible_kinds):
+                raise DocumentError("Hierarchy relationship kinds must also be visible")
         return
     if document_type != "archive_item":
         return

@@ -194,14 +194,12 @@
           "settings": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/RelationshipViewSettings"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Settings"
+            ]
           },
           "title": {
             "title": "Title",
@@ -470,6 +468,80 @@
           "kind"
         ],
         "title": "RelationshipPayload",
+        "type": "object"
+      },
+      "RelationshipViewSettings": {
+        "properties": {
+          "layout_direction": {
+            "default": "outgoing",
+            "enum": [
+              "outgoing",
+              "incoming"
+            ],
+            "title": "Layout Direction",
+            "type": "string"
+          },
+          "layout_mode": {
+            "default": "hierarchy",
+            "enum": [
+              "network",
+              "hierarchy"
+            ],
+            "title": "Layout Mode",
+            "type": "string"
+          },
+          "layout_relationship_kinds": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Layout Relationship Kinds",
+            "type": "array"
+          },
+          "level_labels": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Level Labels",
+            "type": "array"
+          },
+          "orientation": {
+            "default": "top_to_bottom",
+            "enum": [
+              "top_to_bottom",
+              "left_to_right"
+            ],
+            "title": "Orientation",
+            "type": "string"
+          },
+          "relationship_kinds": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Relationship Kinds",
+            "type": "array"
+          },
+          "root_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Item Id"
+          },
+          "show_level_labels": {
+            "default": true,
+            "title": "Show Level Labels",
+            "type": "boolean"
+          }
+        },
+        "title": "RelationshipViewSettings",
         "type": "object"
       },
       "RestorePayload": {
