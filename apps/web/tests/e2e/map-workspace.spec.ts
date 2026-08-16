@@ -34,9 +34,14 @@ test("a DM can author and explore a map without WebGL", async ({ page }) => {
   const archiveUrl = page.url().replace(/\/items\/[^/]+$/, "");
   await page.goto(archiveUrl);
   await page.getByRole("link", { name: "New view" }).click();
-  await page.getByLabel("Title").fill("Harbor Atlas");
+  const viewTitle = page.getByLabel("Title");
+  const createView = page.getByRole("button", { name: "Create view" });
   await page.getByLabel("Description").fill("Routes, landmarks, and secrets around the harbor.");
-  await page.getByRole("button", { name: "Create view" }).click();
+  await expect(async () => {
+    await viewTitle.fill("Harbor Atlas");
+    await expect(createView).toBeEnabled();
+  }).toPass();
+  await createView.click();
 
   await expect(page.getByRole("heading", { name: "Harbor Atlas" })).toBeVisible();
   await expect(page.locator(".map-dom-stage")).toBeVisible();
