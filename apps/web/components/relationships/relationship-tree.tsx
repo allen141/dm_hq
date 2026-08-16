@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
 import type { RelationshipOrientation, RelationshipPosition } from "@/lib/relationship-presentation";
 
@@ -46,7 +46,8 @@ export default function RelationshipTree({
   onConnect,
 }: RelationshipTreeProps) {
   const [draftPositions, setDraftPositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [drag, setDrag] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [drag, setDrag] = useState<{ id: string; offsetX: number; offsetY: number; startX: number; startY: number } | null>(null);
+  const movedRef = useRef(false);
   const [wireSource, setWireSource] = useState<string | null>(null);
   const { cards, width, height } = treeGeometry(nodes, positions, orientation, { ...manualPositions, ...draftPositions });
   const cardById = new Map(cards.map((card) => [card.node.id, card]));
@@ -71,20 +72,26 @@ export default function RelationshipTree({
     if (!editable || wireSource) return;
     const point = pointerPosition(event);
     event.currentTarget.setPointerCapture(event.pointerId);
-    setDrag({ id: card.node.id, offsetX: point.x - card.x, offsetY: point.y - card.y });
+    movedRef.current = false;
+    setDrag({ id: card.node.id, offsetX: point.x - card.x, offsetY: point.y - card.y, startX: card.x, startY: card.y });
   };
   const moveCard = (event: ReactPointerEvent<SVGGElement>) => {
     if (!drag) return;
     const point = pointerPosition(event);
-    setDraftPositions((current) => ({ ...current, [drag.id]: { x: Math.max(0, point.x - drag.offsetX), y: Math.max(0, point.y - drag.offsetY) } }));
+    const position = { x: Math.max(0, point.x - drag.offsetX), y: Math.max(0, point.y - drag.offsetY) };
+    if (Math.hypot(position.x - drag.startX, position.y - drag.startY) < 5) return;
+    movedRef.current = true;
+    setDraftPositions((current) => ({ ...current, [drag.id]: position }));
   };
   const finishMove = (event: ReactPointerEvent<SVGGElement>) => {
     if (!drag) return;
     const point = pointerPosition(event);
     const position = { x: Math.max(0, point.x - drag.offsetX), y: Math.max(0, point.y - drag.offsetY) };
-    const levelAxis = orientation === "top_to_bottom" ? position.y : position.x;
-    const level = Math.max(0, Math.round((levelAxis - PADDING) / (CARD_HEIGHT + LEVEL_GAP)));
-    onPositionChange?.(drag.id, position, level);
+    if (movedRef.current) {
+      const levelAxis = orientation === "top_to_bottom" ? position.y : position.x;
+      const level = Math.max(0, Math.round((levelAxis - PADDING) / (CARD_HEIGHT + LEVEL_GAP)));
+      onPositionChange?.(drag.id, position, level);
+    }
     setDrag(null);
   };
   const startWire = (event: ReactPointerEvent<SVGCircleElement>, sourceId: string) => {
@@ -125,7 +132,7 @@ export default function RelationshipTree({
             const selected = node.id === selectedId;
             const root = node.id === rootId;
             return (
-              <g key={node.id} data-node-id={node.id} className={`relationship-tree-card${selected ? " selected" : ""}${root ? " root" : ""}${editable ? " editable" : ""}`} role="treeitem" aria-level={level + 1} aria-selected={selected} tabIndex={0} transform={`translate(${x} ${y})`} onPointerDown={(event) => startMove(event, { node, x, y, level })} onPointerMove={moveCard} onPointerUp={finishMove} onClick={() => onSelect(node.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(node.id); } }}>
+              <g key={node.id} data-node-id={node.id} className={`relationship-tree-card${selected ? " selected" : ""}${root ? " root" : ""}${editable ? " editable" : ""}`} role="treeitem" aria-level={level + 1} aria-selected={selected} tabIndex={0} transform={`translate(${x} ${y})`} onPointerDown={(event) => startMove(event, { node, x, y, level })} onPointerMove={moveCard} onPointerUp={finishMove} onPointerCancel={() => { setDrag(null); movedRef.current = false; }} onClick={() => { if (movedRef.current) { movedRef.current = false; return; } onSelect(node.id); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(node.id); } }}>
                 <title>{node.title} · {node.kind} · {node.status}</title>
                 <rect width={CARD_WIDTH} height={CARD_HEIGHT} rx="8" filter="url(#relationship-card-shadow)" />
                 <rect className="accent" width="5" height={CARD_HEIGHT} rx="3" />

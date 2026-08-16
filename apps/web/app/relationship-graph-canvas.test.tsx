@@ -28,6 +28,30 @@ test("keeps root emphasis separate from selection and shows relationship wording
   expect(screen.getByRole("dialog", { name: "Selka" })).toHaveTextContent("allied with Mara");
 });
 
+test("does not open the inspector after dragging an editable card", () => {
+  const onPositionChange = vi.fn();
+  render(<RelationshipGraphCanvas campaignId="campaign" nodes={nodes} edges={edges} layoutMode="hierarchy" editable onPositionChange={onPositionChange} />);
+
+  const tree = screen.getByRole("tree", { name: "Relationship hierarchy" });
+  Object.defineProperty(tree, "createSVGPoint", {
+    value: () => {
+      const point = { x: 0, y: 0, matrixTransform: () => ({ x: point.x, y: point.y }) };
+      return point;
+    },
+  });
+  Object.defineProperty(tree, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
+  const card = screen.getByRole("treeitem", { name: /Mara/ });
+  Object.defineProperty(card, "setPointerCapture", { value: vi.fn() });
+
+  fireEvent.pointerDown(card, { pointerId: 1, clientX: 100, clientY: 100 });
+  fireEvent.pointerMove(card, { pointerId: 1, clientX: 140, clientY: 130 });
+  fireEvent.pointerUp(card, { pointerId: 1, clientX: 140, clientY: 130 });
+  fireEvent.click(card);
+
+  expect(onPositionChange).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 test("keeps Sigma available for non-hierarchical relationship networks", () => {
   render(<RelationshipGraphCanvas campaignId="campaign" nodes={nodes} edges={edges} layoutMode="network" />);
   expect(screen.getByTestId("relationship-webgl")).toBeInTheDocument();
