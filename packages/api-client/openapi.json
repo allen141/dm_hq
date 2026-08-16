@@ -482,7 +482,7 @@
             "type": "string"
           },
           "layout_mode": {
-            "default": "network",
+            "default": "hierarchy",
             "enum": [
               "network",
               "hierarchy"

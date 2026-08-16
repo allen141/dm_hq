@@ -710,7 +710,7 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(
             created.json()["settings"],
             {
-                "layout_mode": "network",
+                "layout_mode": "hierarchy",
                 "orientation": "top_to_bottom",
                 "root_item_id": None,
                 "relationship_kinds": [],

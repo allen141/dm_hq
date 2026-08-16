@@ -1,4 +1,4 @@
-# ADR 0009: Reuse Sigma for relationship boards
+# ADR 0009: Use distinct network and hierarchy renderers
 
 - **Status:** Accepted
 - **Date:** 2026-08-15
@@ -14,7 +14,7 @@ Relationship boards need a calmer, more concise presentation for explicit campai
 
 ## Decision drivers
 
-- Reuse the accepted graph renderer, interaction model, and accessibility boundary.
+- Reuse the accepted graph renderer for networks and the shared interaction and accessibility boundary for every layout.
 - Support both general networks and deterministic layered hierarchies.
 - Keep layout choices distinct from canonical campaign facts.
 - Show exact forward or inverse relationship wording and retain parallel edges.
@@ -24,16 +24,16 @@ Relationship boards need a calmer, more concise presentation for explicit campai
 
 ## Decision
 
-### One renderer, two relationship layouts
+### Two renderers, one relationship presentation
 
-Relationship boards use the existing client-only Sigma.js and Graphology boundary. Automatic Graph and Relationship adapters share graph presentation, renderer programs, camera and selection conventions, WebGL health behavior, and canvas-to-DOM anchoring while retaining separate copy, inspectors, fallbacks, actions, and layout strategies.
+Relationship boards use one filtered presentation model with two visual adapters. General networks use the existing client-only Sigma.js and Graphology boundary. Hierarchies use an accessible SVG tree so cards, levels, and right-angle connectors read like a traditional family or organization tree. The adapters retain shared selection, inspectors, semantic fallback, focus behavior, and canonical relationship facts.
 
 Relationship boards support:
 
 - **Network layout**, using deterministic initial positions and a bounded ForceAtlas2 settling pass.
-- **Hierarchy layout**, using deterministic layered coordinates supplied before Sigma renders. ForceAtlas2 does not run in this mode.
+- **Hierarchy layout**, using rectangular member cards and orthogonal connectors at deterministic levels. Contextual cross-links use secondary dashed paths. Sigma and ForceAtlas2 do not run in this mode.
 
-The relationship view settings add a layout mode, orientation, optional root, visible relationship kinds, rank-defining relationship kinds, and incoming or outgoing layout direction. Existing boards without the new fields use network layout and show every canonical member-to-member relationship.
+The relationship view settings add a layout mode, orientation, optional root, visible relationship kinds, rank-defining relationship kinds, and incoming or outgoing layout direction. Existing boards without the new fields use hierarchy layout and show every canonical member-to-member relationship; an explicit network choice remains available.
 
 Rank-defining edges affect placement only. Other visible relationships remain contextual cross-links. Multiple roots, multiple parents or superiors, disconnected members, self-links, parallel edges, and cycles remain representable. A cycle or cross-link is reported as a layout condition; the application never deletes, reverses, or invents a semantic edge to make the picture look like a tree.
 
@@ -49,11 +49,11 @@ A sibling `/edit` route owns title, description, membership, root, visible kinds
 
 Selecting a member shows title, kind, status, a bounded authorized summary when available, and one row for every visible canonical connection. Outgoing connections use the authored forward label or kind. Incoming connections use the inverse label or an explicitly marked inverse fallback. Parallel facts are never collapsed into one count.
 
-The semantic mode uses the same filtered presentation model. It provides member selection, a hierarchy grouping when configured, and a directional adjacency list. WebGL failure switches to this mode without discarding data or changing the board.
+The semantic mode uses the same filtered presentation model. It provides member selection, a hierarchy grouping when configured, and a directional adjacency list. Network WebGL failure switches to this mode without discarding data or changing the board.
 
 ## Consequences
 
-- The automatic Graph remains stable while a Relationship-specific adapter reuses its accepted Sigma/Graphology rendering boundary and interaction conventions.
+- The automatic Graph remains stable. Relationship networks reuse its accepted Sigma/Graphology boundary, while hierarchy boards use the dedicated SVG tree without adding a rendering dependency.
 - Relationship settings and document validation gain additive fields; no database or persistent graph-layout migration is required.
 - The API applies saved visible-kind filters and reports the available member-to-member kinds for authoring.
 - The Archive shell recognizes Relationship viewers as immersive and provides a dedicated edit/view action.

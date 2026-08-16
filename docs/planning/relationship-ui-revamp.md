@@ -2,7 +2,7 @@
 
 ## Outcome
 
-This increment turns the Relationship proof of concept into a production-shaped, DM-private explorer for concise relational knowledge. It reuses the shared immersive visual system and Sigma renderer while adding relationship-specific network and hierarchy layouts, exact directional wording, a semantic alternative, and a separate board editor.
+This increment turns the Relationship proof of concept into a production-shaped, DM-private explorer for concise relational knowledge. It reuses the shared immersive visual system, uses Sigma for general networks, and adds a dedicated rectangular tree for hierarchies alongside exact directional wording, a semantic alternative, and a separate board editor.
 
 [ADR 0009](../decisions/0009-sigma-relationship-board-renderer.md) accepts the renderer, layout, and viewer/editor boundary.
 
@@ -10,8 +10,8 @@ This increment turns the Relationship proof of concept into a production-shaped,
 
 - A board contains an explicit curated set of existing Archive items.
 - Semantic relationships remain canonical entries in source-item Markdown. A board never owns copied edges.
-- Sigma.js and Graphology render both automatic Graphs and Relationship boards through separate experience adapters.
-- Network layout uses settled ForceAtlas2. Hierarchy layout uses deterministic layered positions and no force pass.
+- Sigma.js and Graphology render automatic Graphs and general Relationship networks through separate experience adapters.
+- Network layout uses settled ForceAtlas2. Hierarchy layout uses deterministic layered rectangular cards, orthogonal structural connectors, and secondary cross-links.
 - The DM explicitly chooses which kinds are visible and which kinds establish hierarchy levels.
 - Incoming or outgoing direction is a presentation setting, not inferred from kind names.
 - Cycles, cross-links, multiple parents, disconnected members, self-links, and parallel edges remain visible.
@@ -37,7 +37,7 @@ settings:
   layout_direction: outgoing
 ```
 
-`relationship_kinds: []` means every relationship kind between board members is visible. Existing documents without `layout_mode` remain network boards. A hierarchy root is optional; it selects the primary component and visual emphasis but does not assert fictional seniority or ancestry.
+`relationship_kinds: []` means every relationship kind between board members is visible. Existing documents without `layout_mode` open as hierarchy boards; an explicit network setting remains available for non-hierarchical knowledge. A hierarchy root is optional; it selects the primary component and visual emphasis but does not assert fictional seniority or ancestry.
 
 ## Experience
 

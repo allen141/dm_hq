@@ -632,7 +632,7 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
             view_settings = {} if raw_view_settings is None else raw_view_settings
             if not isinstance(view_settings, dict):
                 raise DocumentError("Relationship view settings must be an object")
-            if view_settings.get("layout_mode", "network") not in {"network", "hierarchy"}:
+            if view_settings.get("layout_mode", "hierarchy") not in {"network", "hierarchy"}:
                 raise DocumentError("Relationship layout mode is invalid")
             if view_settings.get("orientation", "top_to_bottom") not in {
                 "top_to_bottom",

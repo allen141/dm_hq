@@ -26,7 +26,7 @@ Resolve these through user research, prototypes, or architecture decisions. When
 
 ## Archive exploration
 
-Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) settles canonical UUID links, `campaign.md` navigation, durable `archive_view` documents, DM-only visual views, and the direct external HTTPS map-image exception for the PoC. [ADR 0009](../decisions/0009-sigma-relationship-board-renderer.md) settles Sigma rendering, deterministic network and hierarchy modes, transient automatic layout, and equivalent Visual/List relationship experiences. The remaining questions are follow-up validation rather than blockers for those boundaries:
+Accepted [ADR 0006](../decisions/0006-archive-exploration-view-model.md) settles canonical UUID links, `campaign.md` navigation, durable `archive_view` documents, DM-only visual views, and the direct external HTTPS map-image exception for the PoC. [ADR 0009](../decisions/0009-sigma-relationship-board-renderer.md) settles Sigma networks, rectangular hierarchy trees, deterministic layout, transient automatic state, and equivalent Visual/List relationship experiences. The remaining questions are follow-up validation rather than blockers for those boundaries:
 
 - When do measured query or rebuild costs justify dedicated membership and placement projection tables?
 - Is automatic relationship layout sufficient, or should campaign-owned manual positions persist?

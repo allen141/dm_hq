@@ -124,7 +124,7 @@ class RelationshipDeletePayload(Schema):
 
 
 class RelationshipViewSettings(Schema):
-    layout_mode: Literal["network", "hierarchy"] = "network"
+    layout_mode: Literal["network", "hierarchy"] = "hierarchy"
     orientation: Literal["top_to_bottom", "left_to_right"] = "top_to_bottom"
     root_item_id: UUID | None = None
     relationship_kinds: list[str] = []
@@ -957,7 +957,7 @@ def relationship_view_settings(settings: Any) -> dict[str, Any]:
     """Return the complete relationship settings contract for old and new boards."""
     source = settings if isinstance(settings, dict) else {}
     return {
-        "layout_mode": source.get("layout_mode", "network"),
+        "layout_mode": source.get("layout_mode", "hierarchy"),
         "orientation": source.get("orientation", "top_to_bottom"),
         "root_item_id": str(source["root_item_id"]) if source.get("root_item_id") else None,
         "relationship_kinds": list(source.get("relationship_kinds") or []),

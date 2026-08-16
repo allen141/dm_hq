@@ -12,7 +12,7 @@ import RelationshipGraphCanvas from "@/components/relationships/relationship-gra
 const client = createApiClient();
 const uuid = () => globalThis.crypto?.randomUUID?.() ?? `member-${Date.now()}`;
 const defaults: RelationshipViewSettings = {
-  layout_mode: "network", orientation: "top_to_bottom", root_item_id: null,
+  layout_mode: "hierarchy", orientation: "top_to_bottom", root_item_id: null,
   relationship_kinds: [], layout_relationship_kinds: [], layout_direction: "outgoing",
 };
 const settingsFor = (view: ArchiveViewDocument): RelationshipViewSettings => ({ ...defaults, ...view.settings });
@@ -151,6 +151,7 @@ export default function RelationshipViewPage() {
       <div className="relationship-editor-grid">
         <section className="panel relationship-settings-editor" aria-labelledby="relationship-layout-heading">
           <div><div className="eyebrow">Presentation</div><h3 id="relationship-layout-heading">Layout</h3></div>
+          {settings.layout_mode === "hierarchy" && <p className="field-hint">Hierarchy uses rectangular cards and right-angle level connections. Choose only parent/child or reporting kinds below to define the tree; other visible kinds remain cross-links.</p>}
           <label>Layout mode<select value={settings.layout_mode} disabled={isArchived} onChange={(event) => editSettings({ layout_mode: event.target.value as RelationshipViewSettings["layout_mode"] })}><option value="network">Network</option><option value="hierarchy">Hierarchy</option></select></label>
           <label>Orientation<select value={settings.orientation} disabled={isArchived || settings.layout_mode !== "hierarchy"} onChange={(event) => editSettings({ orientation: event.target.value as RelationshipViewSettings["orientation"] })}><option value="top_to_bottom">Top to bottom</option><option value="left_to_right">Left to right</option></select></label>
           <label>Hierarchy direction<select value={settings.layout_direction} disabled={isArchived || settings.layout_mode !== "hierarchy"} onChange={(event) => editSettings({ layout_direction: event.target.value as RelationshipViewSettings["layout_direction"] })}><option value="outgoing">Follow outgoing relationships</option><option value="incoming">Follow incoming relationships</option></select></label>
