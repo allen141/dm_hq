@@ -11,7 +11,8 @@ export {
   type UiThemeTokens,
   type VisualizationPalette,
 } from "./registry";
-export { THEME_CSS, UI_THEME_PROPERTIES, VISUALIZATION_PROPERTIES, generateThemeCss } from "./css";
+export { GRAPH_PALETTE_REGISTRY, type GraphPalette } from "./graph-palette";
+export { GRAPH_THEME_PROPERTIES, THEME_CSS, UI_THEME_PROPERTIES, VISUALIZATION_PROPERTIES, generateThemeCss } from "./css";
 export {
   THEME_COOKIE_MAX_AGE,
   THEME_COOKIE_NAME,

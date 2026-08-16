@@ -1,7 +1,7 @@
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
 import { describe, expect, test } from "vitest";
 import { graphEdgeColor, graphNodeColor } from "@/lib/renderer-theme";
-import { THEME_REGISTRY, type VisualizationPalette } from "@/lib/theme";
+import { GRAPH_PALETTE_REGISTRY, type GraphPalette } from "@/lib/theme";
 import {
   GRAPH_EDGE_STYLES,
   GRAPH_NODE_STYLES,
@@ -26,7 +26,7 @@ const edges: GraphEdge[] = [
 ];
 
 describe("buildGraphPresentation", () => {
-  const palette = THEME_REGISTRY.astral.visualization;
+  const palette = GRAPH_PALETTE_REGISTRY.astral;
   test("assigns stable node styles and deterministic positions", () => {
     const first = buildGraphPresentation(nodes, [], palette);
     const reordered = buildGraphPresentation([...nodes].reverse(), [], palette);
@@ -112,7 +112,7 @@ describe("summarizeSelectedNode", () => {
   });
 });
 
-function pickNodeStyle(kind: keyof typeof GRAPH_NODE_STYLES, palette: VisualizationPalette) {
+function pickNodeStyle(kind: keyof typeof GRAPH_NODE_STYLES, palette: GraphPalette) {
   const { size, type } = GRAPH_NODE_STYLES[kind];
   return { color: graphNodeColor(kind, palette), size, type };
 }

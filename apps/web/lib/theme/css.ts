@@ -1,4 +1,5 @@
 import { THEMES, type UiThemeTokens, type VisualizationPalette } from "./registry";
+import { GRAPH_PALETTE_REGISTRY, type GraphPalette } from "./graph-palette";
 
 export const UI_THEME_PROPERTIES = {
   fontDisplay: "--theme-font-display",
@@ -76,7 +77,32 @@ export const VISUALIZATION_PROPERTIES = {
   hierarchyContext: "--viz-hierarchy-context",
 } as const satisfies Record<keyof VisualizationPalette, `--viz-${string}`>;
 
-type ThemeValues = UiThemeTokens | VisualizationPalette;
+export const GRAPH_THEME_PROPERTIES = {
+  background: "--graph-background",
+  surface: "--graph-surface",
+  grid: "--graph-grid",
+  text: "--graph-text",
+  textMuted: "--graph-text-muted",
+  selection: "--graph-selection",
+  neighbor: "--graph-neighbor",
+  dimmedNode: "--graph-dimmed-node",
+  dimmedEdge: "--graph-dimmed-edge",
+  contour: "--graph-contour",
+  statusArchived: "--graph-status-archived",
+  statusDraft: "--graph-status-draft",
+  statusCanon: "--graph-status-canon",
+  nodeCampaign: "--graph-node-campaign",
+  nodeNote: "--graph-node-note",
+  nodeEntity: "--graph-node-entity",
+  nodeSession: "--graph-node-session",
+  edgeDocument: "--graph-edge-document",
+  edgeReference: "--graph-edge-reference",
+  edgeRelationship: "--graph-edge-relationship",
+  parchmentLight: "--graph-parchment-light",
+  parchmentDark: "--graph-parchment-dark",
+} as const satisfies Record<keyof GraphPalette, `--graph-${string}`>;
+
+type ThemeValues = UiThemeTokens | VisualizationPalette | GraphPalette;
 type PropertyMap = Readonly<Record<string, `--${string}`>>;
 
 function declarations(values: ThemeValues, properties: PropertyMap): string[] {
@@ -89,6 +115,7 @@ export function generateThemeCss(): string {
     "  color-scheme: dark;",
     ...declarations(theme.ui, UI_THEME_PROPERTIES),
     ...declarations(theme.visualization, VISUALIZATION_PROPERTIES),
+    ...declarations(GRAPH_PALETTE_REGISTRY[theme.id], GRAPH_THEME_PROPERTIES),
     "}",
   ].join("\n")).join("\n\n");
 }

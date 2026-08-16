@@ -1,6 +1,6 @@
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
-import { graphEdgeColor, graphNodeColor } from "@/lib/renderer-theme";
-import { DEFAULT_THEME_ID, THEME_REGISTRY, type VisualizationPalette } from "@/lib/theme";
+import { graphEdgeColor, graphNodeColor, type GraphColorPalette } from "@/lib/renderer-theme";
+import { DEFAULT_THEME_ID, GRAPH_PALETTE_REGISTRY } from "@/lib/theme";
 
 export type GraphNodeVisualKind = "campaign" | "note" | "entity" | "session";
 
@@ -94,7 +94,7 @@ export function graphNodeVisualKind(node: GraphNode): GraphNodeVisualKind {
 export function buildGraphPresentation(
   nodes: readonly GraphNode[],
   edges: readonly GraphEdge[],
-  palette: VisualizationPalette = THEME_REGISTRY[DEFAULT_THEME_ID].visualization,
+  palette: GraphColorPalette = GRAPH_PALETTE_REGISTRY[DEFAULT_THEME_ID],
 ): GraphPresentation {
   return {
     nodes: nodes.map((node) => toVisualNode(node, palette)),
@@ -206,7 +206,7 @@ export function summarizeSelectedNode(
   };
 }
 
-function toVisualNode(node: GraphNode, palette: VisualizationPalette): GraphNodeVisual {
+function toVisualNode(node: GraphNode, palette: GraphColorPalette): GraphNodeVisual {
   const visualKind = graphNodeVisualKind(node);
   const style = GRAPH_NODE_STYLES[visualKind];
   const angle = stableUnit(`${node.id}:angle`) * Math.PI * 2;
@@ -223,7 +223,7 @@ function toVisualNode(node: GraphNode, palette: VisualizationPalette): GraphNode
   };
 }
 
-function toVisualEdges(edges: readonly GraphEdge[], palette: VisualizationPalette): GraphEdgeVisual[] {
+function toVisualEdges(edges: readonly GraphEdge[], palette: GraphColorPalette): GraphEdgeVisual[] {
   const directedGroups = new Map<string, GraphEdge[]>();
   for (const edge of edges) {
     const groupKey = `${edge.source_id}\u0000${edge.target_id}`;

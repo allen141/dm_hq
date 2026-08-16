@@ -1,8 +1,10 @@
 import type { GraphEdge } from "@dm-hq/api-client";
 import type { GraphNodeVisualKind } from "@/lib/graph-presentation";
-import type { VisualizationPalette } from "@/lib/theme";
+import type { GraphPalette, VisualizationPalette } from "@/lib/theme";
 
-export function graphNodeColor(kind: GraphNodeVisualKind, palette: VisualizationPalette): string {
+export type GraphColorPalette = VisualizationPalette | GraphPalette;
+
+export function graphNodeColor(kind: GraphNodeVisualKind, palette: GraphColorPalette): string {
   return {
     campaign: palette.nodeCampaign,
     note: palette.nodeNote,
@@ -11,7 +13,7 @@ export function graphNodeColor(kind: GraphNodeVisualKind, palette: Visualization
   }[kind];
 }
 
-export function graphEdgeColor(edgeClass: GraphEdge["edge_class"], palette: VisualizationPalette): string {
+export function graphEdgeColor(edgeClass: GraphEdge["edge_class"], palette: GraphColorPalette): string {
   return {
     document_link: palette.edgeDocument,
     reference: palette.edgeReference,
@@ -19,7 +21,7 @@ export function graphEdgeColor(edgeClass: GraphEdge["edge_class"], palette: Visu
   }[edgeClass];
 }
 
-export function graphStatusColor(status: string, palette: VisualizationPalette): string {
+export function graphStatusColor(status: string, palette: GraphColorPalette): string {
   if (status === "archived") return palette.statusArchived;
   if (status === "draft") return palette.statusDraft;
   return palette.statusCanon;
@@ -32,6 +34,6 @@ export function withAlpha(color: string, alpha: number): string {
   return color;
 }
 
-export function graphCloudColors(palette: VisualizationPalette): readonly string[] {
+export function graphCloudColors(palette: GraphColorPalette): readonly string[] {
   return [palette.nodeNote, palette.nodeEntity, palette.nodeCampaign, palette.edgeDocument, palette.nodeSession];
 }

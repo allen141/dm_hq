@@ -14,7 +14,7 @@ import type { Settings } from "sigma/settings";
 import { buildGraphClouds, buildGraphPresentation, type GraphNodeVisualKind } from "@/lib/graph-presentation";
 import { useTheme } from "@/components/theme-provider";
 import { graphCloudColors, graphEdgeColor, graphNodeColor, graphStatusColor, withAlpha } from "@/lib/renderer-theme";
-import type { VisualizationPalette } from "@/lib/theme";
+import { GRAPH_PALETTE_REGISTRY, type GraphPalette } from "@/lib/theme";
 
 type AnchorPosition = { x: number; y: number };
 
@@ -87,9 +87,10 @@ const SIGMA_SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
 
 export default function GraphWebgl(props: GraphWebglProps) {
   const { theme } = useTheme();
+  const palette = GRAPH_PALETTE_REGISTRY[theme.id];
   const onRenderError = props.onRenderError;
   const [available] = useState(supportsWebgl);
-  const [initialPalette] = useState(theme.visualization);
+  const [initialPalette] = useState(palette);
   const graph = useMemo(
     () => createGraph(props.nodes, props.edges, props.focusId, initialPalette),
     [initialPalette, props.edges, props.focusId, props.nodes],
@@ -115,7 +116,7 @@ export default function GraphWebgl(props: GraphWebglProps) {
       graph={graph}
       settings={{ ...SIGMA_SETTINGS, labelColor: { color: initialPalette.text }, edgeLabelColor: { color: initialPalette.textMuted } }}
     >
-      <GraphController {...props} palette={theme.visualization} />
+      <GraphController {...props} palette={palette} />
     </SigmaContainer>
   );
 }
@@ -131,7 +132,7 @@ function GraphController({
   onRenderError,
   onSelect,
   palette,
-}: GraphWebglProps & { palette: VisualizationPalette }) {
+}: GraphWebglProps & { palette: GraphPalette }) {
   const sigma = useSigma<NodeAttributes, EdgeAttributes>();
   const graph = sigma.getGraph();
   const registerEvents = useRegisterEvents<NodeAttributes, EdgeAttributes>();
@@ -365,7 +366,7 @@ function GraphController({
   );
 }
 
-function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId: string | null | undefined, palette: VisualizationPalette) {
+function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId: string | null | undefined, palette: GraphPalette) {
   const presentation = buildGraphPresentation(nodes, edges, palette);
   const graph = new MultiDirectedGraph<NodeAttributes, EdgeAttributes>();
 
@@ -403,7 +404,7 @@ function createGraph(nodes: GraphNode[], edges: GraphEdge[], focusId: string | n
   return graph;
 }
 
-function cloudColor(index: number, alpha: number, palette: VisualizationPalette) {
+function cloudColor(index: number, alpha: number, palette: GraphPalette) {
   const colors = graphCloudColors(palette);
   return withAlpha(colors[index % colors.length] ?? palette.contour, alpha);
 }

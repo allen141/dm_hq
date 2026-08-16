@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
   DEFAULT_THEME_ID,
+  GRAPH_PALETTE_REGISTRY,
+  GRAPH_THEME_PROPERTIES,
   THEMES,
+  type GraphPalette,
   THEME_COOKIE_NAME,
   THEME_CSS,
   THEME_IDS,
@@ -36,6 +39,9 @@ describe("theme registry", () => {
       }
       for (const [key, property] of Object.entries(VISUALIZATION_PROPERTIES)) {
         expect(THEME_CSS).toContain(`${property}: ${theme.visualization[key as keyof typeof theme.visualization]};`);
+      }
+      for (const [key, property] of Object.entries(GRAPH_THEME_PROPERTIES)) {
+        expect(THEME_CSS).toContain(`${property}: ${GRAPH_PALETTE_REGISTRY[theme.id][key as keyof GraphPalette]};`);
       }
     }
   });
