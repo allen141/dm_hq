@@ -666,8 +666,7 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
                 not isinstance(level_labels, list)
                 or len(level_labels) > 32
                 or any(
-                    not isinstance(value, str) or value != value.strip() or len(value) > 80
-                    for value in level_labels
+                    not isinstance(value, str) or value != value.strip() or len(value) > 80 for value in level_labels
                 )
             ):
                 raise DocumentError("Relationship level_labels must contain up to 32 trimmed strings of 80 characters")
