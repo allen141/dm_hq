@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import ArchiveShell from "@/components/archive-shell";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const navigation = vi.hoisted(() => ({ pathname: "/campaigns/campaign-1/archive/maps/map-1" }));
 vi.mock("next/navigation", () => ({
@@ -22,9 +23,10 @@ beforeEach(() => {
 });
 
 test("presents campaign context, utilities, and route-selected Archive tabs", async () => {
-  render(<ArchiveShell campaignId="campaign-1"><p>Map workspace</p></ArchiveShell>);
+  render(<ThemeProvider><ArchiveShell campaignId="campaign-1"><p>Map workspace</p></ArchiveShell></ThemeProvider>);
 
   expect(await screen.findByRole("heading", { name: "Lantern Harbor" })).toBeInTheDocument();
+  expect(screen.getByText("DM private")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Campaigns" })).toHaveAttribute("href", "/");
   expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/campaigns/campaign-1/archive?focus=search");
   expect(screen.getByRole("main")).toHaveClass("visualization-shell", "map-shell");
@@ -38,14 +40,14 @@ test("presents campaign context, utilities, and route-selected Archive tabs", as
 
 test("uses immersive relationship chrome and separates its viewer and editor actions", async () => {
   navigation.pathname = "/campaigns/campaign-1/archive/relationships/ties-1";
-  const { rerender } = render(<ArchiveShell campaignId="campaign-1"><p>Relationship workspace</p></ArchiveShell>);
+  const { rerender } = render(<ThemeProvider><ArchiveShell campaignId="campaign-1"><p>Relationship workspace</p></ArchiveShell></ThemeProvider>);
 
   expect(await screen.findByRole("heading", { name: "Lantern Harbor" })).toBeInTheDocument();
   expect(screen.getByRole("main")).toHaveClass("visualization-shell", "relationship-shell");
   expect(screen.getByRole("link", { name: "Edit relationships" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/relationships/ties-1/edit");
 
   navigation.pathname = "/campaigns/campaign-1/archive/relationships/ties-1/edit";
-  rerender(<ArchiveShell campaignId="campaign-1"><p>Relationship editor</p></ArchiveShell>);
+  rerender(<ThemeProvider><ArchiveShell campaignId="campaign-1"><p>Relationship editor</p></ArchiveShell></ThemeProvider>);
   expect(screen.getByRole("main")).not.toHaveClass("visualization-shell", "relationship-shell");
   expect(screen.getByRole("link", { name: "View relationships" })).toHaveAttribute("href", "/campaigns/campaign-1/archive/relationships/ties-1");
 });

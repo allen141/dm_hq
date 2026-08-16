@@ -52,6 +52,7 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
         <div className="archive-title-lockup">
           <span className="archive-sigil" aria-hidden="true"><span>DM</span></span>
           <h1>{campaign?.name ?? "Campaign Archive"}</h1>
+          <span className="archive-privacy-badge"><span aria-hidden="true">◆</span> DM private</span>
         </div>
       </div>
       <div className="archive-utilities" aria-label="Archive utilities">

@@ -1157,7 +1157,11 @@ button.secondary:hover, .button.secondary:hover {
   --theme-accent-hover: #bad0bc;
   --theme-link: #c8b37a;
   --theme-link-hover: #e5d39e;
+  min-height: 100vh;
   color: var(--theme-text-primary);
+  background: var(--theme-surface-page);
+  box-shadow: 0 0 0 100vmax var(--theme-surface-page);
+  clip-path: inset(0 -100vmax);
 }
 .public-shell h1, .public-entry h2 { color: var(--theme-text-primary); }
 .public-entry {
@@ -1206,3 +1210,49 @@ button.secondary:hover, .button.secondary:hover {
     0 7px 20px rgb(0 0 0 / 48%);
 }
 .map-marker.archived { color: var(--theme-text-primary); background: var(--viz-map-archived); }
+
+.build-marker,
+.empty-state,
+.graph-empty,
+.map-unavailable,
+.map-command-bar {
+  border-color: var(--theme-border-default);
+  color: var(--theme-text-muted);
+  background: var(--theme-surface-panel);
+}
+.map-stage { background: var(--viz-background); }
+.graph-filter-chip:hover,
+.graph-filter-chip.active {
+  border-color: var(--theme-border-default);
+  color: var(--theme-text-primary);
+  background: var(--theme-surface-raised);
+}
+.archive-privacy-badge {
+  display: inline-flex;
+  min-height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: var(--theme-radius-pill);
+  color: var(--theme-text-muted);
+  background: var(--theme-surface-raised);
+  font: 750 .61rem/1 var(--theme-font-ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.archive-privacy-badge span { color: var(--theme-highlight); }
+
+@media (forced-colors: active) {
+  .map-marker,
+  .map-marker.selected,
+  .map-marker[aria-pressed="true"],
+  .map-marker.archived {
+    forced-color-adjust: auto;
+    border-color: ButtonText;
+    color: ButtonText;
+    background: ButtonFace;
+    box-shadow: none;
+  }
+}
