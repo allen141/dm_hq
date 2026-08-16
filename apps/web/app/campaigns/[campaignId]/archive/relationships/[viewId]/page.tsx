@@ -8,12 +8,13 @@ import {
   type GraphNode, type ItemSummary, type RelationshipMember, type RelationshipViewSettings,
 } from "@dm-hq/api-client";
 import RelationshipGraphCanvas from "@/components/relationships/relationship-graph-canvas";
+import { buildRelationshipPresentation } from "@/lib/relationship-presentation";
 
 const client = createApiClient();
 const uuid = () => globalThis.crypto?.randomUUID?.() ?? `member-${Date.now()}`;
 const defaults: RelationshipViewSettings = {
   layout_mode: "hierarchy", orientation: "top_to_bottom", root_item_id: null,
-  relationship_kinds: [], layout_relationship_kinds: [], layout_direction: "outgoing",
+  relationship_kinds: [], layout_relationship_kinds: [], layout_direction: "outgoing", show_level_labels: true, level_labels: [],
 };
 const settingsFor = (view: ArchiveViewDocument): RelationshipViewSettings => ({ ...defaults, ...view.settings });
 const memberNode = (member: RelationshipMember): GraphNode => ({
@@ -60,6 +61,19 @@ export default function RelationshipViewPage() {
   const availableKinds = useMemo(() => view ? Array.from(new Set([
     ...(view.available_relationship_kinds ?? []), ...(view.edges ?? []).map((edge) => edge.kind),
   ])).sort((left, right) => left.localeCompare(right)) : [], [view]);
+  const hierarchyLevels = useMemo(() => {
+    if (!view) return [];
+    const current = settingsFor(view);
+    const presentation = buildRelationshipPresentation(nodes, view.edges ?? [], {
+      layout_mode: "hierarchy", orientation: current.orientation, root_id: current.root_item_id,
+      visible_relationship_kinds: current.relationship_kinds, layout_relationship_kinds: current.layout_relationship_kinds,
+      layout_direction: current.layout_direction,
+    });
+    const positionValues = Object.values(presentation.positions ?? {});
+    if (!positionValues.length) return [];
+    const levelCount = Math.max(...positionValues.map(({ level }) => level)) + 1;
+    return Array.from({ length: levelCount }, (_, level) => level);
+  }, [nodes, view]);
 
   const save = useCallback(async (next: ArchiveViewDocument, successMessage = "Relationship board saved.") => {
     if (busy || conflicted) return false;
@@ -92,6 +106,12 @@ export default function RelationshipViewPage() {
       ? settings.layout_relationship_kinds.filter((candidate) => relationshipKinds.includes(candidate))
       : settings.layout_relationship_kinds;
     editSettings({ relationship_kinds: relationshipKinds, layout_relationship_kinds: layoutRelationshipKinds });
+  }
+  function updateLevelLabel(level: number, label: string) {
+    const labels = settings.level_labels.slice();
+    while (labels.length <= level) labels.push("");
+    labels[level] = label;
+    editSettings({ level_labels: labels });
   }
   async function submitDetails(event: FormEvent) { event.preventDefault(); if (view) await save(view, "Board details saved."); }
 
@@ -157,6 +177,11 @@ export default function RelationshipViewPage() {
           <label>Hierarchy direction<select value={settings.layout_direction} disabled={isArchived || settings.layout_mode !== "hierarchy"} onChange={(event) => editSettings({ layout_direction: event.target.value as RelationshipViewSettings["layout_direction"] })}><option value="outgoing">Follow outgoing relationships</option><option value="incoming">Follow incoming relationships</option></select></label>
           <label>Root member<select value={settings.root_item_id ?? ""} disabled={isArchived || settings.layout_mode !== "hierarchy"} onChange={(event) => editSettings({ root_item_id: event.target.value || null })}><option value="">Automatic</option>{nodes.map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}</select></label>
           <KindOptions title="Visible relationship kinds" hint="None selected means all" kinds={availableKinds} selected={settings.relationship_kinds} disabled={isArchived} empty="No relationship kinds are present yet." onToggle={toggleVisibleKind} />
+          <fieldset className="relationship-level-labels" disabled={isArchived || settings.layout_mode !== "hierarchy"}>
+            <legend>Level labels <span>Optional names for ranks, generations, or tiers</span></legend>
+            <label className="relationship-kind-option"><input type="checkbox" checked={settings.show_level_labels} onChange={(event) => editSettings({ show_level_labels: event.target.checked })} />Show level labels</label>
+            {settings.show_level_labels && hierarchyLevels.map((level) => <label key={level}>Level {level + 1} name<input value={settings.level_labels[level] ?? ""} maxLength={80} placeholder={`Level ${level + 1}`} onChange={(event) => updateLevelLabel(level, event.target.value)} /></label>)}
+          </fieldset>
           <KindOptions title="Hierarchy relationships" hint="None selected means all visible kinds" kinds={settings.relationship_kinds.length ? availableKinds.filter((kind) => settings.relationship_kinds.includes(kind)) : availableKinds} selected={settings.layout_relationship_kinds} disabled={isArchived || settings.layout_mode !== "hierarchy"} empty="Add relationship facts to configure hierarchy edges." onToggle={(kind) => editSettings({ layout_relationship_kinds: toggle(settings.layout_relationship_kinds, kind) })} />
           <button type="button" disabled={busy || conflicted || isArchived} onClick={() => void save(view, "Layout settings saved.")}>{busy ? "Saving…" : "Save layout"}</button>
         </section>
@@ -173,7 +198,7 @@ export default function RelationshipViewPage() {
         {boards.length > 1 && <label>Board<select aria-label="Relationship board" value={view.id} onChange={(event) => router.push(`/campaigns/${campaignId}/archive/relationships/${event.target.value}`)}>{boards.map((board) => <option key={board.id} value={board.id}>{board.title}{board.status === "archived" ? " (archived)" : ""}</option>)}</select></label>}
       </div>
       {isArchived && <p className="relationship-archived-notice visualization-panel">This board is archived and remains available for recovery. Restore it from the editor to continue using it.</p>}
-      <RelationshipGraphCanvas campaignId={campaignId} nodes={nodes} edges={view.edges ?? []} layoutMode={settings.layout_mode} orientation={settings.orientation} rootId={settings.root_item_id} visibleRelationshipKinds={settings.relationship_kinds} layoutRelationshipKinds={settings.layout_relationship_kinds} layoutDirection={settings.layout_direction} />
+      <RelationshipGraphCanvas campaignId={campaignId} nodes={nodes} edges={view.edges ?? []} layoutMode={settings.layout_mode} orientation={settings.orientation} rootId={settings.root_item_id} visibleRelationshipKinds={settings.relationship_kinds} layoutRelationshipKinds={settings.layout_relationship_kinds} layoutDirection={settings.layout_direction} showLevelLabels={settings.show_level_labels} levelLabels={settings.level_labels} />
     </>}
     {message && <p className="success" role="status">{message}</p>}
     {error && <div className="error" role="alert"><p>{error}</p>{conflicted && <button type="button" className="secondary" onClick={() => void load()}>Reload board</button>}</div>}

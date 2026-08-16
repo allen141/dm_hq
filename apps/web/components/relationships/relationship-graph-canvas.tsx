@@ -26,6 +26,8 @@ export type RelationshipGraphCanvasProps = {
   visibleRelationshipKinds?: readonly string[];
   layoutRelationshipKinds?: readonly string[];
   layoutDirection?: RelationshipLayoutDirection;
+  showLevelLabels?: boolean;
+  levelLabels?: readonly string[];
 };
 
 const Webgl = dynamic<RelationshipWebglProps>(() => import("@/components/relationships/relationship-webgl"), {
@@ -59,6 +61,8 @@ export default function RelationshipGraphCanvas({
   visibleRelationshipKinds,
   layoutRelationshipKinds,
   layoutDirection = "outgoing",
+  showLevelLabels = true,
+  levelLabels = [],
 }: RelationshipGraphCanvasProps) {
   const presentation = useMemo(() => buildRelationshipPresentation(nodes, edges, {
     layout_mode: layoutMode,
@@ -149,7 +153,7 @@ export default function RelationshipGraphCanvas({
       <div className="graph-stage-frame" ref={stageRef}>
         {mode === "webgl" ? (
           layoutMode === "hierarchy" && presentation.positions ? (
-            <RelationshipTree nodes={presentation.nodes} edges={presentation.edges} structuralEdgeIds={presentation.structural_edge_ids} positions={presentation.positions} orientation={orientation} rootId={rootId} selectedId={selectedId} onSelect={(id) => selectNode(id, true)} />
+            <RelationshipTree nodes={presentation.nodes} edges={presentation.edges} structuralEdgeIds={presentation.structural_edge_ids} positions={presentation.positions} orientation={orientation} rootId={rootId} selectedId={selectedId} showLevelLabels={showLevelLabels} levelLabels={levelLabels} onSelect={(id) => selectNode(id, true)} />
           ) : (
             <RenderBoundary key={resetKey} resetKey={resetKey} onError={rendererError}>
               <Webgl nodes={presentation.nodes} edges={presentation.edges} rootId={rootId} positions={null} selectedId={selectedId} reducedMotion={reducedMotion} onAnchorChange={setAnchor} onRenderError={rendererError} onSelect={selectNode} />
@@ -159,8 +163,8 @@ export default function RelationshipGraphCanvas({
           <div className="graph-list-fallback relationship-semantic-list">
             <div><span className="eyebrow">Semantic view</span><h3>{layoutMode === "hierarchy" ? "Relationship hierarchy" : "Relationship knowledge"}</h3></div>
             <p>Every row is a canonical relationship fact. Structural relationships affect arrangement only.</p>
-            {levels.map(({ level, nodes: levelNodes }) => <section key={level} aria-label={layoutMode === "hierarchy" ? `Level ${level + 1}` : "Members"}>
-              {layoutMode === "hierarchy" && <h4>Level {level + 1}</h4>}
+            {levels.map(({ level, nodes: levelNodes }) => <section key={level} aria-label={layoutMode === "hierarchy" ? levelLabel(level, levelLabels) : "Members"}>
+              {layoutMode === "hierarchy" && showLevelLabels && <h4>{levelLabel(level, levelLabels)}</h4>}
               <ul>{levelNodes.map((node) => <li key={node.id}>
                 <button type="button" aria-pressed={selectedId === node.id} onClick={() => selectNode(node.id, true)}><span>{node.title}</span><small>{node.kind} · {relationshipFactsForNode(presentation.nodes, presentation.edges, node.id).length} relationships</small></button>
                 <ul>{relationshipFactsForNode(presentation.nodes, presentation.edges, node.id).map((fact) => <li key={`${fact.edge.id}:${fact.direction}`}>{fact.phrase}</li>)}</ul>
@@ -199,5 +203,7 @@ function subscribeReducedMotion(callback: () => void) {
   media.addEventListener("change", callback);
   return () => media.removeEventListener("change", callback);
 }
+
+function levelLabel(level: number, labels: readonly string[]) { return labels[level]?.trim() || `Level ${level + 1}`; }
 function reducedMotionSnapshot() { return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
 function useReducedMotion() { return useSyncExternalStore(subscribeReducedMotion, reducedMotionSnapshot, () => true); }

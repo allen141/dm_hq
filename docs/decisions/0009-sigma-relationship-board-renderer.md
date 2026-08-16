@@ -35,6 +35,8 @@ Relationship boards support:
 
 The relationship view settings add a layout mode, orientation, optional root, visible relationship kinds, rank-defining relationship kinds, and incoming or outgoing layout direction. Existing boards without the new fields use hierarchy layout and show every canonical member-to-member relationship; an explicit network choice remains available.
 
+Hierarchy level headings are presentation settings. A board can hide them or assign ordered campaign-specific names such as generations, ranks, or tiers without changing the canonical relationships or derived level numbers.
+
 Rank-defining edges affect placement only. Other visible relationships remain contextual cross-links. Multiple roots, multiple parents or superiors, disconnected members, self-links, parallel edges, and cycles remain representable. A cycle or cross-link is reported as a layout condition; the application never deletes, reverses, or invents a semantic edge to make the picture look like a tree.
 
 Automatic layout positions, camera state, selection, pan, and zoom remain transient. Persisted manual node positions are not part of this increment. Existing position fields remain readable for compatibility but are not promoted into canonical fictional meaning.

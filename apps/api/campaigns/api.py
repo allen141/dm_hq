@@ -130,6 +130,8 @@ class RelationshipViewSettings(Schema):
     relationship_kinds: list[str] = []
     layout_relationship_kinds: list[str] = []
     layout_direction: Literal["outgoing", "incoming"] = "outgoing"
+    show_level_labels: bool = True
+    level_labels: list[str] = []
 
 
 class ArchiveViewPayload(Schema):
@@ -963,6 +965,8 @@ def relationship_view_settings(settings: Any) -> dict[str, Any]:
         "relationship_kinds": list(source.get("relationship_kinds") or []),
         "layout_relationship_kinds": list(source.get("layout_relationship_kinds") or []),
         "layout_direction": source.get("layout_direction", "outgoing"),
+        "show_level_labels": source.get("show_level_labels", True),
+        "level_labels": list(source.get("level_labels") or []),
     }
 
 
@@ -1016,6 +1020,15 @@ def validate_relationship_view(
     root_item_id = normalized_settings["root_item_id"]
     if root_item_id and root_item_id not in member_item_ids:
         raise error(422, "validation", "The relationship root must be a board member")
+    level_labels = []
+    if len(normalized_settings["level_labels"]) > 32:
+        raise error(422, "validation", "Relationship boards support up to 32 level labels")
+    for value in normalized_settings["level_labels"]:
+        normalized = value.strip()
+        if len(normalized) > 80:
+            raise error(422, "validation", "Relationship level labels cannot exceed 80 characters")
+        level_labels.append(normalized)
+    normalized_settings["level_labels"] = level_labels
     visible_kinds = set(normalized_settings["relationship_kinds"])
     structural_kinds = set(normalized_settings["layout_relationship_kinds"])
     if visible_kinds and not structural_kinds.issubset(visible_kinds):

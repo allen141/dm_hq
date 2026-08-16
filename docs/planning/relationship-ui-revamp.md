@@ -35,9 +35,16 @@ settings:
   layout_relationship_kinds:
     - parent_of
   layout_direction: outgoing
+  show_level_labels: true
+  level_labels:
+    - Founders
+    - Captains
+    - Officers
 ```
 
 `relationship_kinds: []` means every relationship kind between board members is visible. Existing documents without `layout_mode` open as hierarchy boards; an explicit network setting remains available for non-hierarchical knowledge. A hierarchy root is optional; it selects the primary component and visual emphasis but does not assert fictional seniority or ancestry.
+
+`show_level_labels` hides or reveals level headings without discarding their names. `level_labels` stores optional names by zero-based hierarchy order; blank or missing entries fall back to “Level N.” The visual tree and semantic list use the same names.
 
 ## Experience
 

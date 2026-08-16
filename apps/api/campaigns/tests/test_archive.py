@@ -670,6 +670,8 @@ class ArchiveApiTests(TestCase):
                     "relationship_kinds": [" parent_of ", "parent_of"],
                     "layout_relationship_kinds": ["parent_of"],
                     "layout_direction": "outgoing",
+                    "show_level_labels": False,
+                    "level_labels": [" Founders ", " Captains "],
                 },
             },
         )
@@ -686,6 +688,8 @@ class ArchiveApiTests(TestCase):
                 "relationship_kinds": ["parent_of"],
                 "layout_relationship_kinds": ["parent_of"],
                 "layout_direction": "outgoing",
+                "show_level_labels": False,
+                "level_labels": ["Founders", "Captains"],
             },
         )
         parent_detail = self.client.get(f"/api/v1/items/{parent['id']}").json()
@@ -716,6 +720,8 @@ class ArchiveApiTests(TestCase):
                 "relationship_kinds": [],
                 "layout_relationship_kinds": [],
                 "layout_direction": "outgoing",
+                "show_level_labels": True,
+                "level_labels": [],
             },
         )
 
@@ -795,6 +801,14 @@ class ArchiveApiTests(TestCase):
             (
                 {"settings": {**metadata["settings"], "layout_direction": "sideways"}},
                 "layout direction is invalid",
+            ),
+            (
+                {"settings": {**metadata["settings"], "show_level_labels": "yes"}},
+                "show_level_labels must be true or false",
+            ),
+            (
+                {"settings": {**metadata["settings"], "level_labels": [" "]}},
+                "level_labels",
             ),
             (
                 {"settings": {**metadata["settings"], "root_item_id": str(uuid.uuid4())}},

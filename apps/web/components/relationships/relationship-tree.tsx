@@ -11,6 +11,8 @@ export type RelationshipTreeProps = {
   orientation: RelationshipOrientation;
   rootId?: string | null;
   selectedId: string | null;
+  showLevelLabels?: boolean;
+  levelLabels?: readonly string[];
   onSelect: (id: string) => void;
 };
 
@@ -30,6 +32,8 @@ export default function RelationshipTree({
   orientation,
   rootId,
   selectedId,
+  showLevelLabels = true,
+  levelLabels = [],
   onSelect,
 }: RelationshipTreeProps) {
   const { cards, width, height } = treeGeometry(nodes, positions, orientation);
@@ -50,15 +54,18 @@ export default function RelationshipTree({
         <defs>
           <filter id="relationship-card-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="5" stdDeviation="8" floodColor="#020b0f" floodOpacity=".42" /></filter>
         </defs>
-        <g className="relationship-tree-levels" aria-hidden="true">
-          {Array.from({ length: levelCount }, (_, level) => {
-            const card = cards.find((candidate) => candidate.level === level);
-            if (!card) return null;
-            return orientation === "top_to_bottom"
-              ? <text key={level} x={22} y={card.y + CARD_HEIGHT / 2}>Level {level + 1}</text>
-              : <text key={level} x={card.x + CARD_WIDTH / 2} y={32} textAnchor="middle">Level {level + 1}</text>;
-          })}
-        </g>
+        {showLevelLabels && (
+          <g className="relationship-tree-levels" aria-hidden="true">
+            {Array.from({ length: levelCount }, (_, level) => {
+              const card = cards.find((candidate) => candidate.level === level);
+              if (!card) return null;
+              const label = levelLabel(level, levelLabels);
+              return orientation === "top_to_bottom"
+                ? <text key={level} x={22} y={card.y + CARD_HEIGHT / 2}>{label}</text>
+                : <text key={level} x={card.x + CARD_WIDTH / 2} y={32} textAnchor="middle">{label}</text>;
+            })}
+          </g>
+        )}
         <g className="relationship-tree-connectors" aria-hidden="true">
           {connectors.map(({ edge, source, target, structural }) => <path key={edge.id} className={structural ? "structural" : "context"} d={connectorPath(source, target, orientation, structural)} />)}
         </g>
@@ -142,5 +149,7 @@ function connectorPath(source: Card, target: Card, orientation: RelationshipOrie
   const middleX = (startX + endX) / 2;
   return `M ${startX} ${startY} H ${middleX} V ${endY} H ${endX}`;
 }
+
+function levelLabel(level: number, labels: readonly string[]) { return labels[level]?.trim() || `Level ${level + 1}`; }
 
 function truncate(value: string, limit: number) { return value.length > limit ? `${value.slice(0, limit - 1)}…` : value; }

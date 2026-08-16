@@ -25,7 +25,7 @@ const view = {
   ],
   edges: [{ id: "edge-1", edge_class: "relationship", source_id: "mara", target_id: "wardens", kind: "commands", label: "commands", inverse_label: "commanded by" }],
   available_relationship_kinds: ["commands", "allied_with"],
-  settings: { layout_mode: "hierarchy", orientation: "top_to_bottom", root_item_id: "mara", relationship_kinds: [], layout_relationship_kinds: ["commands"], layout_direction: "outgoing" },
+  settings: { layout_mode: "hierarchy", orientation: "top_to_bottom", root_item_id: "mara", relationship_kinds: [], layout_relationship_kinds: ["commands"], layout_direction: "outgoing", show_level_labels: true, level_labels: ["Command", "Officers"] },
 } as const;
 const boards = {
   views: [
@@ -76,6 +76,14 @@ test("keeps membership and hierarchy authoring on the editor route", async () =>
   expect(screen.getByLabelText("Root member")).toHaveValue("mara");
   const hierarchyKinds = screen.getByRole("group", { name: /Hierarchy relationships/ });
   expect(within(hierarchyKinds).getByRole("checkbox", { name: "commands" })).toBeChecked();
+  const levelLabels = screen.getByRole("group", { name: /Level labels/ });
+  expect(within(levelLabels).getByRole("checkbox", { name: "Show level labels" })).toBeChecked();
+  expect(screen.getByLabelText("Level 1 name")).toHaveValue("Command");
+  fireEvent.change(screen.getByLabelText("Level 2 name"), { target: { value: "Watch captains" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save layout" }));
+  expect(await screen.findByText("Layout settings saved.")).toBeInTheDocument();
+  expect(JSON.parse(String((fetch as ReturnType<typeof vi.fn>).mock.calls.find(([, init]) => init?.method === "PATCH")?.[1]?.body)).settings.level_labels).toEqual(["Command", "Watch captains"]);
+
 
   fireEvent.change(screen.getByLabelText("Add Archive page"), { target: { value: "oren" } });
   fireEvent.click(screen.getByRole("button", { name: "Add member" }));

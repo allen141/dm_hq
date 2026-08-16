@@ -658,6 +658,19 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
                 if len(values) != len(set(values)):
                     raise DocumentError(f"Relationship {key} must not contain duplicates")
                 kind_lists[key] = values
+            show_level_labels = view_settings.get("show_level_labels", True)
+            if not isinstance(show_level_labels, bool):
+                raise DocumentError("Relationship show_level_labels must be true or false")
+            level_labels = view_settings.get("level_labels", [])
+            if (
+                not isinstance(level_labels, list)
+                or len(level_labels) > 32
+                or any(
+                    not isinstance(value, str) or value != value.strip() or len(value) > 80
+                    for value in level_labels
+                )
+            ):
+                raise DocumentError("Relationship level_labels must contain up to 32 trimmed strings of 80 characters")
             visible_kinds = set(kind_lists["relationship_kinds"])
             structural_kinds = set(kind_lists["layout_relationship_kinds"])
             if visible_kinds and not structural_kinds.issubset(visible_kinds):

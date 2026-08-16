@@ -24,6 +24,8 @@ export type RelationshipViewSettings = {
   relationship_kinds: string[];
   layout_relationship_kinds: string[];
   layout_direction: "outgoing" | "incoming";
+  show_level_labels: boolean;
+  level_labels: string[];
 };
 export type ArchiveViewSummary = { id: string; campaign_id: string; view_type: "map" | "relationship"; title: string; slug: string; status: "active" | "archived"; version: number; updated_at: string };
 export type ArchiveViewDocument = ArchiveViewSummary & {

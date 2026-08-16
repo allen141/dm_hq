@@ -35,11 +35,20 @@ test("keeps Sigma available for non-hierarchical relationship networks", () => {
 });
 
 test("semantic view reflects visible kinds and hierarchy levels", () => {
-  render(<RelationshipGraphCanvas campaignId="campaign" nodes={nodes} edges={edges} layoutMode="hierarchy" visibleRelationshipKinds={["commands"]} layoutRelationshipKinds={["commands"]} />);
+  render(<RelationshipGraphCanvas campaignId="campaign" nodes={nodes} edges={edges} layoutMode="hierarchy" visibleRelationshipKinds={["commands"]} layoutRelationshipKinds={["commands"]} levelLabels={["Founders", "Captains"]} />);
   fireEvent.click(screen.getByRole("button", { name: "List" }));
 
-  expect(screen.getByText("Level 1")).toBeInTheDocument();
-  expect(screen.getByText("Level 2")).toBeInTheDocument();
+  expect(screen.getByText("Founders")).toBeInTheDocument();
+  expect(screen.getByText("Captains")).toBeInTheDocument();
   expect(screen.getByText("commands Selka")).toBeInTheDocument();
   expect(screen.queryByText("allied with Selka")).not.toBeInTheDocument();
+});
+
+test("can hide hierarchy level labels in visual and semantic modes", () => {
+  render(<RelationshipGraphCanvas campaignId="campaign" nodes={nodes} edges={edges} layoutMode="hierarchy" visibleRelationshipKinds={["commands"]} layoutRelationshipKinds={["commands"]} showLevelLabels={false} />);
+
+  expect(screen.queryByText("Level 1")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "List" }));
+  expect(screen.queryByText("Level 1")).not.toBeInTheDocument();
+  expect(screen.getByText("commands Selka")).toBeInTheDocument();
 });

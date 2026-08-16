@@ -498,6 +498,14 @@
             "title": "Layout Relationship Kinds",
             "type": "array"
           },
+          "level_labels": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Level Labels",
+            "type": "array"
+          },
           "orientation": {
             "default": "top_to_bottom",
             "enum": [
@@ -526,6 +534,11 @@
               }
             ],
             "title": "Root Item Id"
+          },
+          "show_level_labels": {
+            "default": true,
+            "title": "Show Level Labels",
+            "type": "boolean"
           }
         },
         "title": "RelationshipViewSettings",
