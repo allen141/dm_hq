@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { createApiClient, type Campaign, type User } from "@dm-hq/api-client";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { SettingsMenu } from "@/components/settings-menu";
 
 const client = createApiClient();
 
@@ -44,7 +44,7 @@ export default function Home() {
   return <main className="shell home-shell">
     <header className="masthead"><div className="masthead-title"><div className="eyebrow">DM HQ · The Archive</div><h1>Keep the thread.</h1><p className="masthead-detail">A campaign atlas for the moments between preparation and play.</p></div><div className="masthead-tools">
       <p className="lede">Capture rough ideas, give them structure, and find them again when the table is moving quickly.</p>
-      <ThemeSwitcher className="theme-switcher theme-switcher-home" label="Workspace theme" />
+      <SettingsMenu className="settings-menu-home" />
     </div></header>
     <div className="workspace">
       <section className="panel" aria-labelledby="campaigns-heading">
