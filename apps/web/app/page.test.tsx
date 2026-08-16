@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 
+import { ThemeProvider } from "@/components/theme-provider";
 import Home from "./page";
 
 beforeEach(() => {
@@ -11,7 +12,7 @@ beforeEach(() => {
 });
 
 test("shows the Archive sign-in workspace", async () => {
-  render(<Home />);
+  render(<ThemeProvider><Home /></ThemeProvider>);
   expect(screen.getByRole("heading", { name: "Keep the thread." })).toBeInTheDocument();
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
 });

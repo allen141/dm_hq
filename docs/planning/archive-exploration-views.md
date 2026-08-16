@@ -76,7 +76,7 @@ ADR 0008 additionally accepts this map and visual boundary:
 - A searchable marker list and numeric editing remain the equivalent, accessible control surface in every renderer state.
 - Selecting a marker lazy-loads its authorized item and shows a bounded plain-text excerpt in a DOM popup; summaries are cached only for the page lifetime and are never copied into the view document.
 - Marker creation requires an explicit add-marker mode.
-- The shared private application adopts expedition-console semantic tokens based on modern ink, teal, and brass. Player publication remains separate.
+- The shared private application uses the five dark themes accepted by [ADR 0010](../decisions/0010-runtime-private-workspace-themes.md), with Night Cartographer carrying forward the expedition-console ink, teal, and brass direction as the default. Player publication remains separate.
 - Graph and read-only Map routes share immersive shell, full-viewport stage, interface, and overlay-panel primitives while keeping their rendering adapters independent. Map authoring stays on its conventional `/edit` workspace.
 
 1. **Wiki** — the primary writing and reading surface.

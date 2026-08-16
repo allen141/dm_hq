@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Component, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { RelationshipWebglProps } from "@/components/relationships/relationship-webgl";
 import RelationshipTree from "@/components/relationships/relationship-tree";
+import { useTheme } from "@/components/theme-provider";
 import { archiveDocumentHref } from "@/lib/archive-routes";
 import {
   buildRelationshipPresentation,
@@ -83,11 +84,14 @@ export default function RelationshipGraphCanvas({
     layout_direction: layoutDirection,
     level_overrides: levelOverrides,
   }), [edges, layoutDirection, layoutMode, layoutRelationshipKinds, levelOverrides, nodes, orientation, rootId, visibleRelationshipKinds]);
+  const { theme } = useTheme();
+  const forcedColors = useForcedColors();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<"webgl" | "list">("webgl");
   const [message, setMessage] = useState("");
+  const displayedMode = forcedColors ? "list" : mode;
   const [resetKey, setResetKey] = useState(0);
   const reducedMotion = useReducedMotion();
   const stageRef = useRef<HTMLDivElement>(null);
@@ -108,7 +112,7 @@ export default function RelationshipGraphCanvas({
 
   useEffect(() => {
     const stage = stageRef.current;
-    if (!selectedNode || !anchor || !stage || mode !== "webgl") { refs.setPositionReference(null); return; }
+    if (!selectedNode || !anchor || !stage || displayedMode !== "webgl") { refs.setPositionReference(null); return; }
     const reference: VirtualElement = {
       contextElement: stage,
       getBoundingClientRect() {
@@ -120,7 +124,7 @@ export default function RelationshipGraphCanvas({
     };
     refs.setPositionReference(reference);
     void update();
-  }, [anchor, mode, refs, selectedNode, update]);
+  }, [anchor, displayedMode, refs, selectedNode, update]);
   useEffect(() => {
     if (!selectedNode) return;
     const frame = window.requestAnimationFrame(() => inspectorRef.current?.focus());
@@ -155,16 +159,16 @@ export default function RelationshipGraphCanvas({
           </ul>}
         </div>
         <div className="graph-mode-switch" aria-label="Relationship presentation">
-          <button type="button" className={mode === "webgl" ? "active" : "secondary"} aria-pressed={mode === "webgl"} onClick={retry}>Visual</button>
-          <button type="button" className={mode === "list" ? "active" : "secondary"} aria-pressed={mode === "list"} onClick={() => { setMode("list"); setAnchor(null); }}>List</button>
+          <button type="button" className={displayedMode === "webgl" ? "active" : "secondary"} aria-pressed={displayedMode === "webgl"} disabled={forcedColors} onClick={retry}>Visual</button>
+          <button type="button" className={displayedMode === "list" ? "active" : "secondary"} aria-pressed={displayedMode === "list"} onClick={() => { setMode("list"); setAnchor(null); }}>List</button>
         </div>
       </div>
       {message && <div className="graph-renderer-notice" role="status"><span>{message}</span><button type="button" className="secondary" onClick={retry}>Retry visual view</button></div>}
 
       <div className="graph-stage-frame" ref={stageRef}>
-        {mode === "webgl" ? (
+        {displayedMode === "webgl" ? (
           layoutMode === "hierarchy" && presentation.positions ? (
-            <RelationshipTree nodes={presentation.nodes} edges={presentation.edges} structuralEdgeIds={presentation.structural_edge_ids} positions={presentation.positions} orientation={orientation} rootId={rootId} selectedId={selectedId} showLevelLabels={showLevelLabels} levelLabels={levelLabels} editable={editable} manualPositions={manualPositions} onPositionChange={onPositionChange} onConnect={onConnect} onSelect={(id) => selectNode(id, true)} />
+            <RelationshipTree nodes={presentation.nodes} edges={presentation.edges} structuralEdgeIds={presentation.structural_edge_ids} positions={presentation.positions} orientation={orientation} rootId={rootId} selectedId={selectedId} showLevelLabels={showLevelLabels} levelLabels={levelLabels} editable={editable} manualPositions={manualPositions} onPositionChange={onPositionChange} onConnect={onConnect} onSelect={(id) => selectNode(id, true)} palette={theme.visualization} />
           ) : (
             <RenderBoundary key={resetKey} resetKey={resetKey} onError={rendererError}>
               <Webgl nodes={presentation.nodes} edges={presentation.edges} rootId={rootId} positions={null} selectedId={selectedId} reducedMotion={reducedMotion} onAnchorChange={setAnchor} onRenderError={rendererError} onSelect={selectNode} />
@@ -184,7 +188,7 @@ export default function RelationshipGraphCanvas({
           </div>
         )}
 
-        {selectedNode && <aside className={`graph-inspector${anchor && mode === "webgl" ? " floating" : " static"}`} ref={setInspector} style={anchor && mode === "webgl" ? floatingStyles : undefined} role="dialog" aria-modal="false" aria-labelledby="relationship-inspector-title" tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape") closeInspector(); }}>
+        {selectedNode && <aside className={`graph-inspector${anchor && displayedMode === "webgl" ? " floating" : " static"}`} ref={setInspector} style={anchor && displayedMode === "webgl" ? floatingStyles : undefined} role="dialog" aria-modal="false" aria-labelledby="relationship-inspector-title" tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape") closeInspector(); }}>
           <div className="graph-inspector-topline"><span className="privacy-chip">DM private</span><button type="button" className="graph-close" aria-label="Close relationship summary" onClick={closeInspector}>×</button></div>
           <div className="graph-kind-row"><span className={`node-kind-icon ${selectedNode.kind}`} aria-hidden="true" /><span>{selectedNode.kind}</span><span>·</span><span>{selectedNode.status}</span></div>
           <h3 id="relationship-inspector-title">{selectedNode.title}</h3>
@@ -195,7 +199,7 @@ export default function RelationshipGraphCanvas({
         </aside>}
       </div>
 
-      <details className="graph-node-index" key={mode} open={mode === "list"}><summary>Member index <span>{presentation.nodes.length}</span></summary><ul>{presentation.nodes.map((node) => <li key={node.id}><button type="button" aria-pressed={selectedId === node.id} aria-label={`Select ${node.title}`} onClick={() => selectNode(node.id, true)}><span className={`node-kind-icon ${node.kind}`} aria-hidden="true" /><span>{node.title}</span><small>{node.kind}</small></button></li>)}</ul></details>
+      <details className="graph-node-index" key={displayedMode} open={displayedMode === "list"}><summary>Member index <span>{presentation.nodes.length}</span></summary><ul>{presentation.nodes.map((node) => <li key={node.id}><button type="button" aria-pressed={selectedId === node.id} aria-label={`Select ${node.title}`} onClick={() => selectNode(node.id, true)}><span className={`node-kind-icon ${node.kind}`} aria-hidden="true" /><span>{node.title}</span><small>{node.kind}</small></button></li>)}</ul></details>
       <p className="sr-only" role="status" aria-live="polite">{selectedNode ? `${selectedNode.title} selected with ${facts.length} relationships.` : ""}</p>
     </section>
   );
@@ -206,6 +210,23 @@ function groupByLevel(nodes: readonly GraphNode[], positions: Readonly<Record<st
   const groups = new Map<number, GraphNode[]>();
   nodes.forEach((node) => { const level = positions[node.id]?.level ?? 0; groups.set(level, [...(groups.get(level) ?? []), node]); });
   return Array.from(groups, ([level, grouped]) => ({ level, nodes: grouped.sort((a, b) => (positions[a.id]?.order ?? 0) - (positions[b.id]?.order ?? 0)) })).sort((a, b) => a.level - b.level);
+}
+
+function subscribeForcedColors(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia("(forced-colors: active)");
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function forcedColorsSnapshot() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(forced-colors: active)").matches;
+}
+
+function useForcedColors() {
+  return useSyncExternalStore(subscribeForcedColors, forcedColorsSnapshot, () => false);
 }
 
 function subscribeReducedMotion(callback: () => void) {

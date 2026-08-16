@@ -18,9 +18,15 @@ const props = {
   onRendererError: vi.fn(),
 };
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
 });
 
@@ -29,4 +35,15 @@ test("selects the visible DOM map when WebGL is unavailable", () => {
   expect(screen.getByRole("img", { name: "Harbor map" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Pier office" })).toBeInTheDocument();
   expect(props.onRendererError).toHaveBeenCalledWith(expect.objectContaining({ message: "WebGL is not available." }));
+});
+
+test("prefers the visible DOM map in forced-colors mode without reporting a renderer error", () => {
+  vi.mocked(window.matchMedia).mockReturnValue({
+    matches: true,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as unknown as MediaQueryList);
+  render(<MapCanvas {...props} />);
+  expect(screen.getByRole("button", { name: "Pier office" })).toBeInTheDocument();
+  expect(props.onRendererError).not.toHaveBeenCalled();
 });

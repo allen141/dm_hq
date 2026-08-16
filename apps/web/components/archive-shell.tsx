@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createApiClient, type ArchiveViewSummary, type Campaign } from "@dm-hq/api-client";
+import { SettingsMenu } from "@/components/settings-menu";
 
 const client = createApiClient();
 
@@ -51,6 +52,7 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
         <div className="archive-title-lockup">
           <span className="archive-sigil" aria-hidden="true"><span>DM</span></span>
           <h1>{campaign?.name ?? "Campaign Archive"}</h1>
+          <span className="archive-privacy-badge"><span aria-hidden="true">◆</span> DM private</span>
         </div>
       </div>
       <div className="archive-utilities" aria-label="Archive utilities">
@@ -58,6 +60,7 @@ export default function ArchiveShell({ campaignId, children }: { campaignId: str
         {relationshipViewId && <Link className="button secondary archive-context-action" href={`/campaigns/${campaignId}/archive/relationships/${relationshipViewId}${relationshipEditing ? "" : "/edit"}`}>{relationshipEditing ? "View relationships" : "Edit relationships"}</Link>}
         <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=search`}><span aria-hidden="true">⌕</span> <span className="archive-utility-label">Search</span></Link>
         <Link className="button secondary archive-utility" href={`/campaigns/${campaignId}/archive?focus=capture`}><span aria-hidden="true">＋</span> <span className="archive-utility-label">Quick capture</span></Link>
+        <SettingsMenu className="settings-menu-archive" />
         <Link className="button archive-primary-action" href={`/campaigns/${campaignId}/archive/views/new`}><span className="archive-utility-label">New view</span> <span aria-hidden="true">↗</span></Link>
       </div>
     </header>

@@ -1,0 +1,564 @@
+/*
+ * The prototypes deliberately share one component tree. These theme wrappers
+ * alter material, geometry, density, and emphasis without changing workflow.
+ */
+
+.emberkeep {
+  color-scheme: dark;
+}
+
+.emberkeep > div:nth-of-type(2) {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+
+.emberkeep button {
+  border-radius: 0;
+}
+
+/* II — smoked crystal, orbital lines, and moonlit controls. */
+.astral {
+  --display: Baskerville, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --bg: #080813;
+  --bg-deep: #05050d;
+  --surface: #111023;
+  --surface-raised: #19172f;
+  --surface-soft: #201e39;
+  --line: #39345d;
+  --line-soft: #292644;
+  --ink: #f0efff;
+  --ink-soft: #c5c2df;
+  --muted: #8f8bac;
+  --accent: #9d7cf5;
+  --accent-bright: #d4ddff;
+  --accent-ink: #100c2a;
+  --danger: #ed80ab;
+  --safe: #69d3e7;
+  --shadow: 0 28px 90px rgb(1 0 16 / 64%);
+  color-scheme: dark;
+}
+
+.astral > div:first-child {
+  background:
+    radial-gradient(circle at 20% 12%, rgb(78 55 168 / 42%) 0 1px, transparent 2px),
+    radial-gradient(circle at 80% 18%, rgb(176 205 255 / 48%) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 8%, rgb(132 80 233 / 24%), transparent 27rem),
+    radial-gradient(circle at 12% 84%, rgb(41 157 190 / 14%), transparent 30rem),
+    repeating-radial-gradient(circle at 73% -20%, transparent 0 86px, rgb(184 170 255 / 4%) 87px, transparent 88px 142px),
+    linear-gradient(150deg, var(--bg), var(--bg-deep));
+}
+
+.astral > div:nth-of-type(2) {
+  overflow: hidden;
+  border-color: rgb(151 129 232 / 42%);
+  border-radius: 20px;
+  box-shadow: var(--shadow), inset 0 0 0 1px rgb(210 222 255 / 4%);
+}
+
+.astral > div:nth-of-type(2) > header {
+  min-height: 140px;
+  padding: 28px 34px;
+  background:
+    linear-gradient(100deg, rgb(46 35 93 / 82%), transparent 58%),
+    radial-gradient(circle at 82% 26%, rgb(89 181 211 / 16%), transparent 20rem),
+    var(--surface);
+}
+
+.astral > div:nth-of-type(2) > header::after {
+  right: 8%;
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 42px rgb(157 124 245 / 3%), 0 0 0 84px rgb(98 205 230 / 2.5%);
+  transform: none;
+}
+
+.astral > div:nth-of-type(2) > header > div:first-child > span:first-child {
+  position: relative;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 5px rgb(157 124 245 / 12%), 0 0 25px rgb(157 124 245 / 22%);
+  transform: none;
+}
+
+.astral > div:nth-of-type(2) > header > div:first-child > span:first-child > span {
+  transform: none;
+}
+
+.astral > div:nth-of-type(2) > header > div:first-child > span:first-child::before,
+.astral > div:nth-of-type(2) > header > div:first-child > span:first-child::after {
+  position: absolute;
+  width: 76px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(28deg);
+}
+
+.astral > div:nth-of-type(2) > header > div:first-child > span:first-child::after {
+  transform: rotate(-28deg);
+}
+
+.astral button,
+.astral input,
+.astral textarea,
+.astral select,
+.astral > header nav a {
+  border-radius: 10px;
+}
+
+.astral [aria-label="Archive views"] {
+  gap: 6px;
+  padding: 7px 16px 0;
+  background: rgb(6 5 18 / 92%);
+}
+
+.astral [aria-label="Archive views"] button {
+  min-height: 51px;
+  border: 1px solid transparent;
+  border-radius: 12px 12px 0 0;
+}
+
+.astral [aria-label="Archive views"] button[aria-pressed="true"] {
+  border-color: var(--line);
+  border-bottom-color: transparent;
+  background: linear-gradient(180deg, rgb(157 124 245 / 13%), transparent);
+}
+
+.astral [aria-label="Archive views"] button[aria-pressed="true"]::after {
+  right: 30%;
+  left: 30%;
+  height: 3px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--accent), var(--safe));
+  box-shadow: 0 0 16px var(--accent);
+}
+
+.astral [aria-label="Wiki navigation"],
+.astral > div:nth-of-type(2) > div > aside:last-child {
+  background: rgb(10 9 25 / 82%);
+  backdrop-filter: blur(12px);
+}
+
+.astral > div:nth-of-type(2) > div > section {
+  background: linear-gradient(145deg, rgb(26 24 51 / 94%), rgb(13 12 29 / 96%));
+}
+
+.astral > div:nth-of-type(2) > div > section h2 {
+  color: #f6f4ff;
+  text-shadow: 0 0 32px rgb(157 124 245 / 20%);
+}
+
+.astral > div:nth-of-type(2) > div > section article,
+.astral > div:nth-of-type(2) > div > section > section:nth-of-type(1),
+.astral > div:nth-of-type(2) > div > aside:last-child > * {
+  border-color: rgb(108 99 162 / 52%);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgb(31 29 59 / 94%), rgb(20 18 42 / 96%));
+  box-shadow: inset 0 1px 0 rgb(232 237 255 / 4%);
+}
+
+/* III — moss wayfinding, aged copper, and field-worn forest stone. */
+.verdant {
+  --display: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --bg: #080d0a;
+  --bg-deep: #050806;
+  --surface: #0e1712;
+  --surface-raised: #162019;
+  --surface-soft: #1d2a20;
+  --line: #354237;
+  --line-soft: #263129;
+  --ink: #e8eadb;
+  --ink-soft: #c1c9b3;
+  --muted: #8e9b82;
+  --accent: #91ad60;
+  --accent-bright: #d8d49a;
+  --accent-ink: #111707;
+  --danger: #d66f5d;
+  --safe: #77b69a;
+  --shadow: 0 28px 82px rgb(0 5 2 / 58%);
+  color-scheme: dark;
+}
+
+.verdant > div:first-child {
+  background:
+    repeating-radial-gradient(ellipse at 8% 72%, transparent 0 72px, rgb(144 172 96 / 4%) 73px, transparent 75px 126px),
+    radial-gradient(circle at 82% 8%, rgb(128 147 60 / 14%), transparent 29rem),
+    radial-gradient(circle at 12% 100%, rgb(162 91 48 / 11%), transparent 32rem),
+    linear-gradient(150deg, var(--bg), var(--bg-deep));
+}
+
+.verdant > div:nth-of-type(2) {
+  overflow: hidden;
+  border-radius: 26px 6px 26px 6px;
+  box-shadow: var(--shadow), inset 0 0 0 1px rgb(203 219 167 / 2%);
+}
+
+.verdant > div:nth-of-type(2) > header {
+  min-height: 132px;
+  background:
+    linear-gradient(105deg, rgb(81 105 45 / 16%), transparent 48%),
+    repeating-linear-gradient(100deg, transparent 0 84px, rgb(192 212 155 / 1.8%) 85px, transparent 86px 168px),
+    var(--surface);
+}
+
+.verdant > div:nth-of-type(2) > header::after {
+  right: -3rem;
+  width: 410px;
+  height: 190px;
+  border-radius: 48% 52% 43% 57%;
+  box-shadow: 0 0 0 32px rgb(145 173 96 / 2.5%), 0 0 0 64px rgb(197 132 76 / 1.7%);
+  transform: rotate(-9deg);
+}
+
+.verdant > div:nth-of-type(2) > header > div:first-child > span:first-child {
+  width: 66px;
+  height: 66px;
+  border-radius: 50% 6px 50% 6px;
+  background: linear-gradient(145deg, #1f2c1d, #080d0a);
+}
+
+.verdant button,
+.verdant input,
+.verdant textarea,
+.verdant select,
+.verdant > header nav a {
+  border-radius: 12px 4px;
+}
+
+.verdant [aria-label="Archive views"] {
+  gap: 8px;
+  padding: 7px 16px 0;
+  background: #080d0a;
+}
+
+.verdant [aria-label="Archive views"] button {
+  border: 0;
+  border-radius: 12px 4px 0 0;
+}
+
+.verdant [aria-label="Archive views"] button[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgb(145 173 96 / 15%), transparent);
+}
+
+.verdant [aria-label="Archive views"] button[aria-pressed="true"]::after {
+  right: 18px;
+  left: 18px;
+  background: linear-gradient(90deg, var(--accent), #c5844c);
+  box-shadow: none;
+}
+
+.verdant [aria-label="Wiki navigation"] {
+  border-right-color: #40513e;
+  background: linear-gradient(90deg, #0c140f, #111b14);
+}
+
+.verdant [aria-label="Wiki navigation"] > div:not(:first-child) {
+  margin-left: 14px;
+  padding-left: 8px;
+  border-left: 1px solid #40513e;
+}
+
+.verdant [aria-label="Wiki navigation"] button[aria-current="page"] {
+  border-radius: 10px 3px;
+  border-color: rgb(145 173 96 / 35%);
+  background: linear-gradient(90deg, rgb(145 173 96 / 13%), transparent);
+}
+
+.verdant > div:nth-of-type(2) > div > section {
+  background:
+    radial-gradient(circle at 92% 8%, rgb(145 173 96 / 6%), transparent 20rem),
+    linear-gradient(145deg, #172119, #0f1712);
+}
+
+.verdant > div:nth-of-type(2) > div > section article,
+.verdant > div:nth-of-type(2) > div > section > section:nth-of-type(1),
+.verdant > div:nth-of-type(2) > div > aside:last-child > * {
+  border-radius: 18px 5px;
+  box-shadow: inset 3px 0 0 rgb(145 173 96 / 5%);
+}
+
+.verdant button[type="submit"] {
+  background: linear-gradient(140deg, #d3d08f, #86a654);
+}
+
+/* IV — charcoal leather, antique rules, and wine-red bookmarks. */
+.scriptorium {
+  --display: "Iowan Old Style", Baskerville, "Times New Roman", serif;
+  --bg: #0c0909;
+  --bg-deep: #070505;
+  --surface: #151010;
+  --surface-raised: #1e1715;
+  --surface-soft: #28201a;
+  --line: #4b3a2d;
+  --line-soft: #332920;
+  --ink: #f0e5d2;
+  --ink-soft: #c7b9a3;
+  --muted: #9b8b78;
+  --accent: #c79a4e;
+  --accent-bright: #e3c883;
+  --accent-ink: #271803;
+  --danger: #b85a70;
+  --safe: #7fa487;
+  --shadow: 0 30px 88px rgb(0 0 0 / 62%);
+  color-scheme: dark;
+}
+
+.scriptorium > div:first-child {
+  background:
+    repeating-linear-gradient(2deg, transparent 0 3px, rgb(255 235 206 / 1.1%) 4px, transparent 5px 8px),
+    radial-gradient(circle at 50% -20%, rgb(117 35 52 / 18%), transparent 38rem),
+    linear-gradient(155deg, var(--bg), var(--bg-deep));
+}
+
+.scriptorium > div:nth-of-type(2) {
+  position: relative;
+  border: 1px solid #654c36;
+  box-shadow: var(--shadow), inset 0 0 0 5px #100c0b, inset 0 0 0 6px #3a2b22;
+}
+
+.scriptorium > div:nth-of-type(2)::before,
+.scriptorium > div:nth-of-type(2)::after {
+  position: absolute;
+  z-index: 3;
+  width: 26px;
+  height: 26px;
+  border-color: var(--accent);
+  border-style: double;
+  content: "";
+  pointer-events: none;
+}
+
+.scriptorium > div:nth-of-type(2)::before {
+  top: 10px;
+  left: 10px;
+  border-width: 3px 0 0 3px;
+}
+
+.scriptorium > div:nth-of-type(2)::after {
+  right: 10px;
+  bottom: 10px;
+  border-width: 0 3px 3px 0;
+}
+
+.scriptorium > div:nth-of-type(2) > header {
+  min-height: 136px;
+  border-bottom-style: double;
+  border-bottom-width: 4px;
+  background: linear-gradient(90deg, rgb(127 39 58 / 13%), transparent 42%), var(--surface);
+}
+
+.scriptorium > div:nth-of-type(2) > header::after {
+  right: 7%;
+  width: 250px;
+  height: 250px;
+  border: 3px double rgb(199 154 78 / 16%);
+  border-radius: 50%;
+  box-shadow: none;
+  transform: none;
+}
+
+.scriptorium > div:nth-of-type(2) > header h1,
+.scriptorium > div:nth-of-type(2) > div > section h2,
+.scriptorium > div:nth-of-type(2) > div > section h3 {
+  font-variant: small-caps;
+  letter-spacing: .015em;
+}
+
+.scriptorium > div:nth-of-type(2) > header > div:first-child > span:first-child {
+  width: 64px;
+  height: 64px;
+  border: 3px double var(--accent);
+  border-radius: 50%;
+  background: #5d1f31;
+  box-shadow: inset 0 0 0 5px rgb(0 0 0 / 25%), 0 8px 20px rgb(0 0 0 / 38%);
+  transform: none;
+}
+
+.scriptorium > div:nth-of-type(2) > header > div:first-child > span:first-child > span {
+  color: #f0dcae;
+  transform: none;
+}
+
+.scriptorium button,
+.scriptorium input,
+.scriptorium textarea,
+.scriptorium select,
+.scriptorium > header nav a {
+  border-radius: 3px;
+}
+
+.scriptorium [aria-label="Archive views"] {
+  min-height: 62px;
+  align-items: start;
+  gap: 5px;
+  padding-left: 26px;
+  background: #080606;
+}
+
+.scriptorium [aria-label="Archive views"] button {
+  min-height: 54px;
+  border: 0;
+  border-radius: 0 0 5px 5px;
+}
+
+.scriptorium [aria-label="Archive views"] button[aria-pressed="true"] {
+  color: #f2e5ce;
+  background: linear-gradient(180deg, #65253a, #451724);
+  box-shadow: inset 0 -1px 0 rgb(255 234 195 / 15%);
+}
+
+.scriptorium [aria-label="Archive views"] button[aria-pressed="true"]::after {
+  right: 10px;
+  bottom: -7px;
+  left: 10px;
+  height: 8px;
+  clip-path: polygon(0 0, 50% 100%, 100% 0);
+  background: #451724;
+  box-shadow: none;
+}
+
+.scriptorium [aria-label="Wiki navigation"],
+.scriptorium > div:nth-of-type(2) > div > aside:last-child {
+  background: #100c0b;
+}
+
+.scriptorium > div:nth-of-type(2) > div > section {
+  margin: 14px;
+  padding: clamp(28px, 4vw, 54px);
+  border: 3px double #49392c;
+  background: linear-gradient(145deg, #211a16, #17110f);
+  box-shadow: inset 0 0 70px rgb(0 0 0 / 16%);
+}
+
+.scriptorium > div:nth-of-type(2) > div > section article,
+.scriptorium > div:nth-of-type(2) > div > section > section:nth-of-type(1),
+.scriptorium > div:nth-of-type(2) > div > aside:last-child > * {
+  border: 3px double #49392c;
+  background: #1c1512;
+}
+
+.scriptorium > div:nth-of-type(2) > div > aside:last-child > form {
+  position: relative;
+}
+
+.scriptorium > div:nth-of-type(2) > div > aside:last-child > form::before {
+  position: absolute;
+  top: -2px;
+  right: 18px;
+  width: 22px;
+  height: 34px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 74%, 0 100%);
+  background: #7f273e;
+  content: "";
+}
+
+.scriptorium button[type="submit"] {
+  background: linear-gradient(140deg, #e0c27e, #b78338);
+}
+
+/* V — the production-minded expedition console and cartographic night desk. */
+.cartographer {
+  --display: Georgia, "Times New Roman", serif;
+  --bg: #071014;
+  --bg-deep: #040b0e;
+  --surface: #0b1b21;
+  --surface-raised: #10262c;
+  --surface-soft: #163139;
+  --line: #2c4b50;
+  --line-soft: #1d373c;
+  --ink: #e8f0eb;
+  --ink-soft: #bccbc5;
+  --muted: #86a19e;
+  --accent: #3bb5a8;
+  --accent-bright: #d8b467;
+  --accent-ink: #041a1a;
+  --danger: #df7869;
+  --safe: #65bf9d;
+  --shadow: 0 26px 78px rgb(0 6 9 / 54%);
+  color-scheme: dark;
+}
+
+.cartographer > div:first-child {
+  background:
+    repeating-radial-gradient(ellipse at 86% 14%, transparent 0 68px, rgb(59 181 168 / 4%) 69px, transparent 70px 116px),
+    radial-gradient(circle at 20% 90%, rgb(59 181 168 / 9%), transparent 32rem),
+    linear-gradient(155deg, var(--bg), var(--bg-deep));
+}
+
+.cartographer > div:nth-of-type(2) {
+  overflow: hidden;
+  border-color: #35565c;
+  border-radius: 14px;
+}
+
+.cartographer > div:nth-of-type(2) > header {
+  min-height: 126px;
+  background:
+    linear-gradient(110deg, rgb(59 181 168 / 11%), transparent 42%),
+    radial-gradient(circle at 88% -30%, rgb(59 181 168 / 20%), transparent 28rem),
+    var(--surface);
+}
+
+.cartographer > div:nth-of-type(2) > header::after {
+  right: -1rem;
+  width: 370px;
+  height: 370px;
+  border-color: rgb(216 180 103 / 14%);
+  border-radius: 50%;
+  box-shadow: 0 0 0 36px rgb(216 180 103 / 2%), 0 0 0 72px rgb(59 181 168 / 2%);
+  transform: none;
+}
+
+.cartographer button,
+.cartographer input,
+.cartographer textarea,
+.cartographer select,
+.cartographer > header nav a {
+  border-radius: 8px;
+}
+
+.cartographer [aria-label="Archive views"] {
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.cartographer [aria-label="Archive views"] button {
+  border-right: 0;
+  border-radius: 8px 8px 0 0;
+}
+
+.cartographer [aria-label="Archive views"] button[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgb(59 181 168 / 10%), transparent);
+}
+
+.cartographer [aria-label="Archive views"] button[aria-pressed="true"]::after {
+  background: var(--accent-bright);
+  box-shadow: none;
+}
+
+.cartographer [aria-label="Wiki navigation"],
+.cartographer > div:nth-of-type(2) > div > aside:last-child {
+  background: #08171c;
+}
+
+.cartographer > div:nth-of-type(2) > div > section {
+  background:
+    radial-gradient(circle at 92% 4%, rgb(59 181 168 / 7%), transparent 25rem),
+    linear-gradient(145deg, #12292f, #0c1e24);
+}
+
+.cartographer > div:nth-of-type(2) > div > section article,
+.cartographer > div:nth-of-type(2) > div > section > section:nth-of-type(1),
+.cartographer > div:nth-of-type(2) > div > aside:last-child > * {
+  border-radius: 10px;
+  background: #11272d;
+  box-shadow: 0 8px 22px rgb(0 6 9 / 12%);
+}
+
+.cartographer button[type="submit"] {
+  background: linear-gradient(140deg, #e2c276, #c49240);
+}
+
+@media (max-width: 840px) {
+  .scriptorium > div:nth-of-type(2) > div > section { margin: 0; border-right: 0; border-left: 0; }
+}

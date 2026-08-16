@@ -6,10 +6,13 @@ import { useWorkerLayoutForceAtlas2 } from "@react-sigma/layout-forceatlas2";
 import { createEdgeCurveProgram } from "@sigma/edge-curve";
 import { createNodeBorderProgram } from "@sigma/node-border";
 import { MultiDirectedGraph } from "graphology";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createEdgeArrowProgram } from "sigma/rendering";
 import type { Settings } from "sigma/settings";
-import { buildGraphPresentation } from "@/lib/graph-presentation";
+import { buildGraphPresentation, type GraphNodeVisualKind } from "@/lib/graph-presentation";
+import { useTheme } from "@/components/theme-provider";
+import { graphEdgeColor, graphNodeColor, graphStatusColor } from "@/lib/renderer-theme";
+import type { VisualizationPalette } from "@/lib/theme";
 
 export type RelationshipWebglProps = {
   nodes: GraphNode[];
@@ -28,7 +31,7 @@ type NodeAttributes = {
   type: "border"; kind: string; status: string; forceLabel: boolean; zIndex: number;
 };
 type EdgeAttributes = {
-  size: number; label: string; color: string; type: "arrow" | "curved"; curvature: number; zIndex: number;
+  size: number; label: string; color: string; type: "arrow" | "curved"; curvature: number; edgeClass: GraphEdge["edge_class"]; zIndex: number;
 };
 
 const SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
@@ -50,10 +53,8 @@ const SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
   labelFont: "Inter, ui-sans-serif, system-ui, sans-serif",
   labelSize: 12,
   labelWeight: "600",
-  labelColor: { color: "#dce8f3" },
   edgeLabelFont: "Inter, ui-sans-serif, system-ui, sans-serif",
   edgeLabelSize: 10,
-  edgeLabelColor: { color: "#aabbd0" },
   labelDensity: 0.8,
   stagePadding: 64,
   minCameraRatio: 0.08,
@@ -62,10 +63,12 @@ const SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
 };
 
 export default function RelationshipWebgl(props: RelationshipWebglProps) {
+  const { theme } = useTheme();
   const [available] = useState(supportsWebgl);
+  const [initialPalette] = useState(theme.visualization);
   const graph = useMemo(
-    () => createGraph(props.nodes, props.edges, props.rootId, props.positions),
-    [props.edges, props.nodes, props.positions, props.rootId],
+    () => createGraph(props.nodes, props.edges, props.rootId, props.positions, initialPalette),
+    [initialPalette, props.edges, props.nodes, props.positions, props.rootId],
   );
   const graphKey = useMemo(() => [props.rootId ?? "", props.positions ? "fixed" : "network", ...props.nodes.map(({ id }) => id), ...props.edges.map(({ id }) => id)].join("|"), [props.edges, props.nodes, props.positions, props.rootId]);
 
@@ -75,13 +78,13 @@ export default function RelationshipWebgl(props: RelationshipWebglProps) {
   if (!available) return null;
 
   return (
-    <SigmaContainer<NodeAttributes, EdgeAttributes> key={graphKey} className="graph-sigma" graph={graph} settings={SETTINGS}>
-      <RelationshipController {...props} />
+    <SigmaContainer<NodeAttributes, EdgeAttributes> key={graphKey} className="graph-sigma" graph={graph} settings={{ ...SETTINGS, labelColor: { color: initialPalette.text }, edgeLabelColor: { color: initialPalette.textMuted } }}>
+      <RelationshipController {...props} palette={theme.visualization} />
     </SigmaContainer>
   );
 }
 
-function RelationshipController({ positions, selectedId, reducedMotion, onAnchorChange, onRenderError, onSelect }: RelationshipWebglProps) {
+function RelationshipController({ positions, rootId, selectedId, reducedMotion, onAnchorChange, onRenderError, onSelect, palette }: RelationshipWebglProps & { palette: VisualizationPalette }) {
   const sigma = useSigma<NodeAttributes, EdgeAttributes>();
   const graph = sigma.getGraph();
   const registerEvents = useRegisterEvents<NodeAttributes, EdgeAttributes>();
@@ -89,6 +92,21 @@ function RelationshipController({ positions, selectedId, reducedMotion, onAnchor
   const { gotoNode, reset, zoomIn, zoomOut } = useCamera({ duration: reducedMotion ? 0 : 190, factor: 1.45 });
   const { start, stop } = useWorkerLayoutForceAtlas2({ settings: { gravity: 1.8, scalingRatio: 6, slowDown: 4, strongGravityMode: true } });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const coarsePointer = useSyncExternalStore(subscribeCoarsePointer, coarsePointerSnapshot, () => false);
+
+  useEffect(() => {
+    graph.forEachNode((node, data) => {
+      graph.mergeNodeAttributes(node, {
+        color: graphNodeColor(data.kind as GraphNodeVisualKind, palette),
+        borderColor: node === rootId ? palette.selection : graphStatusColor(data.status, palette),
+      });
+    });
+    graph.forEachEdge((edge, data) => {
+      graph.setEdgeAttribute(edge, "color", graphEdgeColor(data.edgeClass, palette));
+    });
+    setSettings({ labelColor: { color: palette.text }, edgeLabelColor: { color: palette.textMuted } });
+    sigma.refresh();
+  }, [graph, palette, rootId, setSettings, sigma]);
 
   useEffect(() => {
     registerEvents({
@@ -104,20 +122,20 @@ function RelationshipController({ positions, selectedId, reducedMotion, onAnchor
     const neighbors = activeId && graph.hasNode(activeId) ? new Set(graph.neighbors(activeId)) : new Set<string>();
     setSettings({
       nodeReducer: (node, data) => !activeId ? data : node === activeId
-        ? { ...data, borderColor: "#f2bd68", highlighted: true, forceLabel: true, size: data.size * 1.35, zIndex: 3 }
+        ? { ...data, borderColor: palette.selection, highlighted: true, forceLabel: true, size: data.size * 1.35, zIndex: 3 }
         : neighbors.has(node)
-          ? { ...data, borderColor: "#67dec8", highlighted: true, forceLabel: true, size: data.size * 1.08, zIndex: 2 }
-          : { ...data, borderColor: "#31465b", color: "#26384b", label: "", size: data.size * 0.82, zIndex: 0 },
+          ? { ...data, borderColor: palette.neighbor, highlighted: true, forceLabel: true, size: data.size * 1.08, zIndex: 2 }
+          : { ...data, borderColor: palette.dimmedEdge, color: palette.dimmedNode, label: "", size: data.size * 0.82, zIndex: 0 },
       edgeReducer: (edge, data) => {
         if (!activeId) return data;
         const [source, target] = graph.extremities(edge);
         return source === activeId || target === activeId
-          ? { ...data, color: "#e8a759", forceLabel: true, size: data.size * 2.1, zIndex: 2 }
-          : { ...data, color: "#293c50", forceLabel: false, size: Math.max(0.45, data.size * 0.55), zIndex: 0 };
+          ? { ...data, color: palette.edgeRelationship, forceLabel: true, size: data.size * 2.1, zIndex: 2 }
+          : { ...data, color: palette.dimmedEdge, forceLabel: false, size: Math.max(0.45, data.size * 0.55), zIndex: 0 };
       },
     });
     sigma.refresh();
-  }, [graph, hoveredId, selectedId, setSettings, sigma]);
+  }, [graph, hoveredId, palette, selectedId, setSettings, sigma]);
 
   useEffect(() => {
     if (!selectedId || !graph.hasNode(selectedId)) { onAnchorChange(null); return; }
@@ -135,11 +153,11 @@ function RelationshipController({ positions, selectedId, reducedMotion, onAnchor
   }, [gotoNode, graph, reducedMotion, selectedId]);
 
   useEffect(() => {
-    if (positions || reducedMotion || graph.order < 2) { reset({ duration: 0 }); return; }
+    if (positions || reducedMotion || coarsePointer || graph.order < 2) { reset({ duration: 0 }); return; }
     start();
     const timer = window.setTimeout(() => { stop(); reset({ duration: 220 }); }, 900);
     return () => { window.clearTimeout(timer); stop(); };
-  }, [graph, positions, reducedMotion, reset, start, stop]);
+  }, [coarsePointer, graph, positions, reducedMotion, reset, start, stop]);
 
   useEffect(() => {
     const lost = (event: Event) => { event.preventDefault(); onRenderError("The graphics context was lost. The relationship list remains fully available."); };
@@ -153,21 +171,21 @@ function RelationshipController({ positions, selectedId, reducedMotion, onAnchor
       <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomIn()}>+</button>
       <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomOut()}>−</button>
       <button type="button" aria-label="Fit relationships" title="Fit relationships" onClick={() => reset()}>⌂</button>
-      {!positions && <button type="button" aria-label="Relayout relationships" title="Relayout relationships" onClick={() => { start(); window.setTimeout(() => { stop(); reset(); }, 700); }}>✦</button>}
+      {!positions && <button type="button" aria-label="Relayout relationships" title="Relayout relationships" onClick={() => { if (coarsePointer) { reset({ duration: 0 }); return; } start(); window.setTimeout(() => { stop(); reset(); }, 700); }}>✦</button>}
     </div>
   );
 }
 
-function createGraph(nodes: GraphNode[], edges: GraphEdge[], rootId?: string | null, positions?: Readonly<Record<string, { x: number; y: number }>> | null) {
-  const presentation = buildGraphPresentation(nodes, edges);
+function createGraph(nodes: GraphNode[], edges: GraphEdge[], rootId: string | null | undefined, positions: Readonly<Record<string, { x: number; y: number }>> | null | undefined, palette: VisualizationPalette) {
+  const presentation = buildGraphPresentation(nodes, edges, palette);
   const graph = new MultiDirectedGraph<NodeAttributes, EdgeAttributes>();
   for (const node of presentation.nodes) {
     const root = node.id === rootId;
     const position = positions?.[node.id];
-    const statusBorder = node.status === "archived" ? "#718096" : node.status === "draft" ? "#d3a65e" : "#67cdb8";
+    const statusBorder = graphStatusColor(node.status, palette);
     graph.addNode(node.id, {
       x: position?.x ?? node.x, y: position?.y ?? node.y, size: node.size + (root ? 2 : 0),
-      label: node.title, color: node.color, borderColor: root ? "#f2bd68" : statusBorder,
+      label: node.title, color: node.color, borderColor: root ? palette.selection : statusBorder,
       type: "border", kind: node.kind, status: node.status, forceLabel: root, zIndex: root ? 2 : 1,
     });
   }
@@ -175,10 +193,23 @@ function createGraph(nodes: GraphNode[], edges: GraphEdge[], rootId?: string | n
     if (!graph.hasNode(edge.source_id) || !graph.hasNode(edge.target_id)) continue;
     graph.addDirectedEdgeWithKey(edge.key, edge.source_id, edge.target_id, {
       size: edge.size, label: edge.label || edge.kind.replaceAll("_", " "), color: edge.color,
-      type: "curved", curvature: edge.curvature || 0.12, zIndex: 1,
+      type: "curved", curvature: edge.curvature || 0.12, edgeClass: edge.edge_class, zIndex: 1,
     });
   }
   return graph;
+}
+
+function subscribeCoarsePointer(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia("(pointer: coarse)");
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function coarsePointerSnapshot() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(pointer: coarse)").matches;
 }
 
 function supportsWebgl() {

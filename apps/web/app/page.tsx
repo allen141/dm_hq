@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { createApiClient, type Campaign, type User } from "@dm-hq/api-client";
+import { SettingsMenu } from "@/components/settings-menu";
 
 const client = createApiClient();
 
@@ -41,7 +42,10 @@ export default function Home() {
   async function signOut() { await client.logout(); setUser(null); setCampaigns([]); }
 
   return <main className="shell home-shell">
-    <header className="masthead"><div className="masthead-title"><div className="eyebrow">DM HQ · The Archive</div><h1>Keep the thread.</h1><p className="masthead-detail">A campaign atlas for the moments between preparation and play.</p></div><p className="lede">Capture rough ideas, give them structure, and find them again when the table is moving quickly.</p></header>
+    <header className="masthead"><div className="masthead-title"><div className="eyebrow">DM HQ · The Archive</div><h1>Keep the thread.</h1><p className="masthead-detail">A campaign atlas for the moments between preparation and play.</p></div><div className="masthead-tools">
+      <p className="lede">Capture rough ideas, give them structure, and find them again when the table is moving quickly.</p>
+      <SettingsMenu className="settings-menu-home" />
+    </div></header>
     <div className="workspace">
       <section className="panel" aria-labelledby="campaigns-heading">
         <div className="panel-heading"><div><div className="eyebrow">Private workspace</div><h2 id="campaigns-heading">Campaigns</h2></div>{user && <div className="userbar"><span>{user.username}</span><button className="secondary" onClick={signOut}>Sign out</button></div>}</div>

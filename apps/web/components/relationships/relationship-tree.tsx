@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
 import type { RelationshipOrientation, RelationshipPosition } from "@/lib/relationship-presentation";
+import type { VisualizationPalette } from "@/lib/theme";
 
 export type RelationshipTreeProps = {
   nodes: readonly GraphNode[];
@@ -15,6 +16,7 @@ export type RelationshipTreeProps = {
   showLevelLabels?: boolean;
   levelLabels?: readonly string[];
   onSelect: (id: string) => void;
+  palette: VisualizationPalette;
   editable?: boolean;
   manualPositions?: Readonly<Record<string, { x: number; y: number }>>;
   onPositionChange?: (id: string, position: { x: number; y: number }, level: number) => void;
@@ -40,6 +42,7 @@ export default function RelationshipTree({
   showLevelLabels = true,
   levelLabels = [],
   onSelect,
+  palette,
   editable = false,
   manualPositions = {},
   onPositionChange,
@@ -105,12 +108,23 @@ export default function RelationshipTree({
     if (target && target !== wireSource) onConnect?.(wireSource, target);
     setWireSource(null);
   };
+  const paletteStyle = {
+    "--viz-background": palette.background,
+    "--viz-surface": palette.surface,
+    "--viz-grid": palette.grid,
+    "--viz-text": palette.text,
+    "--viz-text-muted": palette.textMuted,
+    "--viz-selection": palette.selection,
+    "--viz-hierarchy-structural": palette.hierarchyStructural,
+    "--viz-hierarchy-context": palette.hierarchyContext,
+  } as CSSProperties;
+
   return (
-    <div className="relationship-tree-viewport">
+    <div className="relationship-tree-viewport" style={paletteStyle}>
       <div className="relationship-tree-key" aria-hidden="true"><span>Hierarchy</span><span><i /> defines levels</span><span><i className="context" /> cross-link</span></div>
       <svg className="relationship-tree" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="tree" aria-label="Relationship hierarchy">
         <defs>
-          <filter id="relationship-card-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="5" stdDeviation="8" floodColor="#020b0f" floodOpacity=".42" /></filter>
+          <filter id="relationship-card-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="5" stdDeviation="8" floodColor={palette.background} floodOpacity=".42" /></filter>
         </defs>
         {showLevelLabels && (
           <g className="relationship-tree-levels" aria-hidden="true">

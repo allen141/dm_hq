@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
 import type { MapCanvasProps } from "@/lib/map-types";
 import MapDomFallback from "@/components/map/map-dom-fallback";
@@ -15,6 +15,21 @@ function supportsWebgl() {
     return false;
   }
 }
+
+function subscribeForcedColors(onChange: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia("(forced-colors: active)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function forcedColorsSnapshot() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(forced-colors: active)").matches;
+}
+
+function forcedColorsServerSnapshot() { return false; }
 
 class RendererErrorBoundary extends Component<
   { children: ReactNode; onError: (error: Error) => void },
@@ -39,19 +54,20 @@ export function MapCanvas(props: MapCanvasProps) {
   const { background, onRendererError } = props;
   const [failure, setFailure] = useState<{ url: string; error: Error } | null>(null);
   const [webglAvailable] = useState(() => supportsWebgl());
+  const forcedColors = useSyncExternalStore(subscribeForcedColors, forcedColorsSnapshot, forcedColorsServerSnapshot);
   const activeFailure = failure?.url === background.url ? failure.error : null;
 
   useEffect(() => {
-    if (!webglAvailable) onRendererError?.(new Error("WebGL is not available."));
-  }, [onRendererError, webglAvailable]);
+    if (!forcedColors && !webglAvailable) onRendererError?.(new Error("WebGL is not available."));
+  }, [forcedColors, onRendererError, webglAvailable]);
 
   const fail = useCallback((error: Error) => {
     setFailure((current) => current?.url === background.url ? current : { url: background.url, error });
     onRendererError?.(error);
   }, [background.url, onRendererError]);
 
-  if (activeFailure || webglAvailable === false || !background.url) {
-    return <MapDomFallback {...props} reason={activeFailure?.message ?? (webglAvailable === false ? "WebGL is not available." : undefined)} />;
+  if (forcedColors || activeFailure || webglAvailable === false || !background.url) {
+    return <MapDomFallback {...props} reason={forcedColors ? "Forced-colors mode is active." : activeFailure?.message ?? (webglAvailable === false ? "WebGL is not available." : undefined)} />;
   }
 
   return (
