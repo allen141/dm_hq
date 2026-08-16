@@ -20,10 +20,18 @@ const edges: GraphEdge[] = [
 test("keeps root emphasis separate from selection and shows relationship wording", () => {
   render(<RelationshipGraphCanvas campaignId="campaign" nodes={nodes} edges={edges} layoutMode="hierarchy" rootId="mara" />);
 
+  expect(screen.getByRole("tree", { name: "Relationship hierarchy" })).toBeInTheDocument();
+  expect(screen.queryByTestId("relationship-webgl")).not.toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Select Selka" }));
+  fireEvent.click(screen.getByRole("treeitem", { name: /Selka/ }));
   expect(screen.getByRole("dialog", { name: "Selka" })).toHaveTextContent("commanded by Mara");
   expect(screen.getByRole("dialog", { name: "Selka" })).toHaveTextContent("allied with Mara");
+});
+
+test("keeps Sigma available for non-hierarchical relationship networks", () => {
+  render(<RelationshipGraphCanvas campaignId="campaign" nodes={nodes} edges={edges} layoutMode="network" />);
+  expect(screen.getByTestId("relationship-webgl")).toBeInTheDocument();
+  expect(screen.queryByRole("tree", { name: "Relationship hierarchy" })).not.toBeInTheDocument();
 });
 
 test("semantic view reflects visible kinds and hierarchy levels", () => {

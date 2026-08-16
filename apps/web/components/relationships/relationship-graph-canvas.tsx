@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Component, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { RelationshipWebglProps } from "@/components/relationships/relationship-webgl";
+import RelationshipTree from "@/components/relationships/relationship-tree";
 import { archiveDocumentHref } from "@/lib/archive-routes";
 import {
   buildRelationshipPresentation,
@@ -52,7 +53,7 @@ export default function RelationshipGraphCanvas({
   campaignId,
   nodes,
   edges,
-  layoutMode = "network",
+  layoutMode = "hierarchy",
   orientation = "top_to_bottom",
   rootId = null,
   visibleRelationshipKinds,
@@ -147,9 +148,13 @@ export default function RelationshipGraphCanvas({
 
       <div className="graph-stage-frame" ref={stageRef}>
         {mode === "webgl" ? (
-          <RenderBoundary key={resetKey} resetKey={resetKey} onError={rendererError}>
-            <Webgl nodes={presentation.nodes} edges={presentation.edges} rootId={rootId} positions={presentation.positions} selectedId={selectedId} reducedMotion={reducedMotion} onAnchorChange={setAnchor} onRenderError={rendererError} onSelect={selectNode} />
-          </RenderBoundary>
+          layoutMode === "hierarchy" && presentation.positions ? (
+            <RelationshipTree nodes={presentation.nodes} edges={presentation.edges} structuralEdgeIds={presentation.structural_edge_ids} positions={presentation.positions} orientation={orientation} rootId={rootId} selectedId={selectedId} onSelect={(id) => selectNode(id, true)} />
+          ) : (
+            <RenderBoundary key={resetKey} resetKey={resetKey} onError={rendererError}>
+              <Webgl nodes={presentation.nodes} edges={presentation.edges} rootId={rootId} positions={null} selectedId={selectedId} reducedMotion={reducedMotion} onAnchorChange={setAnchor} onRenderError={rendererError} onSelect={selectNode} />
+            </RenderBoundary>
+          )
         ) : (
           <div className="graph-list-fallback relationship-semantic-list">
             <div><span className="eyebrow">Semantic view</span><h3>{layoutMode === "hierarchy" ? "Relationship hierarchy" : "Relationship knowledge"}</h3></div>

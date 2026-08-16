@@ -796,6 +796,26 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
 .relationship-shell .relationship-graph-canvas,
 .relationship-shell .relationship-graph-canvas .graph-stage-frame,
 .relationship-shell .relationship-graph-canvas .graph-sigma { min-height: 100vh; }
+.relationship-tree-viewport { position: absolute; inset: 0; overflow: auto; padding-top: 58px; background: radial-gradient(circle at 50% 15%, rgb(27 69 72 / 18%), transparent 46%), #071a22; }
+.relationship-tree { display: block; min-width: 100%; min-height: 100%; margin: 0 auto; overflow: visible; }
+.relationship-tree-levels text { fill: #6f918f; font: 700 10px/1 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
+.relationship-tree-connectors path { fill: none; vector-effect: non-scaling-stroke; }
+.relationship-tree-connectors .structural { stroke: #7cb7b1; stroke-width: 2; }
+.relationship-tree-connectors .context { stroke: #a982bd; stroke-width: 1.25; stroke-dasharray: 5 7; opacity: .58; }
+.relationship-tree-card { cursor: pointer; outline: none; }
+.relationship-tree-card > rect:first-of-type { fill: #102d35; stroke: #4f7776; stroke-width: 1.5; transition: fill 120ms ease, stroke 120ms ease; }
+.relationship-tree-card .accent { fill: #78c3bd; }
+.relationship-tree-card .title { fill: #f4f0e8; font: 650 14px/1.2 var(--font-ui); }
+.relationship-tree-card .meta { fill: #9db6b3; font: 11px/1.2 var(--font-ui); text-transform: capitalize; }
+.relationship-tree-card .root-label { fill: #efc474; font: 800 8px/1 var(--font-ui); letter-spacing: .13em; }
+.relationship-tree-card:hover > rect:first-of-type,
+.relationship-tree-card:focus-visible > rect:first-of-type { fill: #173b43; stroke: #a6d8d3; stroke-width: 2.5; }
+.relationship-tree-card.selected > rect:first-of-type { fill: #1d4b50; stroke: #efc474; stroke-width: 3; }
+.relationship-tree-card.root .accent { fill: #d5a653; }
+.relationship-tree-key { position: sticky; z-index: 2; top: 70px; left: 18px; display: flex; width: fit-content; align-items: center; gap: 13px; padding: 8px 10px; border: 1px solid rgb(135 182 177 / 22%); border-radius: 999px; color: #9db6b3; background: rgb(7 25 31 / 88%); font: 10px/1 var(--font-ui); letter-spacing: .04em; }
+.relationship-tree-key > span:first-child { color: #e9c47c; font-weight: 800; text-transform: uppercase; }
+.relationship-tree-key i { display: inline-block; width: 20px; margin-right: 5px; border-top: 2px solid #7cb7b1; vertical-align: middle; }
+.relationship-tree-key i.context { border-top: 1px dashed #a982bd; }
 .relationship-viewer-summary { position: relative; z-index: 4; display: flex; width: fit-content; max-width: calc(100vw - 48px); align-items: flex-end; gap: 18px; margin: 0; padding: 12px 14px; pointer-events: auto; }
 .relationship-viewer-summary > div { display: grid; min-width: 220px; gap: 2px; }
 .relationship-viewer-summary strong { color: #fffdf8; font: 650 1.15rem/1.2 Georgia, serif; }
@@ -833,6 +853,8 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
   .map-shell .map-workspace-grid.is-viewing .map-renderer-warning { left: 14px; bottom: 14px; width: calc(100vw - 28px); }
   .relationship-viewer-summary { width: calc(100vw - 28px); max-width: none; align-items: stretch; flex-direction: column; }
   .relationship-viewer-summary label { min-width: 0; }
+  .relationship-tree-viewport { padding-top: 112px; }
+  .relationship-tree-key { top: 122px; }
   .relationship-details-editor,
   .relationship-editor-grid { grid-template-columns: 1fr; }
 }
