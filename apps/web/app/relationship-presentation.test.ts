@@ -61,6 +61,15 @@ describe("buildRelationshipPresentation", () => {
     expect(Math.abs(leftRight.brann.x)).toBeGreaterThan(Math.abs(leftRight.brann.y));
     expect(topDown.wardens).toEqual(expect.objectContaining({ level: 0 }));
   });
+
+  test("applies explicit board levels without changing canonical edges", () => {
+    const presentation = buildRelationshipPresentation(nodes, edges.filter(({ id }) => id !== "cycle"), {
+      layout_mode: "hierarchy", layout_relationship_kinds: ["commands"], level_overrides: { brann: 5 },
+    });
+
+    expect(presentation.positions?.brann.level).toBe(5);
+    expect(presentation.edges).toHaveLength(edges.length - 1);
+  });
 });
 
 describe("relationshipFactsForNode", () => {

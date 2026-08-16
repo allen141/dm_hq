@@ -39,13 +39,13 @@ Hierarchy level headings are presentation settings. A board can hide them or ass
 
 Rank-defining edges affect placement only. Other visible relationships remain contextual cross-links. Multiple roots, multiple parents or superiors, disconnected members, self-links, parallel edges, and cycles remain representable. A cycle or cross-link is reported as a layout condition; the application never deletes, reverses, or invents a semantic edge to make the picture look like a tree.
 
-Automatic layout positions, camera state, selection, pan, and zoom remain transient. Persisted manual node positions are not part of this increment. Existing position fields remain readable for compatibility but are not promoted into canonical fictional meaning.
+Automatic layout, camera state, selection, pan, and zoom remain transient. The editor may persist a member's explicit board position and zero-based level override. These values belong only to the board presentation and never become fictional facts in item Markdown.
 
 ### Viewer and editor separation
 
 The canonical Relationship route is an immersive, read-only explorer. It contains compact board selection and presentation controls, a full-viewport visual stage, a relationship-specific inspector, and an equivalent semantic list.
 
-A sibling `/edit` route owns title, description, membership, root, visible kinds, rank-defining kinds, direction, orientation, archive status, and conflict recovery. Adding or removing a member never changes a relationship fact. Relationship facts continue to use the shared versioned item-document mutation path rather than canvas-local edges.
+A sibling `/edit` route owns title, description, membership, root, visible kinds, rank-defining kinds, direction, orientation, manual arrangement, archive status, and conflict recovery. Dragging a card changes only board presentation. Connecting, removing, or reversing an edge is an explicit action through the shared versioned item-document mutation path and rewrites the canonical source-item Markdown rather than creating a canvas-local fact. The editor warns about duplicate or reverse edges, overlapping kinds, multiple structural parents, and cycles but allows the DM to save; stale document versions remain blocking conflicts.
 
 ### Concise relationship knowledge
 
@@ -56,7 +56,7 @@ The semantic mode uses the same filtered presentation model. It provides member 
 ## Consequences
 
 - The automatic Graph remains stable. Relationship networks reuse its accepted Sigma/Graphology boundary, while hierarchy boards use the dedicated SVG tree without adding a rendering dependency.
-- Relationship settings and document validation gain additive fields; no database or persistent graph-layout migration is required.
+- Relationship settings and member metadata gain additive fields; no database or persistent graph-layout migration is required.
 - The API applies saved visible-kind filters and reports the available member-to-member kinds for authoring.
 - The Archive shell recognizes Relationship viewers as immersive and provides a dedicated edit/view action.
 - Tests must cover deterministic layout, input ordering, orientations, direction, cycles, forests, multiple parents, parallel edges, inverse wording, WebGL fallback, reduced motion, keyboard navigation, conflicts, and canonical-data boundaries.

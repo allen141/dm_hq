@@ -13,6 +13,7 @@ export type RelationshipPresentationOptions = {
   visible_relationship_kinds?: readonly string[];
   layout_relationship_kinds?: readonly string[];
   layout_direction?: RelationshipLayoutDirection;
+  level_overrides?: Readonly<Record<string, number | null | undefined>>;
 };
 
 export type RelationshipPresentation = {
@@ -108,7 +109,7 @@ export function relationshipPhrase(label: string, kind: string, neighborTitle?: 
 export function buildHierarchyPositions(
   nodes: readonly GraphNode[],
   structuralEdges: readonly GraphEdge[],
-  options: Pick<RelationshipPresentationOptions, "orientation" | "root_id" | "layout_direction"> = {},
+  options: Pick<RelationshipPresentationOptions, "orientation" | "root_id" | "layout_direction" | "level_overrides"> = {},
 ): Readonly<Record<string, RelationshipPosition>> {
   const ids = nodes.map((node) => node.id).sort(compareStrings);
   const idSet = new Set(ids);
@@ -188,6 +189,13 @@ export function buildHierarchyPositions(
         ? { x: -down, y: -across, level, order }
         : { x: across, y: down, level, order };
     });
+  }
+  for (const [id, override] of Object.entries(options.level_overrides ?? {})) {
+    const current = positions[id];
+    if (!current || override == null || !Number.isInteger(override) || override < 0) continue;
+    positions[id] = orientation === "left_to_right"
+      ? { ...current, x: override * 2.5, level: override }
+      : { ...current, y: -override * 2.5, level: override };
   }
   return positions;
 }

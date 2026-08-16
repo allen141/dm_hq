@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { GraphEdge, GraphNode } from "@dm-hq/api-client";
 import type { RelationshipOrientation, RelationshipPosition } from "@/lib/relationship-presentation";
 
@@ -14,6 +15,10 @@ export type RelationshipTreeProps = {
   showLevelLabels?: boolean;
   levelLabels?: readonly string[];
   onSelect: (id: string) => void;
+  editable?: boolean;
+  manualPositions?: Readonly<Record<string, { x: number; y: number }>>;
+  onPositionChange?: (id: string, position: { x: number; y: number }, level: number) => void;
+  onConnect?: (sourceId: string, targetId: string) => void;
 };
 
 type Card = { x: number; y: number; level: number; node: GraphNode };
@@ -35,8 +40,16 @@ export default function RelationshipTree({
   showLevelLabels = true,
   levelLabels = [],
   onSelect,
+  editable = false,
+  manualPositions = {},
+  onPositionChange,
+  onConnect,
 }: RelationshipTreeProps) {
-  const { cards, width, height } = treeGeometry(nodes, positions, orientation);
+  const [draftPositions, setDraftPositions] = useState(manualPositions);
+  const [drag, setDrag] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [wireSource, setWireSource] = useState<string | null>(null);
+  useEffect(() => setDraftPositions(manualPositions), [manualPositions]);
+  const { cards, width, height } = treeGeometry(nodes, positions, orientation, draftPositions);
   const cardById = new Map(cards.map((card) => [card.node.id, card]));
   const connectors = edges.flatMap((edge) => {
     const source = cardById.get(edge.source_id);
@@ -47,6 +60,45 @@ export default function RelationshipTree({
   });
   const levelCount = Math.max(0, ...cards.map(({ level }) => level)) + 1;
 
+  const pointerPosition = (event: ReactPointerEvent<SVGGElement>) => {
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return { x: event.clientX, y: event.clientY };
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    return point.matrixTransform(svg.getScreenCTM()?.inverse());
+  };
+  const startMove = (event: ReactPointerEvent<SVGGElement>, card: Card) => {
+    if (!editable || wireSource) return;
+    const point = pointerPosition(event);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDrag({ id: card.node.id, offsetX: point.x - card.x, offsetY: point.y - card.y });
+  };
+  const moveCard = (event: ReactPointerEvent<SVGGElement>) => {
+    if (!drag) return;
+    const point = pointerPosition(event);
+    setDraftPositions((current) => ({ ...current, [drag.id]: { x: Math.max(0, point.x - drag.offsetX), y: Math.max(0, point.y - drag.offsetY) } }));
+  };
+  const finishMove = (event: ReactPointerEvent<SVGGElement>) => {
+    if (!drag) return;
+    const point = pointerPosition(event);
+    const position = { x: Math.max(0, point.x - drag.offsetX), y: Math.max(0, point.y - drag.offsetY) };
+    const levelAxis = orientation === "top_to_bottom" ? position.y : position.x;
+    const level = Math.max(0, Math.round((levelAxis - PADDING) / (CARD_HEIGHT + LEVEL_GAP)));
+    onPositionChange?.(drag.id, position, level);
+    setDrag(null);
+  };
+  const startWire = (event: ReactPointerEvent<SVGCircleElement>, sourceId: string) => {
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setWireSource(sourceId);
+  };
+  const finishWire = (event: ReactPointerEvent<SVGCircleElement>) => {
+    if (!wireSource) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<SVGGElement>("[data-node-id]")?.dataset.nodeId;
+    if (target && target !== wireSource) onConnect?.(wireSource, target);
+    setWireSource(null);
+  };
   return (
     <div className="relationship-tree-viewport">
       <div className="relationship-tree-key" aria-hidden="true"><span>Hierarchy</span><span><i /> defines levels</span><span><i className="context" /> cross-link</span></div>
@@ -74,13 +126,14 @@ export default function RelationshipTree({
             const selected = node.id === selectedId;
             const root = node.id === rootId;
             return (
-              <g key={node.id} className={`relationship-tree-card${selected ? " selected" : ""}${root ? " root" : ""}`} role="treeitem" aria-level={level + 1} aria-selected={selected} tabIndex={0} transform={`translate(${x} ${y})`} onClick={() => onSelect(node.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(node.id); } }}>
+              <g key={node.id} data-node-id={node.id} className={`relationship-tree-card${selected ? " selected" : ""}${root ? " root" : ""}${editable ? " editable" : ""}`} role="treeitem" aria-level={level + 1} aria-selected={selected} tabIndex={0} transform={`translate(${x} ${y})`} onPointerDown={(event) => startMove(event, { node, x, y, level })} onPointerMove={moveCard} onPointerUp={finishMove} onClick={() => onSelect(node.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(node.id); } }}>
                 <title>{node.title} · {node.kind} · {node.status}</title>
                 <rect width={CARD_WIDTH} height={CARD_HEIGHT} rx="8" filter="url(#relationship-card-shadow)" />
                 <rect className="accent" width="5" height={CARD_HEIGHT} rx="3" />
                 <text className="title" x="20" y="32">{truncate(node.title, 27)}</text>
                 <text className="meta" x="20" y="55">{truncate(`${node.kind} · ${node.status}`, 31)}</text>
                 {root && <text className="root-label" x={CARD_WIDTH - 14} y="18" textAnchor="end">ROOT</text>}
+                {editable && <circle className="relationship-connect-handle" cx={CARD_WIDTH} cy={CARD_HEIGHT / 2} r="8" aria-label={`Connect ${node.title}`} onPointerDown={(event) => startWire(event, node.id)} onPointerUp={finishWire} />}
               </g>
             );
           })}
@@ -90,7 +143,7 @@ export default function RelationshipTree({
   );
 }
 
-function treeGeometry(nodes: readonly GraphNode[], positions: Readonly<Record<string, RelationshipPosition>>, orientation: RelationshipOrientation) {
+function treeGeometry(nodes: readonly GraphNode[], positions: Readonly<Record<string, RelationshipPosition>>, orientation: RelationshipOrientation, manualPositions: Readonly<Record<string, { x: number; y: number }>> = {}) {
   const levels = new Map<number, GraphNode[]>();
   nodes.forEach((node) => {
     const level = positions[node.id]?.level ?? 0;
@@ -105,8 +158,8 @@ function treeGeometry(nodes: readonly GraphNode[], positions: Readonly<Record<st
   const levelCount = Math.max(1, ...orderedLevels.map(([level]) => level + 1));
   const acrossSize = maxAcross * CARD_WIDTH + (maxAcross - 1) * NODE_GAP;
   const downSize = levelCount * CARD_HEIGHT + (levelCount - 1) * LEVEL_GAP;
-  const width = (orientation === "top_to_bottom" ? acrossSize : downSize) + PADDING * 2;
-  const height = (orientation === "top_to_bottom" ? downSize : acrossSize) + PADDING * 2;
+  let width = (orientation === "top_to_bottom" ? acrossSize : downSize) + PADDING * 2;
+  let height = (orientation === "top_to_bottom" ? downSize : acrossSize) + PADDING * 2;
   const cards: Card[] = [];
 
   orderedLevels.forEach(([level, levelNodes]) => {
@@ -117,6 +170,14 @@ function treeGeometry(nodes: readonly GraphNode[], positions: Readonly<Record<st
       const down = PADDING + level * (CARD_HEIGHT + LEVEL_GAP);
       cards.push(orientation === "top_to_bottom" ? { node, level, x: across, y: down } : { node, level, x: down, y: across });
     });
+  });
+  cards.forEach((card) => {
+    const manual = manualPositions[card.node.id];
+    if (!manual) return;
+    card.x = manual.x;
+    card.y = manual.y;
+    width = Math.max(width, card.x + CARD_WIDTH + PADDING);
+    height = Math.max(height, card.y + CARD_HEIGHT + PADDING);
   });
   return { cards, width, height };
 }

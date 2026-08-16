@@ -657,6 +657,7 @@ class ArchiveApiTests(TestCase):
         )
         self.assertEqual(member_edge.status_code, 200)
         members = [{"id": str(uuid.uuid4()), "item_id": item["id"]} for item in (parent, child, order)]
+        members[1]["level_override"] = 3
         created = self.post(
             f"/api/v1/campaigns/{self.campaign.id}/archive/views",
             {
@@ -678,6 +679,8 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(created.status_code, 200, created.content)
         board = created.json()
         self.assertEqual([edge["kind"] for edge in board["edges"]], ["parent_of"])
+        self.assertEqual(board["edges"][0]["source_version"], parent_edge["item"]["version"])
+        self.assertEqual(board["members"][1]["level_override"], 3)
         self.assertEqual(board["available_relationship_kinds"], ["member_of", "parent_of"])
         self.assertEqual(
             board["settings"],
@@ -763,6 +766,17 @@ class ArchiveApiTests(TestCase):
         self.assertEqual(invalid_position.status_code, 422)
         self.assertIn("positions require numeric x and y", invalid_position.content.decode())
 
+        invalid_level = self.post(
+            f"/api/v1/campaigns/{self.campaign.id}/archive/views",
+            {
+                "view_type": "relationship",
+                "title": "Bad level",
+                "members": [{**members[0], "level_override": -1}],
+            },
+        )
+        self.assertEqual(invalid_level.status_code, 422)
+        self.assertIn("level_override", invalid_level.content.decode())
+
     def test_relationship_archive_view_document_validates_settings_contract(self):
         first = self.create_item(kind="entity", title="First", subject_type="person", fields={})
         second = self.create_item(kind="entity", title="Second", subject_type="person", fields={})
@@ -777,7 +791,7 @@ class ArchiveApiTests(TestCase):
             "title": "Family",
             "status": "active",
             "members": [
-                {"id": member_id, "item_id": first["id"], "position": {"x": 0, "y": 1}},
+                {"id": member_id, "item_id": first["id"], "position": {"x": 0, "y": 1}, "level_override": 2},
                 {"id": str(uuid.uuid4()), "item_id": second["id"]},
             ],
             "settings": {
@@ -830,6 +844,15 @@ class ArchiveApiTests(TestCase):
                     ]
                 },
                 "finite numeric x and y",
+            ),
+            (
+                {
+                    "members": [
+                        {**metadata["members"][0], "level_override": True},
+                        metadata["members"][1],
+                    ]
+                },
+                "level_override",
             ),
             (
                 {

@@ -27,6 +27,11 @@ export type RelationshipGraphCanvasProps = {
   layoutRelationshipKinds?: readonly string[];
   layoutDirection?: RelationshipLayoutDirection;
   showLevelLabels?: boolean;
+  levelOverrides?: Readonly<Record<string, number | null | undefined>>;
+  manualPositions?: Readonly<Record<string, { x: number; y: number }>>;
+  editable?: boolean;
+  onPositionChange?: (id: string, position: { x: number; y: number }, level: number) => void;
+  onConnect?: (sourceId: string, targetId: string) => void;
   levelLabels?: readonly string[];
 };
 
@@ -63,6 +68,11 @@ export default function RelationshipGraphCanvas({
   layoutDirection = "outgoing",
   showLevelLabels = true,
   levelLabels = [],
+  levelOverrides = {},
+  manualPositions = {},
+  editable = false,
+  onPositionChange,
+  onConnect,
 }: RelationshipGraphCanvasProps) {
   const presentation = useMemo(() => buildRelationshipPresentation(nodes, edges, {
     layout_mode: layoutMode,
@@ -71,7 +81,8 @@ export default function RelationshipGraphCanvas({
     visible_relationship_kinds: visibleRelationshipKinds,
     layout_relationship_kinds: layoutRelationshipKinds,
     layout_direction: layoutDirection,
-  }), [edges, layoutDirection, layoutMode, layoutRelationshipKinds, nodes, orientation, rootId, visibleRelationshipKinds]);
+    level_overrides: levelOverrides,
+  }), [edges, layoutDirection, layoutMode, layoutRelationshipKinds, levelOverrides, nodes, orientation, rootId, visibleRelationshipKinds]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [query, setQuery] = useState("");
@@ -153,7 +164,7 @@ export default function RelationshipGraphCanvas({
       <div className="graph-stage-frame" ref={stageRef}>
         {mode === "webgl" ? (
           layoutMode === "hierarchy" && presentation.positions ? (
-            <RelationshipTree nodes={presentation.nodes} edges={presentation.edges} structuralEdgeIds={presentation.structural_edge_ids} positions={presentation.positions} orientation={orientation} rootId={rootId} selectedId={selectedId} showLevelLabels={showLevelLabels} levelLabels={levelLabels} onSelect={(id) => selectNode(id, true)} />
+            <RelationshipTree nodes={presentation.nodes} edges={presentation.edges} structuralEdgeIds={presentation.structural_edge_ids} positions={presentation.positions} orientation={orientation} rootId={rootId} selectedId={selectedId} showLevelLabels={showLevelLabels} levelLabels={levelLabels} editable={editable} manualPositions={manualPositions} onPositionChange={onPositionChange} onConnect={onConnect} onSelect={(id) => selectNode(id, true)} />
           ) : (
             <RenderBoundary key={resetKey} resetKey={resetKey} onError={rendererError}>
               <Webgl nodes={presentation.nodes} edges={presentation.edges} rootId={rootId} positions={null} selectedId={selectedId} reducedMotion={reducedMotion} onAnchorChange={setAnchor} onRenderError={rendererError} onSelect={selectNode} />

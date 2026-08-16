@@ -628,6 +628,13 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
                     ):
                         raise DocumentError("Relationship member positions require finite numeric x and y values")
 
+                level_override = member.get("level_override")
+                if level_override is not None and (
+                    isinstance(level_override, bool)
+                    or not isinstance(level_override, int)
+                    or not 0 <= level_override <= 31
+                ):
+                    raise DocumentError("Relationship member level overrides must be whole numbers from 0 to 31")
             raw_view_settings = metadata.get("settings")
             view_settings = {} if raw_view_settings is None else raw_view_settings
             if not isinstance(view_settings, dict):

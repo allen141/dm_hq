@@ -932,6 +932,7 @@ def archive_view_output(view: ArchiveView) -> dict[str, Any]:
                         "kind": rel.kind,
                         "label": rel.label,
                         "inverse_label": rel.inverse_label,
+                        "source_version": rel.source_version,
                     }
                 )
         available_relationship_kinds = sorted(available_kinds)
@@ -1004,6 +1005,11 @@ def validate_relationship_view(
             ):
                 raise error(422, "validation", "Member positions require finite numeric x and y values")
             normalized["position"] = {"x": float(position["x"]), "y": float(position["y"])}
+        level_override = member.get("level_override")
+        if level_override is not None:
+            if isinstance(level_override, bool) or not isinstance(level_override, int) or not 0 <= level_override <= 31:
+                raise error(422, "validation", "Member level overrides must be whole numbers from 0 to 31")
+            normalized["level_override"] = level_override
         normalized_members.append(normalized)
 
     raw_settings = payload.settings.model_dump(mode="json") if payload.settings else {}

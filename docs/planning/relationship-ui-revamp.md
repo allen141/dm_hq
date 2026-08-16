@@ -16,7 +16,7 @@ This increment turns the Relationship proof of concept into a production-shaped,
 - Incoming or outgoing direction is a presentation setting, not inferred from kind names.
 - Cycles, cross-links, multiple parents, disconnected members, self-links, and parallel edges remain visible.
 - The existing route is a read-only immersive viewer. A sibling `/edit` route owns board authoring.
-- Automatic positions, camera, selection, pan, and zoom remain transient.
+- Automatic positions, camera, selection, pan, and zoom remain transient; explicit member positions and level overrides persist as board-only presentation metadata.
 - The Visual and List modes expose the same filtered members and canonical relationships.
 - All content remains DM-private. Player publication is outside this increment.
 
@@ -82,10 +82,13 @@ The editor uses ordinary document flow and provides:
 - orientation and optional root;
 - visible relationship kinds;
 - rank-defining kinds and direction;
+- direct card dragging to set board position and level;
+- direct or form-based relationship creation and versioned deletion;
+- non-blocking warnings for duplicate, reverse, overlapping, multiple-parent, and cyclic structural relationships;
 - archive and restore;
 - explicit save, busy, success, failure, stale-version, and reload states.
 
-Removing a member never removes the item or any relationship. Relationship creation and deletion continue through the versioned source-item workflow; direct canvas edge authoring remains outside this increment.
+Removing a member never removes the item or any relationship. Dragging a card changes only board metadata. Connecting cards opens an explicit form whose source page owns the new canonical Markdown entry. Relationship creation and deletion use the versioned source-item workflow. Advisory structural warnings never disable save, while a stale board or source-document version requires reload.
 
 ## Technical shape
 
@@ -99,12 +102,13 @@ Removing a member never removes the item or any relationship. Relationship creat
 
 ### Server contract
 
-- Validate layout mode, orientation, direction, string kind lists, member positions, and root membership.
+- Validate layout mode, orientation, direction, string kind lists, member positions, member level overrides, and root membership.
 - Require rank-defining kinds to be visible when an explicit visible filter exists.
 - Derive all member-to-member edges from canonical relationship projections.
 - Return edges after the saved visible-kind filter and return sorted `available_relationship_kinds` for the editor.
 - Preserve stable edge IDs, direction, forward label, and inverse label.
 - Keep board documents versioned, conflict-checked, exportable, restorable, and workspace-readable.
+- Return each projected edge's source-document version for safe direct mutation.
 
 ### Privacy and portability
 
@@ -166,9 +170,12 @@ Removing a member never removes the item or any relationship. Relationship creat
 - WebGL failure leaves the semantic workflow complete.
 - Keyboard, touch, reduced-motion, and supported tablet use remain operable.
 - Adding or removing a board member never changes an item or relationship.
+- Manual card position and level round-trip without changing canonical item relationships.
+- Direct edge creation and deletion rewrite only the source item through its versioned Markdown workflow.
+- Structural conflicts warn without disabling save; stale versions still block mutation.
 - Export, restore, stale saves, archived members, and archived boards remain recoverable.
 - No player-visible representation or private-data logging is introduced.
 
 ## Follow-up measurements
 
-Persisted manual positions, relationship-kind presets, direct board edge authoring, query-driven membership, player publication, historical or knowledge-filtered relationships, and dedicated membership projections remain separate decisions. Measure real board sizes and retrieval behavior before assigning limits or promoting those capabilities.
+Relationship-kind presets, query-driven membership, player publication, historical or knowledge-filtered relationships, and dedicated membership projections remain separate decisions. Measure real board sizes and retrieval behavior before assigning limits or promoting those capabilities.
