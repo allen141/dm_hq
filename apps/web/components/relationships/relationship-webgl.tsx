@@ -6,7 +6,7 @@ import { useWorkerLayoutForceAtlas2 } from "@react-sigma/layout-forceatlas2";
 import { createEdgeCurveProgram } from "@sigma/edge-curve";
 import { createNodeBorderProgram } from "@sigma/node-border";
 import { MultiDirectedGraph } from "graphology";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createEdgeArrowProgram } from "sigma/rendering";
 import type { Settings } from "sigma/settings";
 import { buildGraphPresentation, type GraphNodeVisualKind } from "@/lib/graph-presentation";
@@ -48,7 +48,9 @@ const SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
     }),
   },
   renderEdgeLabels: true,
-  hideEdgesOnMove: false,
+  // Sigma's built-in move check only tracks the mouse captor. Touch drags are
+  // handled separately below so edge geometry is also skipped for them.
+  hideEdgesOnMove: true,
   hideLabelsOnMove: true,
   labelFont: "Inter, ui-sans-serif, system-ui, sans-serif",
   labelSize: 12,
@@ -92,6 +94,7 @@ function RelationshipController({ positions, rootId, selectedId, reducedMotion, 
   const { gotoNode, reset, zoomIn, zoomOut } = useCamera({ duration: reducedMotion ? 0 : 190, factor: 1.45 });
   const { start, stop } = useWorkerLayoutForceAtlas2({ settings: { gravity: 1.8, scalingRatio: 6, slowDown: 4, strongGravityMode: true } });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const touchMoving = useRef(false);
   const coarsePointer = useSyncExternalStore(subscribeCoarsePointer, coarsePointerSnapshot, () => false);
 
   useEffect(() => {
@@ -114,6 +117,8 @@ function RelationshipController({ positions, rootId, selectedId, reducedMotion, 
       clickStage: () => onSelect(null),
       enterNode: ({ node }) => { setHoveredId(node); sigma.getContainer().style.cursor = "pointer"; },
       leaveNode: () => { setHoveredId(null); sigma.getContainer().style.cursor = "grab"; },
+      touchdown: () => { touchMoving.current = true; sigma.refresh(); },
+      touchup: () => { touchMoving.current = false; sigma.refresh(); },
     });
   }, [onSelect, registerEvents, sigma]);
 
@@ -127,6 +132,7 @@ function RelationshipController({ positions, rootId, selectedId, reducedMotion, 
           ? { ...data, borderColor: palette.neighbor, highlighted: true, forceLabel: true, size: data.size * 1.08, zIndex: 2 }
           : { ...data, borderColor: palette.dimmedEdge, color: palette.dimmedNode, label: "", size: data.size * 0.82, zIndex: 0 },
       edgeReducer: (edge, data) => {
+        if (touchMoving.current) return { ...data, hidden: true };
         if (!activeId) return data;
         const [source, target] = graph.extremities(edge);
         return source === activeId || target === activeId

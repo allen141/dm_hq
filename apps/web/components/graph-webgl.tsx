@@ -7,7 +7,7 @@ import { createEdgeCurveProgram } from "@sigma/edge-curve";
 import { bindWebGLLayer, createContoursProgram } from "@sigma/layer-webgl";
 import { createNodeBorderProgram } from "@sigma/node-border";
 import { MultiDirectedGraph } from "graphology";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type Sigma from "sigma";
 import { createEdgeArrowProgram } from "sigma/rendering";
 import type { Settings } from "sigma/settings";
@@ -69,8 +69,12 @@ const SIGMA_SETTINGS: Partial<Settings<NodeAttributes, EdgeAttributes>> = {
     }),
   },
   renderEdgeLabels: true,
-  enableEdgeEvents: true,
-  hideEdgesOnMove: false,
+  // Edge picking is not exposed by the graph UI. Leaving it enabled creates an
+  // additional picking workload and is especially expensive on mobile GPUs.
+  enableEdgeEvents: false,
+  // Sigma's built-in move check only tracks the mouse captor. Touch drags are
+  // handled separately below so edge geometry is also skipped for them.
+  hideEdgesOnMove: true,
   hideLabelsOnMove: true,
   labelFont: "Inter, ui-sans-serif, system-ui, sans-serif",
   labelSize: 12,
@@ -148,6 +152,7 @@ function GraphController({
     },
   });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const touchMoving = useRef(false);
   const coarsePointer = useSyncExternalStore(subscribeCoarsePointer, coarsePointerSnapshot, () => false);
   const clouds = useMemo(
     () => buildGraphClouds(nodes, edges, cloudFocusId ?? focusId ?? undefined),
@@ -179,6 +184,14 @@ function GraphController({
       leaveNode: () => {
         setHoveredId(null);
         sigma.getContainer().style.cursor = "grab";
+      },
+      touchdown: () => {
+        touchMoving.current = true;
+        sigma.refresh();
+      },
+      touchup: () => {
+        touchMoving.current = false;
+        sigma.refresh();
       },
     });
   }, [onSelect, registerEvents, sigma]);
@@ -220,6 +233,7 @@ function GraphController({
         };
       },
       edgeReducer: (edge, data) => {
+        if (touchMoving.current) return { ...data, hidden: true };
         if (!activeId) return data;
         const [source, target] = graph.extremities(edge);
         if (source === activeId || target === activeId) {
