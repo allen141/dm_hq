@@ -39,6 +39,8 @@ jobs:
       - working-directory: apps/api
         run: uv run pytest
       - working-directory: apps/api
+        run: uv run python -m unittest discover -s ../../tools/preview -p 'test_*.py'
+      - working-directory: apps/api
         run: uv run python manage.py export_openapi --output ../../packages/api-client/openapi.generated.json
       - run: diff -u packages/api-client/openapi.json packages/api-client/openapi.generated.json
 

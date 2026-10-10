@@ -24,7 +24,8 @@
     "react-dom": "19.2.0",
     "sigma": "3.0.3",
     "@react-three/fiber": "9.7.0",
-    "three": "0.185.1"
+    "three": "0.185.1",
+    "yaml": "2.8.2"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",

@@ -1,3 +1,5 @@
+export * from "./session-blocks";
+import type { SessionBlock } from "./session-blocks";
 export type User = { id: number; username: string };
 export type AgentToken = { id: string; name: string; created_at: string; last_used_at?: string | null; expires_at?: string | null; revoked_at?: string | null };
 export type AgentTokenCreated = AgentToken & { token: string };
@@ -48,6 +50,7 @@ export type ItemKind = "note" | "entity" | "session";
 export type ItemStatus = "draft" | "canon" | "archived";
 export type TemplateField = { key: string; label: string; type: string; required?: boolean; options?: string[] };
 export type ArchiveItem = {
+  resolved_blocks?: SessionBlock[];
   id: string; campaign_id: string; kind: ItemKind; markdown: string; storage_key?: string | null; html: string; metadata: Record<string, unknown>;
   title: string; status: ItemStatus; version: number; created_at: string; updated_at: string;
   aliases: string[]; tags: string[]; references: Array<{ id: number; target_id: string; label: string }>;

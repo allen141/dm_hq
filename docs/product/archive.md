@@ -127,3 +127,7 @@ See the [Archive exploration views plan](../planning/archive-exploration-views.m
 ## Canonical campaign documents
 
 Every DM-authored campaign document, item, template version, and publication entry is one Markdown file with YAML frontmatter and a Markdown body. Typed controls edit frontmatter; source mode edits the complete document. The API returns Markdown, rendered HTML, parsed metadata, projections, version, and hash. PostgreSQL indexes and relationship tables are derived for fast navigation and search, while the persistent document volume provides a local-file working set for authorized agent workspaces.
+
+## Standard session blocks
+
+Session pages can combine Story, Scene, Character, Conversation encounter, and Challenge blocks with ordinary Markdown. Scene workspace and Compact outline show the same saved content. Prep and Play separate authoring from device-local tracking. See [standard session blocks](../planning/standard-session-blocks.md) for the format and reuse rules.

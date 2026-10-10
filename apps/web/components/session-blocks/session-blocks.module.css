@@ -1,0 +1,217 @@
+.reader,
+.editor {
+  margin-block: 1rem;
+  color: var(--theme-text-primary);
+}
+.toolbar,
+.controls,
+.beats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+}
+.toolbar {
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: var(--theme-surface-soft);
+  border-radius: 0.6rem;
+}
+.toolbar [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.reader button,
+.editor button {
+  min-height: 2.5rem;
+}
+.reader button[aria-pressed="true"] {
+  border-color: var(--theme-accent);
+  color: var(--theme-accent);
+  background: var(--theme-accent-soft);
+}
+.workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 0.75rem;
+}
+.card,
+.activeBeat {
+  padding: 1rem;
+  border: 1px solid var(--theme-border-default);
+  background: var(--theme-surface-panel);
+  border-radius: 0.6rem;
+  min-width: 0;
+  margin-block: 0.6rem;
+}
+.workspace .card {
+  margin: 0;
+}
+.card summary {
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 1.05rem;
+}
+.card summary > span {
+  margin-inline-end: 0.7rem;
+}
+.card summary:focus-visible,
+.row summary:focus-visible {
+  outline: 2px solid var(--theme-focus);
+  outline-offset: 3px;
+}
+.eyebrow,
+.badge {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--theme-text-secondary);
+}
+.source {
+  font-size: 0.85rem;
+  color: var(--theme-text-muted);
+}
+.facts {
+  margin: 0.7rem 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.fact {
+  display: grid;
+  grid-template-columns: clamp(5rem, 18%, 9rem) minmax(0, 1fr);
+  column-gap: 0.75rem;
+}
+.fact dt {
+  color: var(--theme-text-secondary);
+  font-size: 0.8rem;
+}
+.fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.text {
+  white-space: pre-wrap;
+}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.stats .fact {
+  display: block;
+  min-width: 3.8rem;
+  padding: 0.5rem;
+  background: var(--theme-surface-soft);
+  border-radius: 0.3rem;
+  text-align: center;
+}
+.stats dd {
+  font-weight: 650;
+}
+.readAloud {
+  margin: 0.75rem 0;
+  padding: 0.7rem 1rem;
+  border-inline-start: 3px solid var(--theme-accent);
+  background: var(--theme-surface-soft);
+}
+.readAloud .eyebrow {
+  display: block;
+  margin-block-end: 0.35rem;
+}
+.actionSection h4,
+.topic h4,
+.evidence h4,
+.check h4 {
+  margin: 0.65rem 0;
+}
+.action,
+.line,
+.check,
+.evidence {
+  border-block-start: 1px solid var(--theme-border-subtle);
+  padding-block: 0.6rem;
+}
+.line p {
+  margin-block: 0.4rem;
+}
+.used {
+  opacity: 0.65;
+}
+.drawn {
+  border-inline-start: 3px solid var(--theme-accent);
+  padding-inline-start: 0.6rem;
+  background: var(--theme-accent-soft);
+}
+.hp input {
+  max-width: 6rem;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-block: 0.7rem;
+}
+.fields label {
+  min-width: 0;
+}
+.fields textarea,
+.fields input,
+.fields select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.fields input[type="checkbox"] {
+  width: auto;
+}
+.fields small {
+  display: block;
+  color: var(--theme-text-secondary);
+}
+.group {
+  grid-column: 1/-1;
+  border: 1px solid var(--theme-border-default);
+  padding: 0.75rem;
+  min-width: 0;
+}
+.row {
+  padding: 0.65rem;
+  margin-block: 0.5rem;
+  background: var(--theme-surface-soft);
+  border-radius: 0.35rem;
+}
+.row summary {
+  cursor: pointer;
+}
+.outline .card {
+  padding-block: 0.75rem;
+}
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fact {
+    grid-template-columns: minmax(4.5rem, 28%) minmax(0, 1fr);
+  }
+  .card {
+    padding: 0.75rem;
+  }
+}
+
+.beats {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 5;
+  padding: 0.5rem;
+  border: 1px solid var(--theme-border-default);
+  border-radius: 0.4rem;
+  background: var(--theme-surface-panel);
+}

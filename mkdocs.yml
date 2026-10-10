@@ -42,6 +42,7 @@ nav:
   - Home: index.md
   - Operations:
       - Deployment: operations/deployment.md
+      - Preview campaign copies: operations/preview-campaigns.md
   - Product:
       - Vision: product/vision.md
       - The Archive: product/archive.md
@@ -63,6 +64,7 @@ nav:
       - Graph UI revamp: planning/graph-ui-revamp.md
       - Relationship UI revamp: planning/relationship-ui-revamp.md
       - Runtime theme migration: planning/runtime-theme-migration.md
+      - Standard session blocks: planning/standard-session-blocks.md
       - AI agent integration: planning/ai-agent-integration-plan.md
       - Open questions: planning/open-questions.md
   - Decisions:
@@ -75,6 +77,7 @@ nav:
       - WebGL map renderer and visual system: decisions/0008-webgl-map-renderer-and-visual-system.md
       - Relationship-board renderers: decisions/0009-sigma-relationship-board-renderer.md
       - Runtime private themes: decisions/0010-runtime-private-workspace-themes.md
+      - Standard session blocks: decisions/0011-standard-session-blocks.md
       - 2014 5e first: decisions/0001-2014-5e-first.md
       - Archive architecture: decisions/0002-archive-application-architecture.md
       - ADR template: decisions/0000-template.md

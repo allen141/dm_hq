@@ -5,3 +5,5 @@ db.sqlite3
 **/*.pyc
 .pytest_cache
 .ruff_cache
+
+documents

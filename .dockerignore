@@ -14,3 +14,5 @@ apps/api/.env
 apps/web/.env.local
 docs
 infrastructure/runtime
+
+apps/api/documents
