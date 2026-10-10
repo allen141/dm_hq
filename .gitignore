@@ -15,3 +15,6 @@ packages/api-client/src/generated/
 infrastructure/runtime/
 apps/api/.env
 apps/web/.env.local
+
+# Canonical local campaign documents are private runtime data.
+apps/api/documents/

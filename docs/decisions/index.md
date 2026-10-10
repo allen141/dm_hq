@@ -22,4 +22,6 @@ Architecture decision records (ADRs) capture choices that materially constrain t
 - [ADR 0009: Use distinct network and hierarchy renderers](0009-sigma-relationship-board-renderer.md) — Accepted.
 - [ADR 0010: Runtime themes for the private workspace](0010-runtime-private-workspace-themes.md) — Accepted.
 
+- [ADR 0011: Standard session blocks and isolated preview copies](0011-standard-session-blocks.md) — Accepted.
+
 To propose another decision, copy [the ADR template](0000-template.md), assign the next four-digit number, use a short kebab-case filename, and add it to this list.

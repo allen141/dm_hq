@@ -1,3 +1,4 @@
+import { parseDocument } from "yaml";
 import type { ItemKind } from "@dm-hq/api-client";
 
 export type Frontmatter = Record<string, unknown>;
@@ -10,8 +11,15 @@ export function newItemMarkdown(campaignId: string, kind: ItemKind, title: strin
 
 export function frontmatter(markdown: string): Frontmatter {
   const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n\r?\n)?/);
-  if (!match) return {};
-  try { return JSON.parse(match[1]) as Frontmatter; } catch { return {}; }
+  if (!match) {
+    if (/^---(?:\r?\n|$)/.test(markdown)) throw new Error("Frontmatter has no closing delimiter.");
+    return {};
+  }
+  const document = parseDocument(match[1], { uniqueKeys: true });
+  if (document.errors.length) throw new Error(`Invalid frontmatter: ${document.errors[0].message}`);
+  const value: unknown = document.toJS({ maxAliasCount: 50 });
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Frontmatter must be an object.");
+  return value as Frontmatter;
 }
 
 export function markdownBody(markdown: string) {

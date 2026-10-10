@@ -24,6 +24,7 @@ from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from ninja.security import HttpBearer, django_auth
 
+from .block_schemas import ItemDocumentOut
 from .documents import (
     DocumentError,
     clean_body,
@@ -659,7 +660,9 @@ def session_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate)
     return item_create(request, campaign_id, payload.model_copy(update={"kind": "session"}))
 
 
-@api.post("campaigns/{campaign_id}/items", auth=[django_auth, agent_bearer_auth])
+@api.post(
+    "campaigns/{campaign_id}/items", auth=[django_auth, agent_bearer_auth], response=ItemDocumentOut, exclude_none=True
+)
 @csrf_exempt
 @transaction.atomic
 def item_create(request: HttpRequest, campaign_id: UUID, payload: ItemCreate):
@@ -712,7 +715,7 @@ def graph_node_summary(markdown: str, campaign_id: UUID) -> str:
     return f"{plain_text[: GRAPH_NODE_SUMMARY_MAX_LENGTH - 1].rstrip()}…"
 
 
-@api.get("items/{item_id}", auth=django_auth)
+@api.get("items/{item_id}", auth=django_auth, response=ItemDocumentOut, exclude_none=True)
 def item_detail(request: HttpRequest, item_id: UUID):
     return item_document_output(get_member_item(request, item_id))
 
@@ -1236,7 +1239,7 @@ def archive_view_restore(request: HttpRequest, campaign_id: UUID, view_id: UUID,
     return _archive_view_status(request, campaign_id, view_id, payload, "active")
 
 
-@api.patch("items/{item_id}", auth=django_auth)
+@api.patch("items/{item_id}", auth=django_auth, response=ItemDocumentOut, exclude_none=True)
 @transaction.atomic
 def item_update(request: HttpRequest, item_id: UUID, payload: ItemUpdate):
     enforce_csrf(request)
@@ -1245,7 +1248,7 @@ def item_update(request: HttpRequest, item_id: UUID, payload: ItemUpdate):
     )
 
 
-@api.post("items/{item_id}/promote", auth=django_auth)
+@api.post("items/{item_id}/promote", auth=django_auth, response=ItemDocumentOut, exclude_none=True)
 @transaction.atomic
 def item_promote(request: HttpRequest, item_id: UUID, payload: PromotePayload):
     enforce_csrf(request)
@@ -1554,7 +1557,7 @@ def revision_compare(request: HttpRequest, item_id: UUID, revision_number: int, 
     }
 
 
-@api.post("items/{item_id}/restore", auth=django_auth)
+@api.post("items/{item_id}/restore", auth=django_auth, response=ItemDocumentOut, exclude_none=True)
 @transaction.atomic
 def restore_revision(request: HttpRequest, item_id: UUID, payload: RestorePayload):
     enforce_csrf(request)
@@ -1748,7 +1751,10 @@ def _remap_navigation(nodes: list[Any], item_ids: dict[str, str], campaign_ids: 
 
 def _remap_archive_metadata(meta: dict[str, Any], id_maps: dict[str, dict[str, str]]) -> None:
     """Rewrite every logical reference stored in canonical frontmatter."""
+    from .blocks import remap_block_items
+
     item_ids = id_maps["items"]
+    remap_block_items(meta, item_ids, id_maps["campaigns"])
     if meta.get("document_type") == "campaign":
         archive = meta.get("archive") or {}
         _remap_navigation(archive.get("navigation", []), item_ids, id_maps["campaigns"])
@@ -2087,7 +2093,16 @@ def campaign_restore(request: HttpRequest):
                 version.document = document
                 version.save(update_fields=["document"])
 
-            for name, (meta, body) in sorted(parsed.items()):
+            from .blocks import entries as block_entries
+
+            # Concrete reusable blocks must exist before documents referring to them.
+            for name, (meta, body) in sorted(
+                parsed.items(),
+                key=lambda row: (
+                    any(isinstance(block, dict) and block.get("reference") for block in block_entries(row[1][0])),
+                    row[0],
+                ),
+            ):
                 if meta.get("document_type") != "archive_item":
                     continue
                 old_item_id = str(meta["id"])

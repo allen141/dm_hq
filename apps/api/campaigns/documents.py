@@ -256,6 +256,9 @@ def searchable_text(metadata: dict[str, Any], body: str) -> str:
     fields = metadata.get("fields")
     if isinstance(fields, dict):
         values.extend(str(value) for value in fields.values() if value is not None)
+    from .blocks import block_strings
+
+    values.extend(block_strings(metadata.get("blocks", {})))
     values.append(body)
     return "\n".join(value for value in values if value)
 
@@ -300,6 +303,11 @@ def canonical_document_links(body: str) -> list[dict[str, Any]]:
 
 
 def project_document_links(document: CampaignDocument, metadata: dict[str, Any], body: str) -> None:
+    from .blocks import block_links
+
+    links = canonical_document_links(body) + block_links(metadata)
+    for position, link in enumerate(links):
+        link["authored_position"] = position
     document.outgoing_links.all().delete()
     DocumentLink.objects.bulk_create(
         [
@@ -309,7 +317,7 @@ def project_document_links(document: CampaignDocument, metadata: dict[str, Any],
                 source_identifier=metadata["id"],
                 **link,
             )
-            for link in canonical_document_links(body)
+            for link in links
         ]
     )
 
@@ -461,7 +469,13 @@ def validate_metadata(metadata: dict[str, Any], document_type: str, campaign_id:
         uuid.UUID(str(metadata["id"]))
     except (ValueError, TypeError, AttributeError) as exc:
         raise DocumentError("Frontmatter id must be a UUID") from exc
-    for link in canonical_document_links(body):
+    from .blocks import block_links, validate_blocks
+
+    try:
+        validate_blocks(metadata, campaign_id)
+    except ValueError as exc:
+        raise DocumentError(str(exc)) from exc
+    for link in canonical_document_links(body) + block_links(metadata):
         target_id = link["target_identifier"]
         if link["target_type"] == "campaign" and str(target_id) != str(campaign_id):
             raise DocumentError("Campaign links must target this campaign")
@@ -917,6 +931,8 @@ def ensure_item_document(item: ArchiveItem, user, reason: str = "Created") -> Ca
 
 
 def item_document_output(item: ArchiveItem) -> dict[str, Any]:
+    from .blocks import resolved_blocks
+
     markdown = current_markdown_for_item(item)
     metadata, body = parse_document(markdown)
     document_backlinks = DocumentLink.objects.filter(
@@ -936,6 +952,7 @@ def item_document_output(item: ArchiveItem) -> dict[str, Any]:
         "storage_key": item.document.storage_key if item.document_id else None,
         "html": markdown_html(body, item.campaign_id),
         "metadata": metadata,
+        "resolved_blocks": resolved_blocks(metadata, item.campaign_id),
         "title": metadata.get("title", item.title),
         "status": metadata.get("status", item.status),
         "version": item.document.current_version if item.document_id else item.version,
